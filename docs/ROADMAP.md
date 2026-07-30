@@ -10,7 +10,7 @@
 
 - [x] Criar monorepo com Turborepo + pnpm
 - [x] Setup `apps/api` com NestJS + TypeScript
-- [x] Setup `apps/desktop` com Vite + React + Tailwind (Tauri pendente — requer Rust)
+- [x] Setup `apps/desktop` com Vite + React + Tailwind + Tauri
 - [x] Setup `packages/shared` com types compartilhados
 - [x] Docker Compose com PostgreSQL + Redis
 - [x] Prisma schema inicial (Conversation, Message)
@@ -27,7 +27,7 @@
 **Entregavel:** Monorepo funcional. Desktop abre, conecta via WebSocket ao backend, e exibe "Jarvis Online". ✅
 
 **Pendente:**
-- [ ] Instalar Rust e adicionar Tauri como shell desktop
+- [x] Instalar Rust e adicionar Tauri como shell desktop
 - [ ] ESLint configurado
 - [ ] README com instrucoes de setup
 
@@ -95,28 +95,30 @@
 
 **Objetivo:** Conversar com o Jarvis por voz.
 
-### 4a — Speech-to-Text ✅ (Web Speech API — ponte ate Whisper)
+### 4a — Speech-to-Text
 - [x] Captura de audio via getUserMedia (microfone)
 - [x] Pipeline: audio -> Web Speech API (SpeechRecognition) -> texto -> Core
 - [x] Transcricao parcial em tempo real na tela de voz
 - [x] Indicador visual "Listening" no HUD
-- [ ] Migrar para Whisper.cpp como sidecar/child_process (requer Tauri)
+- [ ] Modulo `voice/` no NestJS com evento WebSocket `voice:audio`
+- [ ] Whisper.cpp via child_process no backend (recebe chunks, retorna transcricao)
+- [ ] Frontend envia audio do getUserMedia via socket em vez de Web Speech API
 
-### 4b — Text-to-Speech ✅ (Web Speech API — ponte ate Piper)
+### 4b — Text-to-Speech
 - [x] Pipeline: resposta texto -> Web Speech API (SpeechSynthesis) -> speaker
 - [x] Indicador visual "Speaking" no HUD
 - [x] Fila de audio (nao sobrepor falas)
 - [x] Cancel/Interrupt para TTS
-- [ ] Migrar para Piper como sidecar/child_process (requer Tauri)
+- [ ] Piper via child_process no backend (recebe texto, retorna WAV)
+- [ ] Frontend reproduz audio WAV via AudioContext em vez de Web Speech API
 
 ### 4c — Wake Word
-- [ ] Integrar OpenWakeWord
-- [ ] Deteccao continua em background
-- [ ] Palavra: "Jarvis"
-- [ ] Transicao de estado: Idle -> Listening
+- [ ] OpenWakeWord via child_process no backend
+- [ ] Frontend envia stream de audio continuo ao backend
+- [ ] Deteccao da palavra "Jarvis" no backend -> evento WebSocket -> transicao Idle -> Listening
 
 **Entregavel:** Dizer algo e ouvir a resposta. ✅ (via Web Speech API)
-Wake word pendente — requer Tauri para deteccao continua em background.
+Migracoes Whisper/Piper/Wake word rodam no backend via child_process — nao dependem de Tauri.
 
 ---
 

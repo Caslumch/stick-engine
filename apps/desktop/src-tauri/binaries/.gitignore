@@ -1,0 +1,12 @@
+# Binários e modelos baixados pelo setup.ps1
+*.exe
+*.dll
+*.bin
+*.onnx
+*.onnx.json
+models/
+espeak-ng-data/
+
+# Manter o script
+!setup.ps1
+!.gitignore

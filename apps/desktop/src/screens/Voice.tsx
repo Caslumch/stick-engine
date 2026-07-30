@@ -3,6 +3,7 @@ import { useJarvisStore } from '../stores/jarvis.store'
 import { useAudioAmplitude } from '../hooks/useAudioAmplitude'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
+import { useTauriSTT, useTauriTTS, useTauriVoiceCheck } from '../hooks/useTauriVoice'
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
@@ -17,6 +18,9 @@ import type { JarvisState } from '@jarvis/shared'
  * Fluxo de voz (Fase 4):
  * idle -> mic click -> listening (STT captura) -> send -> thinking
  * -> backend responde -> speaking (TTS fala) -> idle
+ *
+ * Usa Whisper/Piper (Tauri sidecars) quando disponível,
+ * fallback pra Web Speech API no browser.
  */
 export function Voice() {
   const state = useJarvisStore((s) => s.state)
@@ -27,12 +31,16 @@ export function Voice() {
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
   const { sendMessage } = useSocket()
 
+  // Verificar se Tauri sidecars estão disponíveis
+  const voiceCheck = useTauriVoiceCheck()
+  const useNative = voiceCheck.native && voiceCheck.ready
+
   // Transcrição parcial local (o que o STT está captando)
   const [transcript, setTranscript] = useState('')
   const transcriptRef = useRef('')
 
-  // --- Speech-to-Text ---
-  const stt = useSpeechRecognition({
+  // --- Speech-to-Text (Web Speech API fallback) ---
+  const webStt = useSpeechRecognition({
     onInterim: (text) => {
       setTranscript(text)
       transcriptRef.current = text
@@ -44,32 +52,54 @@ export function Voice() {
         return full
       })
     },
-    onEnd: () => {
-      // Se parou de reconhecer e estamos em listening, mantém o estado
-      // (o usuário precisa apertar enviar ou descartar)
-    },
+    onEnd: () => {},
     onError: (err) => {
-      console.warn('[STT] Erro:', err)
+      console.warn('[STT/Web] Erro:', err)
     },
   })
 
-  // --- Text-to-Speech ---
-  const tts = useSpeechSynthesis({
-    onStart: () => {
-      // Estado já é 'speaking', setado pelo listener de MessageComplete
-    },
-    onEnd: () => {
-      // Voltou ao idle quando termina de falar
-      const current = useJarvisStore.getState().state
-      if (current === 'speaking') {
-        setState('idle')
-      }
+  // --- Speech-to-Text (Whisper via Tauri) ---
+  const tauriStt = useTauriSTT({
+    onResult: (text) => {
+      setTranscript(text)
+      transcriptRef.current = text
     },
     onError: (err) => {
-      console.warn('[TTS] Erro:', err)
+      console.warn('[STT/Whisper] Erro:', err)
+    },
+  })
+
+  // Selecionar o STT ativo
+  const stt = useNative ? tauriStt : webStt
+
+  // --- Text-to-Speech (Web Speech API fallback) ---
+  const webTts = useSpeechSynthesis({
+    onStart: () => {},
+    onEnd: () => {
+      const current = useJarvisStore.getState().state
+      if (current === 'speaking') setState('idle')
+    },
+    onError: (err) => {
+      console.warn('[TTS/Web] Erro:', err)
       setState('idle')
     },
   })
+
+  // --- Text-to-Speech (Piper via Tauri) ---
+  const tauriTts = useTauriTTS({
+    onStart: () => {},
+    onEnd: () => {
+      const current = useJarvisStore.getState().state
+      if (current === 'speaking') setState('idle')
+    },
+    onError: (err) => {
+      console.warn('[TTS/Piper] Erro:', err)
+      setState('idle')
+    },
+  })
+
+  // Selecionar o TTS ativo
+  const tts = useNative ? tauriTts : webTts
 
   // Quando uma mensagem completa chega do backend e estamos na tela de voz,
   // ler a resposta em voz alta
@@ -121,17 +151,35 @@ export function Voice() {
     setState('idle')
   }
 
-  const handleSend = () => {
-    stt.stop()
+  const handleSend = async () => {
     stopAudio()
-    const text = transcriptRef.current.trim()
-    setTranscript('')
-    transcriptRef.current = ''
-    if (text) {
-      setState('thinking')
-      sendMessage(text)
+
+    if (useNative) {
+      // Whisper: parar gravação → transcrição acontece no stop()
+      // O resultado chega via callback onResult que seta transcriptRef
+      setTranscript('Transcrevendo...')
+      await stt.stop()
+      const text = transcriptRef.current.trim()
+      setTranscript('')
+      transcriptRef.current = ''
+      if (text && text !== 'Transcrevendo...') {
+        setState('thinking')
+        sendMessage(text)
+      } else {
+        setState('idle')
+      }
     } else {
-      setState('idle')
+      // Web Speech API: transcrição já está em transcriptRef
+      stt.stop()
+      const text = transcriptRef.current.trim()
+      setTranscript('')
+      transcriptRef.current = ''
+      if (text) {
+        setState('thinking')
+        sendMessage(text)
+      } else {
+        setState('idle')
+      }
     }
   }
 
