@@ -95,17 +95,19 @@
 
 **Objetivo:** Conversar com o Jarvis por voz.
 
-### 4a — Speech-to-Text
-- [ ] Integrar Whisper.cpp como sidecar/child_process
-- [ ] Captura de audio via Tauri (microfone)
-- [ ] Pipeline: audio -> Whisper -> texto -> Core
-- [ ] Indicador visual "Listening" no HUD
+### 4a — Speech-to-Text ✅ (Web Speech API — ponte ate Whisper)
+- [x] Captura de audio via getUserMedia (microfone)
+- [x] Pipeline: audio -> Web Speech API (SpeechRecognition) -> texto -> Core
+- [x] Transcricao parcial em tempo real na tela de voz
+- [x] Indicador visual "Listening" no HUD
+- [ ] Migrar para Whisper.cpp como sidecar/child_process (requer Tauri)
 
-### 4b — Text-to-Speech
-- [ ] Integrar Piper como sidecar/child_process
-- [ ] Pipeline: resposta texto -> Piper -> audio -> speaker
-- [ ] Indicador visual "Speaking" no HUD
-- [ ] Fila de audio (nao sobrepor falas)
+### 4b — Text-to-Speech ✅ (Web Speech API — ponte ate Piper)
+- [x] Pipeline: resposta texto -> Web Speech API (SpeechSynthesis) -> speaker
+- [x] Indicador visual "Speaking" no HUD
+- [x] Fila de audio (nao sobrepor falas)
+- [x] Cancel/Interrupt para TTS
+- [ ] Migrar para Piper como sidecar/child_process (requer Tauri)
 
 ### 4c — Wake Word
 - [ ] Integrar OpenWakeWord
@@ -113,11 +115,12 @@
 - [ ] Palavra: "Jarvis"
 - [ ] Transicao de estado: Idle -> Listening
 
-**Entregavel:** Dizer "Jarvis, que horas sao?" e ouvir a resposta.
+**Entregavel:** Dizer algo e ouvir a resposta. ✅ (via Web Speech API)
+Wake word pendente — requer Tauri para deteccao continua em background.
 
 ---
 
-## Fase 5 — HUD + Interface Viva (design system STICK)
+## Fase 5 — HUD + Interface Viva (design system STICK) ✅ (Core concluido em 30/07/2026)
 
 **Objetivo:** Interface que transmite presenca. Especificacao completa em
 docs/DESIGN_SYSTEM.md; plano de execucao em docs/HANDOFF.md.
@@ -127,21 +130,21 @@ docs/DESIGN_SYSTEM.md; plano de execucao em docs/HANDOFF.md.
 
 - [x] Componente HUD com estados basicos
 - [x] Avatar V1: esfera minimalista
-- [ ] 5.0  Alinhar versoes (orb -> R3F v9 + React 19)
-- [ ] 5.1  Tokens + ThemeProvider (dark/light/auto)
-- [ ] 5.2  Vidro + backdrop (manchas, tint radial, imagem de fundo)
-- [ ] 5.3  Estado do agente: 7 estados + propagacao de --accent por CSS
-- [ ] 5.4  Orb R3F integrado, <Canvas> persistente, bridge de estado
-- [ ] 5.5  Tela de voz + nav flutuante + status pill
-- [ ] 5.6  Capsula de gravacao + waveform (getUserMedia; STT entra na Fase 4)
-- [ ] 5.7  Tela de chat + painel de historico em gaveta
-- [ ] 5.8  Tela de settings
-- [ ] 5.9  Paleta de comandos (⌘K) + modo ambiente + create button
+- [x] 5.0  Alinhar versoes (R3F v9 + React 19 + Three 0.185)
+- [x] 5.1  Tokens + ThemeProvider (dark/light/auto)
+- [x] 5.2  Vidro + backdrop (manchas, tint radial, imagem de fundo)
+- [x] 5.3  Estado do agente: 7 estados + propagacao de --accent por CSS
+- [x] 5.4  Orb R3F integrado, <Canvas> persistente, bridge de estado
+- [x] 5.5  Tela de voz + nav flutuante + status pill
+- [x] 5.6  Capsula de gravacao + waveform (getUserMedia; STT entra na Fase 4)
+- [x] 5.7  Tela de chat + painel de historico em gaveta
+- [x] 5.8  Tela de settings
+- [x] 5.9  Paleta de comandos (⌘K) + modo ambiente + create button
 - [ ] 5.10 Widget flutuante (tray + mini HUD) — SEM DESIGN AINDA
 - [ ] 5.11 Autostart com o sistema (Tauri)
 
-**Entregavel:** Jarvis com interface que respira e transmite estado. ✅ quando
-5.0 a 5.9 estiverem fechadas; 5.10 e 5.11 dependem do Tauri instalado.
+**Entregavel:** Jarvis com interface que respira e transmite estado. ✅
+5.0 a 5.9 fechadas; 5.10 e 5.11 dependem do Tauri instalado.
 ---
 
 ## Fase 6 — Memoria (Semanas 18-20)
@@ -232,8 +235,8 @@ Fase 0  ██████████  Fundacao             ✅
 Fase 1  ██████████  Chat Texto           ✅
 Fase 2  ██████████  Decision Engine      ✅
 Fase 3  ██████████  Tool Calling         ✅
-Fase 4  ░░░░░░░░░░  Voz (STT/TTS/Wake)
-Fase 5  ███░░░░░░░  HUD + Interface      (basico pronto)
+Fase 4  ███████░░░  Voz (STT/TTS)        ✅ (Wake word pendente)
+Fase 5  █████████░  HUD + Interface      ✅ (5.10/5.11 pendentes — Tauri)
 Fase 6  ░░░░░░░░░░  Memoria
 Fase 7  ░░░░░░░░░░  Capabilities
 Fase 8  ░░░░░░░░░░  Integracoes

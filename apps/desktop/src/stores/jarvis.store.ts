@@ -15,6 +15,7 @@ interface JarvisStore {
   state: JarvisState;
   connected: boolean;
   view: View;
+  isAmbient: boolean;
 
   // Conversation
   conversationId: string | null;
@@ -35,6 +36,7 @@ interface JarvisStore {
   setState: (state: JarvisState) => void;
   setConnected: (connected: boolean) => void;
   setView: (view: View) => void;
+  setAmbient: (v: boolean) => void;
   setConversationId: (id: string | null) => void;
   setConversations: (conversations: Conversation[]) => void;
   addMessage: (message: Message) => void;
@@ -54,6 +56,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   state: 'idle',
   connected: false,
   view: 'voice',
+  isAmbient: false,
 
   conversationId: null,
   conversations: [],
@@ -69,6 +72,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   setState: (state) => set({ state }),
   setConnected: (connected) => set({ connected }),
   setView: (view) => set({ view }),
+  setAmbient: (isAmbient) => set({ isAmbient }),
   setConversationId: (conversationId) => set({ conversationId }),
   setConversations: (conversations) => set({ conversations }),
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),

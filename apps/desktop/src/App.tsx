@@ -6,6 +6,7 @@ import { StatusPill } from './ui/StatusPill';
 import { MetaBar } from './ui/MetaBar';
 import { Nav } from './ui/Nav';
 import { CommandPalette } from './ui/CommandPalette';
+import { Ambient } from './screens/Ambient';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
@@ -16,22 +17,32 @@ type Screen = 'voice' | 'chat' | 'settings';
 export function App() {
   const view = useJarvisStore((s) => s.view) as Screen;
   const setView = useJarvisStore((s) => s.setView);
+  const isAmbient = useJarvisStore((s) => s.isAmbient);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useKeyboardShortcuts();
+
+  const hideUI = isAmbient;
 
   return (
     <>
       <Backdrop />
       <OrbBridge />
-      <StatusPill />
-      <MetaBar onOpenPalette={() => setPaletteOpen(true)} />
-      <div style={{ position: 'relative', zIndex: 3, minHeight: '100vh' }}>
-        {view === 'voice' ? <Voice /> :
-         view === 'settings' ? <SettingsScreen /> :
-         <ChatScreen />}
+      <div style={{
+        opacity: hideUI ? 0 : 1,
+        pointerEvents: hideUI ? 'none' : 'auto',
+        transition: 'opacity .36s linear',
+      }}>
+        <StatusPill />
+        <MetaBar onOpenPalette={() => setPaletteOpen(true)} />
+        <div style={{ position: 'relative', zIndex: 3, minHeight: '100vh' }}>
+          {view === 'voice' ? <Voice /> :
+           view === 'settings' ? <SettingsScreen /> :
+           <ChatScreen />}
+        </div>
+        <Nav active={view} onNavigate={(s) => setView(s)} />
       </div>
-      <Nav active={view} onNavigate={(s) => setView(s)} />
+      <Ambient />
       <CommandPalette externalOpen={paletteOpen} onExternalOpenChange={setPaletteOpen} />
     </>
   );

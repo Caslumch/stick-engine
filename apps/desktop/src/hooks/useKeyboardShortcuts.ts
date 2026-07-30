@@ -40,6 +40,9 @@ export function useKeyboardShortcuts() {
       }
 
       if (e.key.toLowerCase() === 't') toggleTheme()
+      if (e.key.toLowerCase() === 'a') {
+        store.setAmbient(!store.isAmbient)
+      }
     }
 
     window.addEventListener('keydown', handler)

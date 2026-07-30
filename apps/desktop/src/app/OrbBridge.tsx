@@ -21,9 +21,10 @@ const STATE_COLORS: Record<JarvisState, { primary: string; secondary: string }> 
 export function OrbBridge() {
   const state = useJarvisStore((s) => s.state)
   const view = useJarvisStore((s) => s.view)
+  const isAmbient = useJarvisStore((s) => s.isAmbient)
   const { resolved } = useTheme()
   const colors = STATE_COLORS[state]
-  const visible = view === 'voice'
+  const visible = view === 'voice' || isAmbient
   const isLight = resolved === 'light'
 
   // Áudio: estados reativos (listening/speaking) alimentam o orb
@@ -40,10 +41,11 @@ export function OrbBridge() {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 2,
+        zIndex: isAmbient ? 49 : 2,
         pointerEvents: 'none',
         opacity: visible ? 1 : 0,
-        transition: 'opacity .26s linear',
+        transform: isAmbient ? 'scale(1.45)' : 'none',
+        transition: 'opacity .26s linear, transform .8s var(--sp-morph)',
       }}
     >
       <Canvas

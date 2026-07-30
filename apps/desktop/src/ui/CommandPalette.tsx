@@ -63,6 +63,8 @@ export function CommandPalette({ externalOpen, onExternalOpenChange }: {
       run: toggleTheme },
     { group: 'Vista', name: 'Abrir ajustes', description: 'Todas as preferências', shortcut: '3', icon: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 3v2M12 19v2M3 12h2M19 12h2',
       run: () => setView('settings') },
+    { group: 'Vista', name: 'Modo ambiente', description: 'Orb em tela cheia com relógio', shortcut: 'A', icon: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 3',
+      run: () => useJarvisStore.getState().setAmbient(true) },
   ]
 
   const filtered = query.trim()

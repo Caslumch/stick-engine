@@ -1,5 +1,9 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useJarvisStore } from '../stores/jarvis.store'
 import { useAudioAmplitude } from '../hooks/useAudioAmplitude'
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
+import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK } from '../app/strings'
@@ -9,6 +13,10 @@ import type { JarvisState } from '@jarvis/shared'
  * Tela de voz — orb centralizado (renderizado no Canvas persistente),
  * nome do estado, frase, dock com mic ao centro e secundários em colunas fixas.
  * Seções 7 e 11 do DESIGN_SYSTEM.md.
+ *
+ * Fluxo de voz (Fase 4):
+ * idle -> mic click -> listening (STT captura) -> send -> thinking
+ * -> backend responde -> speaking (TTS fala) -> idle
  */
 export function Voice() {
   const state = useJarvisStore((s) => s.state)
@@ -17,25 +25,114 @@ export function Voice() {
   const isListening = state === 'listening'
 
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
+  const { sendMessage } = useSocket()
 
-  const leftAction = getLeftAction(state)
-  const rightAction = getRightAction(state)
+  // Transcrição parcial local (o que o STT está captando)
+  const [transcript, setTranscript] = useState('')
+  const transcriptRef = useRef('')
+
+  // --- Speech-to-Text ---
+  const stt = useSpeechRecognition({
+    onInterim: (text) => {
+      setTranscript(text)
+      transcriptRef.current = text
+    },
+    onResult: (text) => {
+      setTranscript((prev) => {
+        const full = prev ? prev + ' ' + text : text
+        transcriptRef.current = full
+        return full
+      })
+    },
+    onEnd: () => {
+      // Se parou de reconhecer e estamos em listening, mantém o estado
+      // (o usuário precisa apertar enviar ou descartar)
+    },
+    onError: (err) => {
+      console.warn('[STT] Erro:', err)
+    },
+  })
+
+  // --- Text-to-Speech ---
+  const tts = useSpeechSynthesis({
+    onStart: () => {
+      // Estado já é 'speaking', setado pelo listener de MessageComplete
+    },
+    onEnd: () => {
+      // Voltou ao idle quando termina de falar
+      const current = useJarvisStore.getState().state
+      if (current === 'speaking') {
+        setState('idle')
+      }
+    },
+    onError: (err) => {
+      console.warn('[TTS] Erro:', err)
+      setState('idle')
+    },
+  })
+
+  // Quando uma mensagem completa chega do backend e estamos na tela de voz,
+  // ler a resposta em voz alta
+  const lastMessageCount = useRef(0)
+  const messages = useJarvisStore((s) => s.messages)
+
+  useEffect(() => {
+    if (messages.length <= lastMessageCount.current) {
+      lastMessageCount.current = messages.length
+      return
+    }
+    lastMessageCount.current = messages.length
+
+    const last = messages[messages.length - 1]
+    if (last?.role === 'assistant' && last.content) {
+      setState('speaking')
+      tts.speak(last.content)
+    }
+  }, [messages, setState, tts])
+
+  const handleCancel = useCallback(() => {
+    tts.cancel()
+    setState('idle')
+  }, [tts, setState])
+
+  const handleInterrupt = useCallback(() => {
+    tts.cancel()
+    setState('idle')
+  }, [tts, setState])
+
+  const leftAction = getLeftAction(state, handleCancel)
+  const rightAction = getRightAction(state, handleInterrupt)
 
   const handleMicClick = () => {
     if (state === 'idle') {
+      setTranscript('')
+      transcriptRef.current = ''
       startAudio()
+      stt.start()
       setState('listening')
     }
   }
 
   const handleDiscard = () => {
+    stt.abort()
     stopAudio()
+    setTranscript('')
+    transcriptRef.current = ''
     setState('idle')
   }
 
   const handleSend = () => {
+    stt.stop()
     stopAudio()
-    setState('thinking')
+    const text = transcriptRef.current.trim()
+    setTranscript('')
+    transcriptRef.current = ''
+    if (text) {
+      setState('thinking')
+      sendMessage(text)
+    } else {
+      setState('idle')
+    }
   }
 
   return (
@@ -94,7 +191,9 @@ export function Voice() {
           minHeight: 64,
           margin: 0,
         }}>
-          {streamingText || VOICE_PROMPTS[state]}
+          {isListening && transcript
+            ? transcript
+            : streamingText || VOICE_PROMPTS[state]}
         </p>
       </div>
 
@@ -169,16 +268,16 @@ const ghostStyle: React.CSSProperties = {
   transition: 'color .2s',
 }
 
-function getLeftAction(state: JarvisState) {
+function getLeftAction(state: JarvisState, onCancel?: () => void) {
   if (state === 'thinking' || state === 'executing') {
-    return { label: DOCK.cancel, onClick: () => useJarvisStore.getState().setState('idle') }
+    return { label: DOCK.cancel, onClick: onCancel ?? (() => useJarvisStore.getState().setState('idle')) }
   }
   return null
 }
 
-function getRightAction(state: JarvisState) {
+function getRightAction(state: JarvisState, onInterrupt?: () => void) {
   if (state === 'speaking') {
-    return { label: DOCK.interrupt, onClick: () => useJarvisStore.getState().setState('idle') }
+    return { label: DOCK.interrupt, onClick: onInterrupt ?? (() => useJarvisStore.getState().setState('idle')) }
   }
   if (state === 'error') {
     return { label: DOCK.retry, onClick: () => useJarvisStore.getState().setState('thinking') }

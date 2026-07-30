@@ -306,6 +306,7 @@ function OrbGroup() {
       </Row>
       <Row label="Ambient mode" description="Full-screen orb with a clock. Good for a second monitor.">
         <button
+          onClick={() => useJarvisStore.getState().setAmbient(true)}
           style={{
             height: 32,
             padding: '0 14px',
