@@ -1,0 +1,94 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { Bloom, EffectComposer } from '@react-three/postprocessing'
+import { useJarvisStore } from '../stores/jarvis.store'
+import { useTheme } from '../theme/ThemeProvider'
+import { JarvisOrb } from '../orb/JarvisOrb'
+import { useAudioAnalyser } from '../orb/hooks/useAudioAnalyser'
+import type { AudioSource } from '../orb/hooks/useAudioAnalyser'
+import type { JarvisState } from '@jarvis/shared'
+
+const STATE_COLORS: Record<JarvisState, { primary: string; secondary: string }> = {
+  idle:      { primary: '#4ADFB0', secondary: '#1A7A5A' },
+  listening: { primary: '#57C8FF', secondary: '#1A6A9A' },
+  thinking:  { primary: '#8B7BFF', secondary: '#4338CA' },
+  executing: { primary: '#A6F05A', secondary: '#4A8A1A' },
+  speaking:  { primary: '#FFB45C', secondary: '#9A5A1A' },
+  error:     { primary: '#FF6B6B', secondary: '#7F1D1D' },
+  offline:   { primary: '#8A968F', secondary: '#374151' },
+}
+
+export function OrbBridge() {
+  const state = useJarvisStore((s) => s.state)
+  const view = useJarvisStore((s) => s.view)
+  const { resolved } = useTheme()
+  const colors = STATE_COLORS[state]
+  const visible = view === 'voice'
+  const isLight = resolved === 'light'
+
+  // Áudio: estados reativos (listening/speaking) alimentam o orb
+  const reactive = state === 'listening' || state === 'speaking'
+  const source = useMemo<AudioSource>(() => {
+    if (!reactive) return { kind: 'none' }
+    if (state === 'listening') return { kind: 'mic' }
+    return { kind: 'simulated', intensity: 1 }
+  }, [reactive, state])
+  const audio = useAudioAnalyser(source)
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2,
+        pointerEvents: 'none',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity .26s linear',
+      }}
+    >
+      <Canvas
+        dpr={[1, 1.75]}
+        frameloop="always"
+        resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
+        camera={{ position: [0, 0, 4.2], fov: 45 }}
+        gl={{ antialias: false, alpha: true }}
+        onCreated={(s) => {
+          s.gl.setClearColor(0x000000, 0)
+        }}
+      >
+        <JarvisOrb
+          state={state}
+          pointCount={30000}
+          pointSize={3.6}
+          primaryColor={colors.primary}
+          secondaryColor={colors.secondary}
+          lightMode={isLight}
+          audio={audio}
+        />
+        <EffectComposer>
+          <Bloom
+            intensity={isLight ? 0.25 : 0.9}
+            luminanceThreshold={isLight ? 0.7 : 0.38}
+            luminanceSmoothing={0.65}
+            mipmapBlur
+          />
+        </EffectComposer>
+        <CanvasLifecycleLogger />
+      </Canvas>
+    </div>
+  )
+}
+
+function CanvasLifecycleLogger() {
+  const mounted = useRef(false)
+  useEffect(() => {
+    if (!mounted.current) {
+      console.log('[OrbBridge] Canvas mounted')
+      mounted.current = true
+    }
+    return () => {
+      console.warn('[OrbBridge] Canvas UNMOUNTED — this should not happen during navigation!')
+    }
+  }, [])
+  return null
+}

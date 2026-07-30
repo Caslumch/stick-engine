@@ -1,0 +1,92 @@
+import { create } from 'zustand';
+import type { JarvisState, Message, Conversation, DecisionMadePayload } from '@jarvis/shared';
+
+type View = 'voice' | 'chat' | 'history' | 'settings';
+
+export interface ToolExecution {
+  toolName: string;
+  args?: Record<string, unknown>;
+  result?: { success: boolean; message?: string; data?: unknown };
+  status: 'executing' | 'done';
+}
+
+interface JarvisStore {
+  // State
+  state: JarvisState;
+  connected: boolean;
+  view: View;
+
+  // Conversation
+  conversationId: string | null;
+  conversations: Conversation[];
+  messages: Message[];
+  streamingText: string;
+
+  // Decision
+  lastDecision: DecisionMadePayload | null;
+
+  // Tool execution
+  toolExecutions: ToolExecution[];
+
+  // Settings
+  settings: Record<string, string>;
+
+  // Actions
+  setState: (state: JarvisState) => void;
+  setConnected: (connected: boolean) => void;
+  setView: (view: View) => void;
+  setConversationId: (id: string | null) => void;
+  setConversations: (conversations: Conversation[]) => void;
+  addMessage: (message: Message) => void;
+  setMessages: (messages: Message[]) => void;
+  appendStreamToken: (token: string) => void;
+  clearStream: () => void;
+  newConversation: () => void;
+  setLastDecision: (decision: DecisionMadePayload) => void;
+  addToolExecution: (exec: ToolExecution) => void;
+  updateToolExecution: (toolName: string, result: ToolExecution['result']) => void;
+  clearToolExecutions: () => void;
+  setSettings: (settings: Record<string, string>) => void;
+  updateSetting: (key: string, value: string) => void;
+}
+
+export const useJarvisStore = create<JarvisStore>((set) => ({
+  state: 'idle',
+  connected: false,
+  view: 'voice',
+
+  conversationId: null,
+  conversations: [],
+  messages: [],
+  streamingText: '',
+
+  lastDecision: null,
+
+  toolExecutions: [],
+
+  settings: {},
+
+  setState: (state) => set({ state }),
+  setConnected: (connected) => set({ connected }),
+  setView: (view) => set({ view }),
+  setConversationId: (conversationId) => set({ conversationId }),
+  setConversations: (conversations) => set({ conversations }),
+  addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
+  setMessages: (messages) => set({ messages }),
+  appendStreamToken: (token) => set((s) => ({ streamingText: s.streamingText + token })),
+  clearStream: () => set({ streamingText: '' }),
+  newConversation: () => set({ conversationId: null, messages: [], streamingText: '', lastDecision: null, toolExecutions: [] }),
+  setLastDecision: (lastDecision) => set({ lastDecision }),
+  addToolExecution: (exec) => set((s) => ({ toolExecutions: [...s.toolExecutions, exec] })),
+  updateToolExecution: (toolName, result) =>
+    set((s) => ({
+      toolExecutions: s.toolExecutions.map((te) =>
+        te.toolName === toolName && te.status === 'executing'
+          ? { ...te, result, status: 'done' as const }
+          : te,
+      ),
+    })),
+  clearToolExecutions: () => set({ toolExecutions: [] }),
+  setSettings: (settings) => set({ settings }),
+  updateSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),
+}));

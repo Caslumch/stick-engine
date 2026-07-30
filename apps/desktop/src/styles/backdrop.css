@@ -1,0 +1,108 @@
+/* ============================================================
+   Backdrop — manchas de cor + tint radial + camada de imagem.
+   Seções 2 e 2.1 do DESIGN_SYSTEM.md.
+   Valores calibrados do stick.html — não alterar.
+   ============================================================ */
+
+.backdrop-photo {
+  position: fixed;
+  inset: -6%;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--bg-img, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--bg-blur, 18px));
+  opacity: 0;
+  transition: filter .3s linear, opacity .5s linear;
+}
+
+.backdrop-photo[data-active] {
+  opacity: 1;
+}
+
+.backdrop-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: var(--bg-dim, .55);
+  transition: opacity .3s linear;
+}
+
+.backdrop-blobs {
+  position: fixed;
+  inset: -14%;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(80px) saturate(130%);
+  transition: opacity .5s linear;
+}
+
+.backdrop-blob {
+  position: absolute;
+  border-radius: 50%;
+  display: block;
+  will-change: transform;
+}
+
+.backdrop-blob-1 {
+  width: 52vw;
+  height: 52vw;
+  left: -8%;
+  top: -6%;
+  background: radial-gradient(circle at 45% 45%, rgba(var(--accent-rgb), .62), transparent 66%);
+  animation: blob-drift-1 26s ease-in-out infinite;
+  transition: background .9s;
+}
+
+.backdrop-blob-2 {
+  width: 46vw;
+  height: 46vw;
+  right: -8%;
+  top: 6%;
+  background: radial-gradient(circle, rgba(139, 123, 255, .52), transparent 64%);
+  animation: blob-drift-2 34s ease-in-out infinite;
+}
+
+.backdrop-blob-3 {
+  width: 56vw;
+  height: 44vw;
+  left: 16%;
+  bottom: -16%;
+  background: radial-gradient(circle, rgba(87, 200, 255, .44), transparent 62%);
+  animation: blob-drift-3 30s ease-in-out infinite;
+}
+
+.backdrop-blob-4 {
+  width: 34vw;
+  height: 34vw;
+  right: 8%;
+  bottom: -6%;
+  background: radial-gradient(circle, rgba(255, 180, 92, .40), transparent 62%);
+  animation: blob-drift-1 40s ease-in-out infinite reverse;
+}
+
+@keyframes blob-drift-1 { 50% { transform: translate3d(6%, 8%, 0) scale(1.12); } }
+@keyframes blob-drift-2 { 50% { transform: translate3d(-8%, 6%, 0) scale(.9); } }
+@keyframes blob-drift-3 { 50% { transform: translate3d(5%, -7%, 0) scale(1.08); } }
+
+.backdrop-tint {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--tint);
+  transition: background .5s linear;
+}
+
+/* Quando há imagem, as manchas recuam para 35% */
+.backdrop-blobs[data-dimmed] {
+  opacity: .35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop-blob {
+    animation: none !important;
+  }
+}

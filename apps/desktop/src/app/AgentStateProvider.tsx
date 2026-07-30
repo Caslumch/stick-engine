@@ -1,0 +1,44 @@
+import { useEffect } from 'react'
+import { useJarvisStore } from '../stores/jarvis.store'
+import type { JarvisState } from '@jarvis/shared'
+
+/**
+ * Cores do estado do agente — seção 4 do DESIGN_SYSTEM.md.
+ * idle usa --base (personalizável); os demais são fixos.
+ */
+const STATE_COLORS: Record<JarvisState, string | null> = {
+  idle: null, // usa a cor base do usuário
+  listening: '#57C8FF',
+  thinking: '#8B7BFF',
+  executing: '#A6F05A',
+  speaking: '#FFB45C',
+  error: '#FF6B6B',
+  offline: '#8A968F',
+}
+
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
+const DEFAULT_BASE = '#4ADFB0'
+
+/**
+ * Escreve --accent e --accent-rgb no <html> a cada troca de estado.
+ * Também escreve data-state para regras CSS condicionais.
+ *
+ * Nenhum componente deve importar cor de estado diretamente — todos leem var(--accent).
+ */
+export function AgentStateProvider({ children }: { children: React.ReactNode }) {
+  const state = useJarvisStore((s) => s.state)
+
+  useEffect(() => {
+    const color = STATE_COLORS[state] ?? DEFAULT_BASE
+    const el = document.documentElement
+    el.style.setProperty('--accent', color)
+    el.style.setProperty('--accent-rgb', hexToRgb(color))
+    el.dataset.state = state
+  }, [state])
+
+  return <>{children}</>
+}

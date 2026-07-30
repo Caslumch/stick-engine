@@ -1,0 +1,17 @@
+@import './styles/tokens.css';
+@import './styles/glass.css';
+@import './styles/backdrop.css';
+@import 'tailwindcss';
+
+@theme {
+  /* Mapeamento dos tokens CSS → Tailwind v4.
+     tokens.css é a fonte da verdade; aqui só ponteiros. */
+  --color-jarvis-bg: var(--bg);
+  --color-jarvis-surface: var(--fill-1);
+  --color-jarvis-primary: var(--accent);
+  --color-jarvis-accent: var(--accent);
+  --color-jarvis-success: var(--st-executing);
+  --color-jarvis-text: var(--t-hi);
+  --color-jarvis-muted: var(--t-low);
+  --color-jarvis-border: var(--g-edge);
+}

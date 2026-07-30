@@ -1,0 +1,146 @@
+/* ============================================================
+   STICK Design System — Tokens
+   Fonte da verdade para cores, espaço, tipografia e motion.
+   Seções 4, 5, 6, 9 e 13 do DESIGN_SYSTEM.md.
+   ============================================================ */
+
+:root {
+  /* --- Estado (fixos, independentes de tema) --- */
+  --st-idle: #4ADFB0;
+  --st-listening: #57C8FF;
+  --st-thinking: #8B7BFF;
+  --st-speaking: #FFB45C;
+  --st-executing: #A6F05A;
+  --st-error: #FF6B6B;
+  --st-offline: #8A968F;
+
+  /* --- Acento (reescrito por AgentStateProvider) --- */
+  --accent: #4ADFB0;
+  --accent-rgb: 74, 223, 176;
+
+  /* --- Raios --- */
+  --r-xs: 10px;
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 26px;
+  --r-pill: 999px;
+
+  /* --- Tipografia --- */
+  --f: "Inter", -apple-system, system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* --- Easing --- */
+  --sp: cubic-bezier(.22, 1, .36, 1);
+  --sp-morph: cubic-bezier(.3, 1.15, .35, 1);
+}
+
+/* ============================================================
+   TEMA ESCURO
+   ============================================================ */
+html[data-theme="dark"] {
+  --bg: #0B100E;
+
+  --tint: radial-gradient(
+    52% 46% at 50% 42%,
+    rgba(11, 16, 14, .93),
+    rgba(11, 16, 14, .74) 58%,
+    rgba(11, 16, 14, .40) 100%
+  );
+
+  /* Vidro */
+  --g-bg: linear-gradient(150deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .045) 42%, rgba(255, 255, 255, .07));
+  --g-edge: rgba(255, 255, 255, .14);
+  --g-hi: rgba(255, 255, 255, .16);
+  --g-lo: rgba(0, 0, 0, .20);
+  --g-sh: 0 18px 50px -20px rgba(0, 0, 0, .5);
+  --spec: rgba(255, 255, 255, .14);
+
+  /* Fills */
+  --fill-1: rgba(255, 255, 255, .055);
+  --fill-2: rgba(255, 255, 255, .11);
+  --fill-3: rgba(255, 255, 255, .17);
+  --hair: rgba(255, 255, 255, .055);
+
+  /* Texto */
+  --t-hi: rgba(255, 255, 255, .94);
+  --t-mid: rgba(255, 255, 255, .66);
+  --t-low: rgba(255, 255, 255, .42);
+  --t-ghost: rgba(255, 255, 255, .26);
+
+  --knob: rgba(255, 255, 255, .55);
+}
+
+/* ============================================================
+   TEMA CLARO
+   ============================================================ */
+html[data-theme="light"] {
+  --bg: #E7ECEA;
+
+  --tint: radial-gradient(
+    56% 50% at 50% 42%,
+    rgba(238, 242, 240, .86),
+    rgba(233, 238, 236, .60) 58%,
+    rgba(228, 234, 232, .24) 100%
+  );
+
+  /* Vidro */
+  --g-bg: linear-gradient(150deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .44) 42%, rgba(255, 255, 255, .64));
+  --g-edge: rgba(255, 255, 255, .9);
+  --g-hi: rgba(255, 255, 255, .95);
+  --g-lo: rgba(16, 40, 32, .06);
+  --g-sh: 0 16px 40px -18px rgba(18, 42, 34, .30);
+  --spec: rgba(255, 255, 255, .75);
+
+  /* Fills */
+  --fill-1: rgba(255, 255, 255, .55);
+  --fill-2: rgba(16, 40, 32, .07);
+  --fill-3: rgba(16, 40, 32, .12);
+  --hair: rgba(16, 40, 32, .075);
+
+  /* Texto */
+  --t-hi: rgba(10, 26, 20, .92);
+  --t-mid: rgba(10, 26, 20, .64);
+  --t-low: rgba(10, 26, 20, .44);
+  --t-ghost: rgba(10, 26, 20, .28);
+
+  --knob: #fff;
+}
+
+/* ============================================================
+   GLOBAL RESET (mínimo)
+   ============================================================ */
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--t-mid);
+  font-family: var(--f);
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -.006em;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  transition: background .5s linear, color .5s linear;
+}
+
+::selection {
+  background: rgba(var(--accent-rgb), .3);
+}
+
+:focus-visible {
+  outline: 1.5px solid rgba(var(--accent-rgb), .85);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.12s !important;
+  }
+}

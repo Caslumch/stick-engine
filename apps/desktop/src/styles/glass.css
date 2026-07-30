@@ -1,0 +1,32 @@
+/* ============================================================
+   Vidro — receita única, copiada literal do stick.html.
+   Seção 3 do DESIGN_SYSTEM.md.
+   O que varia é o raio, nunca a fórmula.
+   ============================================================ */
+
+.glass {
+  position: relative;
+  background: var(--g-bg);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border: 1px solid var(--g-edge);
+  box-shadow:
+    0 1px 0 var(--g-hi) inset,
+    0 -1px 0 var(--g-lo) inset,
+    var(--g-sh);
+  transition:
+    background .5s linear,
+    border-color .5s linear,
+    box-shadow .5s linear;
+}
+
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(160deg, var(--spec), transparent 34%);
+  opacity: .5;
+  mix-blend-mode: overlay;
+}
