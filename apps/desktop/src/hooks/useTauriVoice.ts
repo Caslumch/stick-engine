@@ -53,7 +53,16 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
       streamRef.current = stream
       chunksRef.current = []
 
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+      // Usar formato suportado pela WebView2 (pode não ter webm)
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : undefined // usa o padrão do browser
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
       recorderRef.current = recorder
 
       recorder.ondataavailable = (e) => {

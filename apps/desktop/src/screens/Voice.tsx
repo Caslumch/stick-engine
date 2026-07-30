@@ -31,9 +31,10 @@ export function Voice() {
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
   const { sendMessage } = useSocket()
 
-  // Verificar se Tauri sidecars estão disponíveis
+  // Verificar se estamos no Tauri (WebView2 não tem Web Speech API)
   const voiceCheck = useTauriVoiceCheck()
-  const useNative = voiceCheck.native && voiceCheck.ready
+  const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+  const useNative = inTauri // No Tauri, sempre usar sidecars (WebView2 não tem SpeechRecognition)
 
   // Transcrição parcial local (o que o STT está captando)
   const [transcript, setTranscript] = useState('')

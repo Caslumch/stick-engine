@@ -18,9 +18,8 @@ if (-not (Test-Path $whisperExe)) {
     Invoke-WebRequest -Uri $whisperUrl -OutFile $whisperZip
     Expand-Archive -Path $whisperZip -DestinationPath "$binDir\whisper-tmp" -Force
 
-    # Encontrar o executável principal (whisper-cli ou main)
-    $mainExe = Get-ChildItem "$binDir\whisper-tmp" -Recurse -Filter "*.exe" |
-        Where-Object { $_.Name -match "^(whisper-cli|main|whisper)\.exe$" } |
+    # Encontrar whisper-cli.exe (main.exe é deprecated)
+    $mainExe = Get-ChildItem "$binDir\whisper-tmp" -Recurse -Filter "whisper-cli.exe" |
         Select-Object -First 1
 
     if ($mainExe) {
