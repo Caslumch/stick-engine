@@ -23,13 +23,13 @@
 - [x] Injecao dinamica de providers via `LLM_PROVIDERS` token
 - [x] Fallback chain entre providers
 - [x] WebSocket emit por client (nao broadcast)
+- [x] Instalar Rust e adicionar Tauri como shell desktop
+- [x] README com instrucoes de setup
 
 **Entregavel:** Monorepo funcional. Desktop abre, conecta via WebSocket ao backend, e exibe "Jarvis Online". ✅
 
 **Pendente:**
-- [x] Instalar Rust e adicionar Tauri como shell desktop
 - [ ] ESLint configurado
-- [ ] README com instrucoes de setup
 
 ---
 
@@ -50,6 +50,8 @@
 - [x] Botao de nova conversa
 - [x] Indicador de provider (ollama/openai) nas mensagens
 - [x] Tratamento de erro com mensagem amigavel na UI
+- [x] Carregar mensagens de conversa antiga no historico
+- [x] Deletar conversas do historico
 
 **Entregavel:** Digitar uma mensagem no desktop, Jarvis responde via Ollama com streaming em PT-BR. ✅
 
@@ -68,6 +70,9 @@
 - [x] Indicador na UI mostrando qual provider esta sendo usado (destacado)
 - [x] Configuracoes de API keys na tela de settings
 - [x] Regras configuraveis (threshold de tokens, keywords de pesquisa)
+- [x] Selector de modelo LLM no Settings (llama3.1, qwen2.5, mistral, etc.)
+- [x] Pre-carregamento do modelo na GPU ao trocar no Settings
+- [x] Modelo dinamico via Settings (sem reiniciar backend)
 - [ ] Log de decisoes visivel no frontend (modo debug)
 
 **Entregavel:** Jarvis usa Ollama por padrao. Para perguntas complexas ou quando local falha, escala pra cloud automaticamente. ✅
@@ -91,44 +96,47 @@
 
 ---
 
-## Fase 4 — Voz (Semanas 11-14)
+## Fase 4 — Voz ✅ (Concluida em 30/07/2026)
 
 **Objetivo:** Conversar com o Jarvis por voz.
 
-### 4a — Speech-to-Text
+### 4a — Speech-to-Text ✅
 - [x] Captura de audio via getUserMedia (microfone)
-- [x] Pipeline: audio -> Web Speech API (SpeechRecognition) -> texto -> Core
+- [x] Web Speech API (SpeechRecognition) como fallback no browser
+- [x] Whisper.cpp como sidecar Tauri (modelo small, pt-BR)
 - [x] Transcricao parcial em tempo real na tela de voz
 - [x] Indicador visual "Listening" no HUD
-- [ ] Modulo `voice/` no NestJS com evento WebSocket `voice:audio`
-- [ ] Whisper.cpp via child_process no backend (recebe chunks, retorna transcricao)
-- [ ] Frontend envia audio do getUserMedia via socket em vez de Web Speech API
+- [x] VAD (Voice Activity Detection) — auto-envia apos 1.5s de silencio
 
-### 4b — Text-to-Speech
-- [x] Pipeline: resposta texto -> Web Speech API (SpeechSynthesis) -> speaker
+### 4b — Text-to-Speech ✅
+- [x] Servidor TTS multi-engine (`services/tts/`)
+- [x] Engine: Edge TTS (~500ms, neural Microsoft, requer internet)
+- [x] Engine: Kokoro (~1-2s, local, GPU)
+- [x] Engine: Qwen3-TTS (~30-100s, excelente qualidade, local, GPU)
+- [x] Engine: Piper (fallback, ~100ms, local, CPU)
+- [x] Selector de engine e voz no Settings
 - [x] Indicador visual "Speaking" no HUD
-- [x] Fila de audio (nao sobrepor falas)
 - [x] Cancel/Interrupt para TTS
-- [ ] Piper via child_process no backend (recebe texto, retorna WAV)
-- [ ] Frontend reproduz audio WAV via AudioContext em vez de Web Speech API
+- [x] Barge-in: falar sobre o agente interrompe TTS automaticamente (400ms voz sustentada)
+- [x] Orb reage ao audio real do TTS (ttsAudioBus compartilhado)
+- [x] Estado 'speaking' so ativa quando audio realmente toca
+- [x] Limpeza de markdown/emoji antes de sintetizar (cleanForSpeech)
 
 ### 4c — Wake Word
-- [ ] OpenWakeWord via child_process no backend
-- [ ] Frontend envia stream de audio continuo ao backend
-- [ ] Deteccao da palavra "Jarvis" no backend -> evento WebSocket -> transicao Idle -> Listening
+- [ ] OpenWakeWord via child_process ou Tauri sidecar
+- [ ] Deteccao continua em background
+- [ ] Palavra: "Jarvis"
+- [ ] Transicao de estado: Idle -> Listening
 
-**Entregavel:** Dizer algo e ouvir a resposta. ✅ (via Web Speech API)
-Migracoes Whisper/Piper/Wake word rodam no backend via child_process — nao dependem de Tauri.
+**Entregavel:** Falar com o Jarvis e ouvir a resposta com voz natural. ✅
+Wake word pendente.
 
 ---
 
-## Fase 5 — HUD + Interface Viva (design system STICK) ✅ (Core concluido em 30/07/2026)
+## Fase 5 — HUD + Interface Viva (design system STICK) ✅ (Concluida em 30/07/2026)
 
 **Objetivo:** Interface que transmite presenca. Especificacao completa em
 docs/DESIGN_SYSTEM.md; plano de execucao em docs/HANDOFF.md.
-
-> Executada ANTES da Fase 4 (Voz): apenas a capsula de gravacao depende de audio,
-> e ela pode ser construida com getUserMedia antes do Whisper existir.
 
 - [x] Componente HUD com estados basicos
 - [x] Avatar V1: esfera minimalista
@@ -138,15 +146,16 @@ docs/DESIGN_SYSTEM.md; plano de execucao em docs/HANDOFF.md.
 - [x] 5.3  Estado do agente: 7 estados + propagacao de --accent por CSS
 - [x] 5.4  Orb R3F integrado, <Canvas> persistente, bridge de estado
 - [x] 5.5  Tela de voz + nav flutuante + status pill
-- [x] 5.6  Capsula de gravacao + waveform (getUserMedia; STT entra na Fase 4)
+- [x] 5.6  Capsula de gravacao + waveform (getUserMedia)
 - [x] 5.7  Tela de chat + painel de historico em gaveta
-- [x] 5.8  Tela de settings
+- [x] 5.8  Tela de settings (tema, acento, fundo, LLM, TTS, voz, orb, tools, atalhos)
 - [x] 5.9  Paleta de comandos (⌘K) + modo ambiente + create button
 - [ ] 5.10 Widget flutuante (tray + mini HUD) — SEM DESIGN AINDA
 - [ ] 5.11 Autostart com o sistema (Tauri)
 
 **Entregavel:** Jarvis com interface que respira e transmite estado. ✅
-5.0 a 5.9 fechadas; 5.10 e 5.11 dependem do Tauri instalado.
+5.0 a 5.9 fechadas; 5.10 e 5.11 dependem de design + Tauri.
+
 ---
 
 ## Fase 6 — Memoria (Semanas 18-20)
@@ -237,8 +246,8 @@ Fase 0  ██████████  Fundacao             ✅
 Fase 1  ██████████  Chat Texto           ✅
 Fase 2  ██████████  Decision Engine      ✅
 Fase 3  ██████████  Tool Calling         ✅
-Fase 4  ███████░░░  Voz (STT/TTS)        ✅ (Wake word pendente)
-Fase 5  █████████░  HUD + Interface      ✅ (5.10/5.11 pendentes — Tauri)
+Fase 4  █████████░  Voz                  ✅ (Wake word pendente)
+Fase 5  █████████░  HUD + Interface      ✅ (5.10/5.11 pendentes)
 Fase 6  ░░░░░░░░░░  Memoria
 Fase 7  ░░░░░░░░░░  Capabilities
 Fase 8  ░░░░░░░░░░  Integracoes
