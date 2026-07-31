@@ -1,11 +1,17 @@
 import { useTheme } from '../theme/ThemeProvider'
+import { useJarvisStore } from '../stores/jarvis.store'
 
 /**
- * Barra meta — canto superior direito, com context, botão de tema e commands.
- * Referência: stick.html .meta
+ * Barra meta — canto superior direito, com context, provider, botão de tema e commands.
  */
 export function MetaBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { toggle: toggleTheme } = useTheme()
+  const lastDecision = useJarvisStore((s) => s.lastDecision)
+  const settings = useJarvisStore((s) => s.settings)
+
+  const modelLabel = lastDecision
+    ? `${lastDecision.model} · ${lastDecision.provider}`
+    : settings['llm.ollama.model'] || 'llama3.1'
 
   return (
     <div className="glass" style={{
@@ -22,7 +28,21 @@ export function MetaBar({ onOpenPalette }: { onOpenPalette: () => void }) {
       fontSize: 12.5,
       color: 'var(--t-low)',
     }}>
-      <span>8.4k context</span>
+      <span title={lastDecision?.reason || ''}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        <span style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: lastDecision?.provider === 'cloud' ? 'var(--st-thinking)' : 'var(--st-executing)',
+        }} />
+        {modelLabel}
+      </span>
 
       {/* Theme toggle */}
       <button

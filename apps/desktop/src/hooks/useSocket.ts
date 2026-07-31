@@ -18,17 +18,31 @@ export function useSocket() {
   const store = useJarvisStore();
 
   useEffect(() => {
-    const socket = io(API_URL);
+    const socket = io(API_URL, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('Connected to Jarvis API');
       store.setConnected(true);
+      // Sair do estado offline se estava
+      if (useJarvisStore.getState().state === 'offline') {
+        store.setState('idle');
+      }
     });
 
     socket.on('disconnect', () => {
       console.log('Disconnected from Jarvis API');
       store.setConnected(false);
+      store.setState('offline');
+    });
+
+    socket.io.on('reconnect_attempt', (attempt) => {
+      console.log(`Reconnecting... attempt ${attempt}`);
     });
 
     socket.on(WsEvent.StateChange, (payload: StateChangePayload) => {

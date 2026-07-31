@@ -11,7 +11,11 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
     "concurrently": "^10.0.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4"
   },

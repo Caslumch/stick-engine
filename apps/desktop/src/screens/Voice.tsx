@@ -6,6 +6,7 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { useTauriSTT, useTauriTTS, useTauriVoiceCheck } from '../hooks/useTauriVoice'
 import { useServerTTS, checkServerTTS } from '../hooks/useServerTTS'
 import { useVAD } from '../hooks/useVAD'
+import { useWakeWord } from '../hooks/useWakeWord'
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
@@ -197,6 +198,26 @@ export function Voice() {
     return () => clearTimeout(t)
   }, [error])
 
+  // --- Timer de thinking (mostra tempo decorrido após 5s) ---
+  const [thinkingTime, setThinkingTime] = useState(0)
+  useEffect(() => {
+    if (state !== 'thinking') { setThinkingTime(0); return }
+    const start = Date.now()
+    const id = setInterval(() => setThinkingTime(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [state])
+
+  // --- Wake word: "Jarvis" aciona o mic ---
+  const wakeWordEnabled = state === 'idle' && !IN_TAURI // Só funciona no Chrome
+  useWakeWord({
+    enabled: wakeWordEnabled,
+    onWake: () => {
+      if (useJarvisStore.getState().state === 'idle') {
+        handleMicClick()
+      }
+    },
+  })
+
   // --- Handlers ---
   const handleMicClick = () => {
     if (state === 'idle') {
@@ -297,6 +318,19 @@ export function Voice() {
             ? transcript
             : streamingText || VOICE_PROMPTS[state]}
         </p>
+
+        {/* Timer de thinking */}
+        {state === 'thinking' && thinkingTime >= 5 && (
+          <p style={{
+            fontSize: 12,
+            fontFamily: 'var(--f-mono)',
+            color: 'var(--t-low)',
+            marginTop: 8,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {thinkingTime}s
+          </p>
+        )}
 
         {/* Feedback de erro */}
         {error && (

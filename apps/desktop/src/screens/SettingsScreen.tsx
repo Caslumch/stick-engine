@@ -28,13 +28,13 @@ const BG_PRESETS: Record<string, string> = {
 }
 
 const TOOLS = [
-  { name: 'Calendar', on: true },
-  { name: 'Mail', on: true },
-  { name: 'Files', on: true },
-  { name: 'Shell', on: true },
-  { name: 'Browser', on: true },
-  { name: 'Payments', on: false },
-  { name: 'Smart home', on: false },
+  { name: 'Open app', on: true, desc: 'Abrir programas instalados' },
+  { name: 'Run command', on: true, desc: 'Executar comandos no terminal' },
+  { name: 'Manage files', on: true, desc: 'Criar, ler, mover e deletar arquivos' },
+  { name: 'Calendar', on: false, desc: 'Lembretes e compromissos (em breve)' },
+  { name: 'Search', on: false, desc: 'Pesquisa web (em breve)' },
+  { name: 'Notifications', on: false, desc: 'Telegram, email (em breve)' },
+  { name: 'Smart home', on: false, desc: 'Luzes, tomadas (em breve)' },
 ]
 
 export function SettingsScreen() {
@@ -426,6 +426,7 @@ function ToolsGroup() {
           <button
             key={t.name}
             onClick={() => toggle(t.name)}
+            title={t.desc}
             style={{
               height: 32,
               padding: '0 14px',
@@ -437,9 +438,10 @@ function ToolsGroup() {
               color: t.on ? 'var(--t-mid)' : 'var(--t-ghost)',
               background: 'var(--fill-1)',
               border: '1px solid var(--hair)',
-              cursor: 'pointer',
+              cursor: t.on ? 'pointer' : 'default',
               fontFamily: 'var(--f)',
               transition: '.2s',
+              opacity: t.on ? 1 : 0.6,
             }}
           >
             <span style={{
