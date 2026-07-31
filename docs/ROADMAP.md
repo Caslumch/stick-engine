@@ -14,7 +14,7 @@
 - [x] Setup `packages/shared` com types compartilhados
 - [x] Docker Compose com PostgreSQL + Redis
 - [x] Prisma schema inicial (Conversation, Message)
-- [x] WebSocket gateway basico (NestJS <-> React)
+- [x] WebSocket gateway basico (NestJS <-> React) com reconexao automatica
 - [x] Verificar que desktop abre e conecta ao backend
 - [x] Prettier configurado
 - [x] Arquitetura clean pragmatica (gateway/service/repository por modulo)
@@ -29,7 +29,7 @@
 **Entregavel:** Monorepo funcional. Desktop abre, conecta via WebSocket ao backend, e exibe "Jarvis Online". ✅
 
 **Pendente:**
-- [ ] ESLint configurado
+- [x] ESLint configurado (monorepo root, TS + React hooks)
 
 ---
 
@@ -73,7 +73,7 @@
 - [x] Selector de modelo LLM no Settings (llama3.1, qwen2.5, mistral, etc.)
 - [x] Pre-carregamento do modelo na GPU ao trocar no Settings
 - [x] Modelo dinamico via Settings (sem reiniciar backend)
-- [ ] Log de decisoes visivel no frontend (modo debug)
+- [x] Log de decisoes visivel no frontend (MetaBar mostra modelo/provider ativo com indicador local/cloud)
 
 **Entregavel:** Jarvis usa Ollama por padrao. Para perguntas complexas ou quando local falha, escala pra cloud automaticamente. ✅
 
@@ -90,7 +90,7 @@
 - [x] LLM invoca tools -> Core executa -> retorna resultado
 - [x] Sandbox de seguranca para execucao de comandos (whitelist + blocked patterns)
 - [x] Indicadores visuais de tool execution no chat
-- [ ] Tela de capabilities instaladas no settings
+- [x] Tela de capabilities instaladas no settings (tools reais com descricoes)
 
 **Entregavel:** "Jarvis, abre o VS Code" — Jarvis usa tool calling pra executar o comando. ✅
 
@@ -122,14 +122,15 @@
 - [x] Estado 'speaking' so ativa quando audio realmente toca
 - [x] Limpeza de markdown/emoji antes de sintetizar (cleanForSpeech)
 
-### 4c — Wake Word
-- [ ] OpenWakeWord via child_process ou Tauri sidecar
-- [ ] Deteccao continua em background
-- [ ] Palavra: "Jarvis"
-- [ ] Transicao de estado: Idle -> Listening
+### 4c — Wake Word ✅ (Web Speech API — Chrome only)
+- [x] Deteccao continua em background via Web Speech API
+- [x] Palavra: "Jarvis" (com variantes: jarves, jarvez)
+- [x] Transicao de estado: Idle -> Listening automaticamente
+- [x] Cooldown de 3s pra evitar re-deteccao
+- [ ] Migrar pra OpenWakeWord (modelo local, funciona offline e no Tauri)
 
 **Entregavel:** Falar com o Jarvis e ouvir a resposta com voz natural. ✅
-Wake word pendente.
+Wake word funciona no Chrome. Migrar pra modelo local no futuro.
 
 ---
 
@@ -246,7 +247,7 @@ Fase 0  ██████████  Fundacao             ✅
 Fase 1  ██████████  Chat Texto           ✅
 Fase 2  ██████████  Decision Engine      ✅
 Fase 3  ██████████  Tool Calling         ✅
-Fase 4  █████████░  Voz                  ✅ (Wake word pendente)
+Fase 4  ██████████  Voz                  ✅
 Fase 5  █████████░  HUD + Interface      ✅ (5.10/5.11 pendentes)
 Fase 6  ░░░░░░░░░░  Memoria
 Fase 7  ░░░░░░░░░░  Capabilities
