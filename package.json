@@ -3,12 +3,15 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "tts": "python services/tts/server.py",
+    "dev:all": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm dev\"",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
+    "concurrently": "^10.0.4",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4"
   },

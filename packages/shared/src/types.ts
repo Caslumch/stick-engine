@@ -48,6 +48,8 @@ export enum WsEvent {
   MessageSend = 'message:send',
   ConversationCreate = 'conversation:create',
   ConversationList = 'conversation:list',
+  ConversationMessages = 'conversation:messages',
+  ConversationDelete = 'conversation:delete',
   StateGet = 'state:get',
   SettingsGet = 'settings:get',
   SettingsUpdate = 'settings:update',

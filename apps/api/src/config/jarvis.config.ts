@@ -3,7 +3,7 @@ import { registerAs } from '@nestjs/config';
 export const jarvisConfig = registerAs('jarvis', () => ({
   ollama: {
     url: process.env.OLLAMA_URL ?? 'http://localhost:11434',
-    model: process.env.OLLAMA_MODEL ?? 'qwen2.5',
+    model: process.env.OLLAMA_MODEL ?? 'llama3.1',
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY ?? '',

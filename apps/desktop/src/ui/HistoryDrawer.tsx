@@ -15,16 +15,24 @@ interface HistoryDrawerProps {
 
 export function HistoryDrawer({ open, onClose }: HistoryDrawerProps) {
   const conversations = useJarvisStore((s) => s.conversations)
-  const { loadConversations } = useSocket()
+  const { loadConversations, loadConversationMessages, deleteConversation } = useSocket()
 
   useEffect(() => {
     if (open) loadConversations()
   }, [open, loadConversations])
 
   const handleSelect = (conv: Conversation) => {
-    useJarvisStore.getState().setConversationId(conv.id)
-    useJarvisStore.getState().setMessages([])
+    loadConversationMessages(conv.id)
     onClose()
+  }
+
+  const handleDelete = (e: React.MouseEvent, conv: Conversation) => {
+    e.stopPropagation()
+    deleteConversation(conv.id)
+    // Remover da lista local
+    useJarvisStore.getState().setConversations(
+      useJarvisStore.getState().conversations.filter((c) => c.id !== conv.id)
+    )
   }
 
   const handleNew = () => {
@@ -123,36 +131,70 @@ export function HistoryDrawer({ open, onClose }: HistoryDrawerProps) {
               {convs.map((conv) => {
                 const count = conv._count?.messages ?? conv.messageCount ?? 0
                 return (
-                  <button
+                  <div
                     key={conv.id}
-                    onClick={() => handleSelect(conv)}
                     style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '10px 8px',
+                      display: 'flex',
+                      alignItems: 'center',
                       borderRadius: 'var(--r-xs)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontFamily: 'var(--f)',
                       transition: 'background .2s',
+                      cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--fill-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                   >
-                    <div style={{
-                      fontSize: 13.5,
-                      color: 'var(--t-hi)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {conv.title}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--t-low)', marginTop: 2 }}>
-                      {formatTime(conv.updatedAt)} · {count} msgs
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleSelect(conv)}
+                      style={{
+                        flex: 1,
+                        textAlign: 'left',
+                        padding: '10px 8px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--f)',
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{
+                        fontSize: 13.5,
+                        color: 'var(--t-hi)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {conv.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--t-low)', marginTop: 2 }}>
+                        {formatTime(conv.updatedAt)} · {count} msgs
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, conv)}
+                      title="Deletar conversa"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'var(--t-ghost)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        marginRight: 4,
+                        flexShrink: 0,
+                        transition: 'color .2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--st-error)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--t-ghost)'}
+                    >
+                      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      </svg>
+                    </button>
+                  </div>
                 )
               })}
             </div>

@@ -7,6 +7,7 @@ import type {
   MessageCompletePayload,
   DecisionMadePayload,
   Conversation,
+  Message,
 } from '@jarvis/shared';
 import { useJarvisStore } from '../stores/jarvis.store';
 
@@ -31,6 +32,9 @@ export function useSocket() {
     });
 
     socket.on(WsEvent.StateChange, (payload: StateChangePayload) => {
+      // Não deixar o backend sobrescrever 'speaking' — o TTS do frontend controla esse estado
+      const current = useJarvisStore.getState().state;
+      if (current === 'speaking' && payload.state === 'idle') return;
       store.setState(payload.state);
     });
 
@@ -128,5 +132,29 @@ export function useSocket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { sendMessage, loadConversations, loadSettings, updateSetting };
+  const loadConversationMessages = useCallback((conversationId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit(WsEvent.ConversationMessages, { conversationId }, (data: Message[]) => {
+      store.setMessages(data);
+      store.setConversationId(conversationId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const deleteConversation = useCallback((conversationId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socket.emit(WsEvent.ConversationDelete, { conversationId }, () => {
+      // Se a conversa deletada é a atual, limpar
+      if (useJarvisStore.getState().conversationId === conversationId) {
+        store.newConversation();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { sendMessage, loadConversations, loadConversationMessages, deleteConversation, loadSettings, updateSetting };
 }

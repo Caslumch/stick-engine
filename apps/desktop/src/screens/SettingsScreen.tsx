@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useJarvisStore } from '../stores/jarvis.store'
 import { useSocket } from '../hooks/useSocket'
 import { useTheme, type ThemeMode } from '../theme/ThemeProvider'
@@ -214,12 +215,56 @@ function AppearanceGroup() {
 
 // ─── Agent ───────────────────────────────────────────────────
 
+const LLM_MODELS = [
+  { value: 'llama3.1', label: 'Llama 3.1', desc: 'Meta. Melhor em seguir instruções e PT-BR. 8B params.' },
+  { value: 'llama3.2', label: 'Llama 3.2', desc: 'Meta. Versão compacta, rápida. 3B params.' },
+  { value: 'qwen2.5', label: 'Qwen 2.5', desc: 'Alibaba. Bom em código e raciocínio. 7B params.' },
+  { value: 'mistral', label: 'Mistral', desc: 'Mistral AI. Rápido e eficiente. 7B params.' },
+  { value: 'gemma2', label: 'Gemma 2', desc: 'Google. Compacto e preciso. 9B params.' },
+  { value: 'phi3', label: 'Phi-3', desc: 'Microsoft. Otimizado pra tarefas curtas. 3.8B params.' },
+  { value: 'deepseek-r1', label: 'DeepSeek R1', desc: 'DeepSeek. Forte em raciocínio lógico. 7B params.' },
+]
+
 function AgentGroup() {
   const { updateSetting } = useSocket()
   const settings = useJarvisStore((s) => s.settings)
+  const currentModel = settings['llm.ollama.model'] || 'llama3.1'
+  const [installedModels, setInstalledModels] = useState<string[]>([])
+
+  useEffect(() => {
+    fetch('http://localhost:11434/api/tags')
+      .then((r) => r.json())
+      .then((data) => {
+        const names = (data.models || []).map((m: { name: string }) => m.name.replace(':latest', ''))
+        setInstalledModels(names)
+      })
+      .catch(() => setInstalledModels([]))
+  }, [])
+
+  const modelInfo = LLM_MODELS.find(m => m.value === currentModel)
+  const isInstalled = installedModels.length === 0 || installedModels.some(m => m.startsWith(currentModel))
 
   return (
     <Group title="Agent">
+      <Row label="LLM model" description={
+        modelInfo?.desc
+          ? `${modelInfo.desc}${!isInstalled ? ' — rode: ollama pull ' + currentModel : ''}`
+          : 'Local model via Ollama.'
+      }>
+        <ModelSelect
+          models={LLM_MODELS}
+          value={currentModel}
+          installed={installedModels}
+          onChange={(v) => {
+            updateSetting('llm.ollama.model', v)
+            // Pré-carregar modelo no Ollama pra não demorar na primeira mensagem
+            fetch('http://localhost:11434/api/generate', {
+              method: 'POST',
+              body: JSON.stringify({ model: v, prompt: '', keep_alive: '10m' }),
+            }).catch(() => {})
+          }}
+        />
+      </Row>
       <Row label="Persona" description="How much personality the replies carry.">
         <Segmented
           options={[
@@ -253,20 +298,58 @@ function VoiceGroup() {
   const { updateSetting } = useSocket()
   const settings = useJarvisStore((s) => s.settings)
 
+  const ttsEngine = settings['tts.engine'] || 'edge'
+
   return (
     <Group title="Voice">
-      <Row label="Speech rate" description="Playback speed of synthesized replies.">
-        <Slider
-          value={parseInt(settings['voice.speechRate'] ?? '112')}
-          min={60} max={180} suffix="%"
-          onChange={(v) => updateSetting('voice.speechRate', String(v))}
+      <Row label="TTS engine" description="Which voice engine synthesizes the agent's speech.">
+        <Segmented
+          options={[
+            { value: 'edge', label: 'Edge' },
+            { value: 'kokoro', label: 'Kokoro' },
+            { value: 'qwen', label: 'Qwen' },
+            { value: 'piper', label: 'Piper' },
+          ]}
+          value={ttsEngine}
+          onChange={(v) => {
+            updateSetting('tts.engine', v)
+            // Limpar voice ao trocar engine
+            updateSetting('tts.voice', '')
+          }}
         />
       </Row>
-      <Row label="Turn detection" description="How eagerly it decides you stopped talking.">
-        <Slider
-          value={parseInt(settings['voice.turnDetection'] ?? '64')}
-          min={0} max={100}
-          onChange={(v) => updateSetting('voice.turnDetection', String(v))}
+      <Row label="Voice" description={
+        ttsEngine === 'edge' ? 'Microsoft neural voice.' :
+        ttsEngine === 'kokoro' ? 'Local neural voice.' :
+        ttsEngine === 'qwen' ? 'Premium voice (slow).' :
+        'Local lightweight voice.'
+      }>
+        <Segmented
+          options={
+            ttsEngine === 'edge' ? [
+              { value: 'pt-BR-AntonioNeural', label: 'Antonio' },
+              { value: 'pt-BR-FranciscaNeural', label: 'Francisca' },
+              { value: 'pt-BR-ThalitaNeural', label: 'Thalita' },
+            ] :
+            ttsEngine === 'kokoro' ? [
+              { value: 'pf_dora', label: 'Dora' },
+              { value: 'pm_alex', label: 'Alex' },
+              { value: 'pm_santa', label: 'Santa' },
+            ] :
+            ttsEngine === 'qwen' ? [
+              { value: 'ryan', label: 'Ryan' },
+              { value: 'serena', label: 'Serena' },
+              { value: 'eric', label: 'Eric' },
+            ] :
+            [{ value: 'pt_BR-faber-medium', label: 'Faber' }]
+          }
+          value={settings['tts.voice'] || (
+            ttsEngine === 'edge' ? 'pt-BR-AntonioNeural' :
+            ttsEngine === 'kokoro' ? 'pf_dora' :
+            ttsEngine === 'qwen' ? 'ryan' :
+            'pt_BR-faber-medium'
+          )}
+          onChange={(v) => updateSetting('tts.voice', v)}
         />
       </Row>
       <Row label="Barge-in" description="Interrupt the agent by speaking over it.">
@@ -395,7 +478,6 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="glass" style={{
       borderRadius: 'var(--r-md)',
-      overflow: 'hidden',
       marginBottom: 16,
     }}>
       <div style={{
@@ -564,6 +646,149 @@ function Slider({ value, min, max, suffix, onChange }: {
         {value}{suffix ?? ''}
       </span>
     </div>
+  )
+}
+
+function ModelSelect({ models, value, installed, onChange }: {
+  models: { value: string; label: string; desc: string }[]
+  value: string
+  installed: string[]
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ top: 0, right: 0 })
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 6, right: window.innerWidth - r.right })
+    }
+    setOpen(!open)
+  }
+
+  const current = models.find((m) => m.value === value)
+  const isAvailable = (v: string) => installed.length === 0 || installed.some(i => i.startsWith(v))
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        style={{
+          height: 32,
+          padding: '0 14px',
+          borderRadius: 'var(--r-pill)',
+          fontSize: 13,
+          color: isAvailable(value) ? 'var(--t-hi)' : 'var(--st-error)',
+          background: 'var(--fill-1)',
+          border: `1px solid ${isAvailable(value) ? 'var(--g-edge)' : 'rgba(255,107,107,.3)'}`,
+          cursor: 'pointer',
+          fontFamily: 'var(--f)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          transition: '.2s',
+        }}
+      >
+        {current?.label || value}
+        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
+        </svg>
+      </button>
+
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            right: pos.right,
+            width: 280,
+            borderRadius: 'var(--r-sm)',
+            background: 'var(--bg)',
+            border: '1px solid var(--g-edge)',
+            boxShadow: '0 18px 50px -10px rgba(0,0,0,.6)',
+            maxHeight: 360,
+            overflowY: 'auto',
+            zIndex: 200,
+          }}
+        >
+          {models.map((m) => {
+            const avail = isAvailable(m.value)
+            const active = m.value === value
+            return (
+              <button
+                key={m.value}
+                onClick={() => { onChange(m.value); setOpen(false) }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '10px 14px',
+                  background: active ? 'var(--fill-2)' : 'none',
+                  border: 'none',
+                  borderBottom: '1px solid var(--hair)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--f)',
+                  transition: 'background .15s',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--fill-1)' }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: active ? 500 : 400,
+                    color: avail ? 'var(--t-hi)' : 'var(--t-low)',
+                  }}>
+                    {m.label}
+                  </span>
+                  {!avail && (
+                    <span style={{
+                      fontSize: 10,
+                      color: 'var(--st-error)',
+                      padding: '1px 6px',
+                      borderRadius: 'var(--r-pill)',
+                      background: 'rgba(255,107,107,.12)',
+                      fontWeight: 500,
+                    }}>
+                      not installed
+                    </span>
+                  )}
+                  {active && (
+                    <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto' }}>
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  )}
+                </div>
+                <div style={{
+                  fontSize: 11.5,
+                  color: 'var(--t-low)',
+                  marginTop: 2,
+                  lineHeight: 1.35,
+                }}>
+                  {m.desc}
+                </div>
+              </button>
+            )
+          })}
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 

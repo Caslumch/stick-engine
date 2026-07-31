@@ -5,6 +5,7 @@ import { useJarvisStore } from '../stores/jarvis.store'
 import { useTheme } from '../theme/ThemeProvider'
 import { JarvisOrb } from '../orb/JarvisOrb'
 import { useAudioAnalyser } from '../orb/hooks/useAudioAnalyser'
+import { getTTSBus } from '../hooks/ttsAudioBus'
 import type { AudioSource } from '../orb/hooks/useAudioAnalyser'
 import type { JarvisState } from '@jarvis/shared'
 
@@ -13,7 +14,7 @@ const STATE_COLORS: Record<JarvisState, { primary: string; secondary: string }> 
   listening: { primary: '#57C8FF', secondary: '#1A6A9A' },
   thinking:  { primary: '#8B7BFF', secondary: '#4338CA' },
   executing: { primary: '#A6F05A', secondary: '#4A8A1A' },
-  speaking:  { primary: '#FFB45C', secondary: '#9A5A1A' },
+  speaking:  { primary: '#7DD3FC', secondary: '#C4B5FD' },
   error:     { primary: '#FF6B6B', secondary: '#7F1D1D' },
   offline:   { primary: '#8A968F', secondary: '#374151' },
 }
@@ -27,13 +28,15 @@ export function OrbBridge() {
   const visible = view === 'voice' || isAmbient
   const isLight = resolved === 'light'
 
-  // Áudio: estados reativos (listening/speaking) alimentam o orb
-  const reactive = state === 'listening' || state === 'speaking'
+  // Áudio: listening usa mic, speaking usa o stream real do TTS
   const source = useMemo<AudioSource>(() => {
-    if (!reactive) return { kind: 'none' }
     if (state === 'listening') return { kind: 'mic' }
-    return { kind: 'simulated', intensity: 1 }
-  }, [reactive, state])
+    if (state === 'speaking') {
+      const bus = getTTSBus()
+      return { kind: 'stream', stream: bus.stream }
+    }
+    return { kind: 'none' }
+  }, [state])
   const audio = useAudioAnalyser(source)
 
   return (

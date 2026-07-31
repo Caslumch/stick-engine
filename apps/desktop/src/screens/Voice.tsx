@@ -4,6 +4,8 @@ import { useAudioAmplitude } from '../hooks/useAudioAmplitude'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { useTauriSTT, useTauriTTS, useTauriVoiceCheck } from '../hooks/useTauriVoice'
+import { useServerTTS, checkServerTTS } from '../hooks/useServerTTS'
+import { useVAD } from '../hooks/useVAD'
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
@@ -11,17 +13,17 @@ import { STATE_LABELS, VOICE_PROMPTS, DOCK } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
 /**
- * Tela de voz — orb centralizado (renderizado no Canvas persistente),
- * nome do estado, frase, dock com mic ao centro e secundários em colunas fixas.
- * Seções 7 e 11 do DESIGN_SYSTEM.md.
+ * Tela de voz — fluxo conversacional natural:
  *
- * Fluxo de voz (Fase 4):
- * idle -> mic click -> listening (STT captura) -> send -> thinking
- * -> backend responde -> speaking (TTS fala) -> idle
- *
- * Usa Whisper/Piper (Tauri sidecars) quando disponível,
- * fallback pra Web Speech API no browser.
+ * 1. Clica no mic → listening (grava áudio)
+ * 2. VAD detecta silêncio (~1.5s) → auto-envia (ou clica enviar)
+ * 3. Transcreve (Whisper ou Web Speech) → envia ao backend
+ * 4. Backend responde → TTS fala a resposta → idle
+ * 5. Barge-in: falar durante TTS cancela e volta a listening
  */
+
+const IN_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
 export function Voice() {
   const state = useJarvisStore((s) => s.state)
   const setState = useJarvisStore((s) => s.setState)
@@ -31,21 +33,14 @@ export function Voice() {
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
   const { sendMessage } = useSocket()
 
-  // Verificar se estamos no Tauri (WebView2 não tem Web Speech API)
-  const voiceCheck = useTauriVoiceCheck()
-  const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-  const useNative = inTauri // No Tauri, sempre usar sidecars (WebView2 não tem SpeechRecognition)
-
-  // Transcrição parcial local (o que o STT está captando)
   const [transcript, setTranscript] = useState('')
   const transcriptRef = useRef('')
+  const [error, setError] = useState('')
+  const sendingRef = useRef(false) // Previne duplo envio
 
-  // --- Speech-to-Text (Web Speech API fallback) ---
+  // --- STT ---
   const webStt = useSpeechRecognition({
-    onInterim: (text) => {
-      setTranscript(text)
-      transcriptRef.current = text
-    },
+    onInterim: (text) => { setTranscript(text); transcriptRef.current = text },
     onResult: (text) => {
       setTranscript((prev) => {
         const full = prev ? prev + ' ' + text : text
@@ -54,115 +49,59 @@ export function Voice() {
       })
     },
     onEnd: () => {},
-    onError: (err) => {
-      console.warn('[STT/Web] Erro:', err)
-    },
+    onError: (err) => { setError(`Microfone: ${err}`); console.warn('[STT/Web]', err) },
   })
 
-  // --- Speech-to-Text (Whisper via Tauri) ---
   const tauriStt = useTauriSTT({
-    onResult: (text) => {
-      setTranscript(text)
-      transcriptRef.current = text
-    },
-    onError: (err) => {
-      console.warn('[STT/Whisper] Erro:', err)
-    },
+    onResult: (text) => { setTranscript(text); transcriptRef.current = text },
+    onError: (err) => { setError(`Transcrição: ${err}`); console.warn('[STT/Whisper]', err) },
   })
 
-  // Selecionar o STT ativo
-  const stt = useNative ? tauriStt : webStt
+  const stt = IN_TAURI ? tauriStt : webStt
 
-  // --- Text-to-Speech (Web Speech API fallback) ---
-  const webTts = useSpeechSynthesis({
-    onStart: () => {},
-    onEnd: () => {
-      const current = useJarvisStore.getState().state
-      if (current === 'speaking') setState('idle')
-    },
-    onError: (err) => {
-      console.warn('[TTS/Web] Erro:', err)
-      setState('idle')
-    },
+  // --- TTS (via ref estável) ---
+  const ttsRef = useRef<{ speak: (t: string) => void; cancel: () => void; isSpeaking: () => boolean }>({
+    speak: () => {}, cancel: () => {}, isSpeaking: () => false,
   })
 
-  // --- Text-to-Speech (Piper via Tauri) ---
-  const tauriTts = useTauriTTS({
-    onStart: () => {},
-    onEnd: () => {
-      const current = useJarvisStore.getState().state
-      if (current === 'speaking') setState('idle')
-    },
-    onError: (err) => {
-      console.warn('[TTS/Piper] Erro:', err)
-      setState('idle')
-    },
-  })
+  const ttsStartCb = () => { setState('speaking') }
+  const ttsEndCb = () => { if (useJarvisStore.getState().state === 'speaking') setState('idle') }
+  const ttsErrCb = (err: string) => { setError(`Voz: ${err}`); setState('idle') }
 
-  // Selecionar o TTS ativo
-  const tts = useNative ? tauriTts : webTts
+  const webTts = useSpeechSynthesis({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
+  const tauriTts = useTauriTTS({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
+  const serverTts = useServerTTS({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
 
-  // Quando uma mensagem completa chega do backend e estamos na tela de voz,
-  // ler a resposta em voz alta
-  const lastMessageCount = useRef(0)
-  const messages = useJarvisStore((s) => s.messages)
-
+  // Checar se Qwen3-TTS está disponível (funciona em browser e Tauri)
+  const [serverReady, setQwenReady] = useState(false)
   useEffect(() => {
-    if (messages.length <= lastMessageCount.current) {
-      lastMessageCount.current = messages.length
-      return
-    }
-    lastMessageCount.current = messages.length
+    checkServerTTS().then(setQwenReady)
+  }, [])
 
-    const last = messages[messages.length - 1]
-    if (last?.role === 'assistant' && last.content) {
-      setState('speaking')
-      tts.speak(last.content)
-    }
-  }, [messages, setState, tts])
-
-  const handleCancel = useCallback(() => {
-    tts.cancel()
-    setState('idle')
-  }, [tts, setState])
-
-  const handleInterrupt = useCallback(() => {
-    tts.cancel()
-    setState('idle')
-  }, [tts, setState])
-
-  const leftAction = getLeftAction(state, handleCancel)
-  const rightAction = getRightAction(state, handleInterrupt)
-
-  const handleMicClick = () => {
-    if (state === 'idle') {
-      setTranscript('')
-      transcriptRef.current = ''
-      startAudio()
-      stt.start()
-      setState('listening')
-    }
+  // Prioridade: Qwen3-TTS > Tauri/Piper > Web Speech API
+  if (serverReady) {
+    ttsRef.current = serverTts
+  } else if (IN_TAURI) {
+    ttsRef.current = tauriTts
+  } else {
+    ttsRef.current = webTts
   }
 
-  const handleDiscard = () => {
-    stt.abort()
-    stopAudio()
-    setTranscript('')
-    transcriptRef.current = ''
-    setState('idle')
-  }
+  // --- Função de envio centralizada ---
+  const doSend = useCallback(async () => {
+    if (sendingRef.current) return
+    sendingRef.current = true
 
-  const handleSend = async () => {
     stopAudio()
+    vad.stop()
 
-    if (useNative) {
-      // Whisper: parar gravação → transcrição acontece no stop()
-      // O resultado chega via callback onResult que seta transcriptRef
+    if (IN_TAURI) {
       setTranscript('Transcrevendo...')
       await stt.stop()
       const text = transcriptRef.current.trim()
       setTranscript('')
       transcriptRef.current = ''
+      sendingRef.current = false
       if (text && text !== 'Transcrevendo...') {
         setState('thinking')
         sendMessage(text)
@@ -170,11 +109,11 @@ export function Voice() {
         setState('idle')
       }
     } else {
-      // Web Speech API: transcrição já está em transcriptRef
       stt.stop()
       const text = transcriptRef.current.trim()
       setTranscript('')
       transcriptRef.current = ''
+      sendingRef.current = false
       if (text) {
         setState('thinking')
         sendMessage(text)
@@ -182,7 +121,121 @@ export function Voice() {
         setState('idle')
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setState, sendMessage, stopAudio])
+
+  // --- VAD: auto-enviar quando detecta silêncio ---
+  const vad = useVAD({
+    threshold: 0.015,
+    silenceDuration: 1500,
+    onSilence: () => {
+      // Só auto-enviar se estamos em listening
+      if (useJarvisStore.getState().state === 'listening') {
+        doSend()
+      }
+    },
+  })
+
+  // --- Barge-in: detectar voz sustentada durante TTS ---
+  // Threshold alto (0.06) + 400ms de voz contínua pra evitar falsos positivos
+  // por barulho de fundo, música, etc.
+  const bargeInVad = useVAD({
+    threshold: 0.06,
+    voiceConfirmMs: 400,
+    silenceDuration: 500,
+    onVoiceStart: () => {
+      const current = useJarvisStore.getState().state
+      if (current === 'speaking') {
+        // Interromper TTS e voltar a ouvir
+        ttsRef.current.cancel()
+        setState('listening')
+        setTranscript('')
+        transcriptRef.current = ''
+        startAudio()
+        stt.start()
+        vad.start()
+        bargeInVad.stop()
+      }
+    },
+  })
+
+  // Quando o estado muda pra 'speaking', iniciar detecção de barge-in
+  useEffect(() => {
+    if (state === 'speaking') {
+      bargeInVad.start()
+    } else {
+      bargeInVad.stop()
+    }
+    return () => bargeInVad.stop()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  // --- Falar mensagens novas do assistente ---
+  const spokenIdsRef = useRef<Set<string>>(new Set())
+  const messages = useJarvisStore((s) => s.messages)
+  const prevMsgLenRef = useRef(messages.length)
+
+  useEffect(() => {
+    if (messages.length === prevMsgLenRef.current) return
+    prevMsgLenRef.current = messages.length
+
+    if (messages.length === 0) return
+    const last = messages[messages.length - 1]
+    if (!last || last.role !== 'assistant' || !last.content) return
+    if (spokenIdsRef.current.has(last.id)) return
+
+    spokenIdsRef.current.add(last.id)
+    ttsRef.current.cancel()
+    // Estado 'speaking' será setado pelo onStart do TTS — só quando o áudio realmente tocar
+    ttsRef.current.speak(last.content)
+  }, [messages, setState])
+
+  // --- Limpar erro após 4s ---
+  useEffect(() => {
+    if (!error) return
+    const t = setTimeout(() => setError(''), 4000)
+    return () => clearTimeout(t)
+  }, [error])
+
+  // --- Handlers ---
+  const handleMicClick = () => {
+    if (state === 'idle') {
+      ttsRef.current.cancel()
+      setError('')
+      setTranscript('')
+      transcriptRef.current = ''
+      sendingRef.current = false
+      startAudio()
+      stt.start()
+      vad.start()
+      setState('listening')
+    }
   }
+
+  const handleDiscard = () => {
+    stt.abort()
+    stopAudio()
+    vad.stop()
+    setTranscript('')
+    transcriptRef.current = ''
+    sendingRef.current = false
+    setState('idle')
+  }
+
+  const handleSend = () => doSend()
+
+  const handleCancel = useCallback(() => {
+    ttsRef.current.cancel()
+    setState('idle')
+  }, [setState])
+
+  const handleInterrupt = useCallback(() => {
+    ttsRef.current.cancel()
+    setState('idle')
+  }, [setState])
+
+  const leftAction = getLeftAction(state, handleCancel)
+  const rightAction = getRightAction(state, handleInterrupt)
 
   return (
     <div style={{
@@ -244,6 +297,18 @@ export function Voice() {
             ? transcript
             : streamingText || VOICE_PROMPTS[state]}
         </p>
+
+        {/* Feedback de erro */}
+        {error && (
+          <p style={{
+            fontSize: 13,
+            color: 'var(--st-error)',
+            marginTop: 8,
+            opacity: 0.85,
+          }}>
+            {error}
+          </p>
+        )}
       </div>
 
       {/* Dock */}
@@ -270,7 +335,7 @@ export function Voice() {
           {leftAction?.label}
         </button>
 
-        {/* Container do mic + cápsula: posição relativa para a cápsula se sobrepor */}
+        {/* Container do mic + cápsula */}
         <div style={{ position: 'relative', width: 76, height: 76 }}>
           <div style={{
             opacity: isListening ? 0 : 1,
@@ -317,16 +382,16 @@ const ghostStyle: React.CSSProperties = {
   transition: 'color .2s',
 }
 
-function getLeftAction(state: JarvisState, onCancel?: () => void) {
+function getLeftAction(state: JarvisState, onCancel: () => void) {
   if (state === 'thinking' || state === 'executing') {
-    return { label: DOCK.cancel, onClick: onCancel ?? (() => useJarvisStore.getState().setState('idle')) }
+    return { label: DOCK.cancel, onClick: onCancel }
   }
   return null
 }
 
-function getRightAction(state: JarvisState, onInterrupt?: () => void) {
+function getRightAction(state: JarvisState, onInterrupt: () => void) {
   if (state === 'speaking') {
-    return { label: DOCK.interrupt, onClick: onInterrupt ?? (() => useJarvisStore.getState().setState('idle')) }
+    return { label: DOCK.interrupt, onClick: onInterrupt }
   }
   if (state === 'error') {
     return { label: DOCK.retry, onClick: () => useJarvisStore.getState().setState('thinking') }

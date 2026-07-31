@@ -118,6 +118,27 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     return this.conversationService.createConversation();
   }
 
+  @SubscribeMessage(WsEvent.ConversationMessages)
+  async handleConversationMessages(@MessageBody() payload: { conversationId: string }) {
+    const conv = await this.conversationService.getConversation(payload.conversationId);
+    if (!conv) return [];
+    return conv.messages?.map((m: any) => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      role: m.role,
+      content: m.content,
+      provider: m.provider,
+      model: m.model,
+      createdAt: m.createdAt.toISOString?.() ?? m.createdAt,
+    })) ?? [];
+  }
+
+  @SubscribeMessage(WsEvent.ConversationDelete)
+  async handleConversationDelete(@MessageBody() payload: { conversationId: string }) {
+    await this.conversationService.deleteConversation(payload.conversationId);
+    return { success: true };
+  }
+
   @SubscribeMessage(WsEvent.SettingsGet)
   async handleSettingsGet() {
     return this.settingsService.getAllSafe();

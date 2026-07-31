@@ -4,34 +4,44 @@ import { generateText, streamText, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LlmProvider, LlmRequest, LlmResponse, LlmStreamCallback } from '../../../common/interfaces';
 import { prepareMessages } from './prepare-messages';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class OllamaProvider implements LlmProvider {
   readonly name = 'ollama';
   readonly type = 'local' as const;
 
-  private readonly modelId: string;
+  private readonly defaultModel: string;
   private readonly baseUrl: string;
 
-  constructor(config: ConfigService) {
-    this.modelId = config.get<string>('jarvis.ollama.model', 'qwen2.5');
+  constructor(
+    config: ConfigService,
+    private readonly settings: SettingsService,
+  ) {
+    this.defaultModel = config.get<string>('jarvis.ollama.model', 'llama3.1');
     this.baseUrl = config.get<string>('jarvis.ollama.url', 'http://localhost:11434');
   }
 
-  private createModel() {
+  private async getModelId(): Promise<string> {
+    const fromSettings = await this.settings.get('llm.ollama.model');
+    return fromSettings || this.defaultModel;
+  }
+
+  private createModel(modelId: string) {
     const client = createOpenAI({
       baseURL: `${this.baseUrl}/v1`,
       apiKey: 'ollama',
     });
-    return client.chat(this.modelId);
+    return client.chat(modelId);
   }
 
   async generate(request: LlmRequest): Promise<LlmResponse> {
     const { system, messages } = prepareMessages(request.messages);
     const hasTools = request.tools && Object.keys(request.tools).length > 0;
+    const modelId = await this.getModelId();
 
     const result = await generateText({
-      model: this.createModel(),
+      model: this.createModel(modelId),
       system,
       messages,
       ...(hasTools && {
@@ -42,7 +52,7 @@ export class OllamaProvider implements LlmProvider {
 
     return {
       content: result.text,
-      model: this.modelId,
+      model: modelId,
       provider: this.name,
       toolCalls: result.toolCalls?.map((tc: any) => ({
         toolCallId: tc.toolCallId,
@@ -60,9 +70,10 @@ export class OllamaProvider implements LlmProvider {
   async generateStream(request: LlmRequest, onToken: LlmStreamCallback): Promise<LlmResponse> {
     const { system, messages } = prepareMessages(request.messages);
     const hasTools = request.tools && Object.keys(request.tools).length > 0;
+    const modelId = await this.getModelId();
 
     const result = streamText({
-      model: this.createModel(),
+      model: this.createModel(modelId),
       system,
       messages,
       ...(hasTools && {
@@ -83,7 +94,7 @@ export class OllamaProvider implements LlmProvider {
 
     return {
       content: fullContent,
-      model: this.modelId,
+      model: modelId,
       provider: this.name,
       toolCalls: toolCalls?.map((tc: any) => ({
         toolCallId: tc.toolCallId,

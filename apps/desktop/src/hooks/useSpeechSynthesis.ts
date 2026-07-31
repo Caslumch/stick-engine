@@ -1,83 +1,72 @@
 import { useRef, useCallback } from 'react'
+import { cleanForSpeech } from './cleanForSpeech'
 
 /**
  * Hook de Text-to-Speech via Web Speech API.
  * Ponte temporária até Piper + Tauri.
  *
- * Fila de áudio: enfileira utterances e executa em sequência.
- * Não sobrepõe falas.
+ * Sem fila — cancel() para tudo imediatamente.
+ * Uma utterance por vez.
  */
 
 export interface SpeechSynthesisCallbacks {
-  /** Começou a falar uma utterance */
   onStart?: () => void
-  /** Terminou de falar toda a fila */
   onEnd?: () => void
-  /** Erro na síntese */
   onError?: (error: string) => void
 }
 
 export function useSpeechSynthesis(callbacks: SpeechSynthesisCallbacks) {
   const cbRef = useRef(callbacks)
   cbRef.current = callbacks
-  const queueRef = useRef<string[]>([])
   const speakingRef = useRef(false)
+  const cancelledRef = useRef(false)
 
   const isSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-  const processQueue = useCallback(() => {
-    if (!isSupported) return
-    if (speakingRef.current) return
-    if (queueRef.current.length === 0) {
-      cbRef.current.onEnd?.()
-      return
-    }
+  const speak = useCallback((text: string) => {
+    if (!isSupported || !text.trim()) return
 
-    const text = queueRef.current.shift()!
+    const cleaned = cleanForSpeech(text)
+    if (!cleaned) return
+
+    speechSynthesis.cancel()
+    cancelledRef.current = false
     speakingRef.current = true
 
-    const utterance = new SpeechSynthesisUtterance(text)
+    const utterance = new SpeechSynthesisUtterance(cleaned)
     utterance.lang = 'pt-BR'
     utterance.rate = 1.1
 
-    // Tentar achar uma voz pt-BR
     const voices = speechSynthesis.getVoices()
     const ptVoice = voices.find((v) => v.lang.startsWith('pt'))
     if (ptVoice) utterance.voice = ptVoice
 
     utterance.onstart = () => {
-      cbRef.current.onStart?.()
+      if (!cancelledRef.current) cbRef.current.onStart?.()
     }
 
     utterance.onend = () => {
       speakingRef.current = false
-      processQueue()
+      if (!cancelledRef.current) cbRef.current.onEnd?.()
     }
 
     utterance.onerror = (e) => {
       speakingRef.current = false
-      if (e.error !== 'canceled') {
+      if (e.error !== 'canceled' && !cancelledRef.current) {
         cbRef.current.onError?.(e.error)
       }
-      processQueue()
     }
 
     speechSynthesis.speak(utterance)
   }, [isSupported])
 
-  const speak = useCallback((text: string) => {
-    if (!text.trim()) return
-    queueRef.current.push(text)
-    if (!speakingRef.current) {
-      processQueue()
-    }
-  }, [processQueue])
-
   const cancel = useCallback(() => {
-    queueRef.current = []
+    cancelledRef.current = true
     speakingRef.current = false
     if (isSupported) speechSynthesis.cancel()
   }, [isSupported])
 
-  return { speak, cancel, isSupported }
+  const isSpeaking = useCallback(() => speakingRef.current, [])
+
+  return { speak, cancel, isSpeaking, isSupported }
 }

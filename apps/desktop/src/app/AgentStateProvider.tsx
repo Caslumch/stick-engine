@@ -11,7 +11,7 @@ const STATE_COLORS: Record<JarvisState, string | null> = {
   listening: '#57C8FF',
   thinking: '#8B7BFF',
   executing: '#A6F05A',
-  speaking: '#FFB45C',
+  speaking: '#7DD3FC',
   error: '#FF6B6B',
   offline: '#8A968F',
 }
