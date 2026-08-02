@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "turbo dev",
     "tts": "python services/tts/server.py",
-    "dev:all": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm dev\"",
+    "wakeword": "python services/wakeword/server.py",
+    "dev:all": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm wakeword\" \"pnpm dev\"",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",

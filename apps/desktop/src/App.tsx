@@ -8,6 +8,8 @@ import { Nav } from './ui/Nav';
 import { CommandPalette } from './ui/CommandPalette';
 import { Ambient } from './screens/Ambient';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useGlobalShortcut } from './hooks/useGlobalShortcut';
+import { useMinimizeToTray } from './hooks/useMinimizeToTray';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -21,6 +23,8 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useKeyboardShortcuts();
+  useGlobalShortcut();
+  useMinimizeToTray();
 
   const hideUI = isAmbient;
 

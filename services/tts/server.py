@@ -39,6 +39,7 @@ class SpeakRequest(BaseModel):
     engine: str = "edge"  # piper | edge | kokoro | qwen
     language: str = "Portuguese"
     voice: str = ""  # vazio = usar padrão do engine
+    rate: str = ""  # ex: "+10%", "-20%", "+0%" (Edge SSML only)
 
 
 # ─── Encode WAV ───────────────────────────────────────────────
@@ -71,11 +72,11 @@ def encode_wav(samples, sample_rate: int) -> bytes:
 
 # ─── Engine: Edge TTS ─────────────────────────────────────────
 
-async def speak_edge(text: str, voice: str) -> bytes:
+async def speak_edge(text: str, voice: str, rate: str = "") -> bytes:
     import edge_tts
 
     voice = voice or "pt-BR-AntonioNeural"  # Masculina natural pt-BR
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, rate=rate or "+0%")
 
     buf = io.BytesIO()
     async for chunk in communicate.stream():
@@ -143,7 +144,7 @@ async def speak(req: SpeakRequest):
 
     try:
         if engine == "edge":
-            audio_bytes = await speak_edge(req.text, req.voice)
+            audio_bytes = await speak_edge(req.text, req.voice, req.rate)
             content_type = "audio/mpeg"  # Edge retorna MP3
         elif engine == "kokoro":
             audio_bytes = await speak_kokoro(req.text, req.voice)

@@ -7,6 +7,7 @@ import { useTauriSTT, useTauriTTS, useTauriVoiceCheck } from '../hooks/useTauriV
 import { useServerTTS, checkServerTTS } from '../hooks/useServerTTS'
 import { useVAD } from '../hooks/useVAD'
 import { useWakeWord } from '../hooks/useWakeWord'
+import { useNativeWakeWord, checkNativeWakeWord } from '../hooks/useNativeWakeWord'
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
@@ -280,16 +281,40 @@ export function Voice() {
     setState('idle')
   }, [setState])
 
-  // --- Wake word: "Jarvis" aciona o mic ---
-  const wakeWordEnabled = state === 'idle' && !IN_TAURI
+  // --- Wake word: prioridade nativa (OpenWakeWord) > Web Speech API ---
+  const [nativeWakeWordReady, setNativeWakeWordReady] = useState(false)
+  useEffect(() => {
+    // Check immediately and retry every 5s until found
+    let mounted = true
+    const check = () => {
+      checkNativeWakeWord().then((ready) => {
+        if (!mounted) return
+        setNativeWakeWordReady(ready)
+        if (!ready) setTimeout(check, 5000)
+      })
+    }
+    check()
+    return () => { mounted = false }
+  }, [])
+
+  const wakeWordCallback = useCallback(() => {
+    console.log('[WakeWord] Detectado!')
+    if (useJarvisStore.getState().state === 'idle') {
+      handleMicClick()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Native wake word (OpenWakeWord service — works everywhere, even in Tauri)
+  useNativeWakeWord({
+    enabled: nativeWakeWordReady && state === 'idle',
+    onWake: wakeWordCallback,
+  })
+
+  // Fallback: Web Speech API wake word (browser only, not in Tauri)
   useWakeWord({
-    enabled: wakeWordEnabled,
-    onWake: () => {
-      console.log('[WakeWord] "Jarvis" detectado!')
-      if (useJarvisStore.getState().state === 'idle') {
-        handleMicClick()
-      }
-    },
+    enabled: !nativeWakeWordReady && state === 'idle' && !IN_TAURI,
+    onWake: wakeWordCallback,
   })
 
   const leftAction = getLeftAction(state, handleCancel)

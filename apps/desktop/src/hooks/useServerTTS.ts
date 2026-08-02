@@ -26,23 +26,63 @@ export function useServerTTS(callbacks: ServerTTSCallbacks) {
   const cancelledRef = useRef(false)
   const startedRef = useRef(false)
 
-  const splitSentences = (text: string): string[] => {
+  const BASE_RATES: Record<string, number> = { slow: -15, normal: 0, fast: 20 }
+
+  /**
+   * Classify content type for dynamic speech rate.
+   * Lists/enumerations → faster. Explanations/greetings → normal. Questions → slightly slower.
+   */
+  const classifyRate = (sentence: string): string => {
+    const settings = useJarvisStore.getState().settings
+    const baseSpeed = settings['tts.speed'] || 'normal'
+    const dynamicEnabled = settings['tts.dynamicSpeed'] !== 'false'
+    const base = BASE_RATES[baseSpeed] ?? 0
+
+    if (!dynamicEnabled) {
+      return base >= 0 ? `+${base}%` : `${base}%`
+    }
+
+    const s = sentence.trim()
+    let offset = 0
+
+    // Lists / enumerations — speak faster
+    if (/^\d+[\.\)]\s/.test(s) || /^[-•]\s/.test(s) || /^[a-z]\)\s/i.test(s)) {
+      offset = 15
+    }
+    // Short confirmations — normal speed
+    else if (s.length < 30) { offset = 0 }
+    // Questions — slightly slower for clarity
+    else if (s.endsWith('?')) { offset = -5 }
+    // Long explanations — slightly slower
+    else if (s.length > 150) { offset = -8 }
+
+    const total = base + offset
+    return total >= 0 ? `+${total}%` : `${total}%`
+  }
+
+  const splitSentences = (text: string): { text: string; rate: string }[] => {
     const parts = text.split(/(?<=[.!?;:])\s+/)
-    const sentences: string[] = []
+    const sentences: { text: string; rate: string }[] = []
     let current = ''
     for (const part of parts) {
       if (current.length + part.length > 200) {
-        if (current) sentences.push(current.trim())
+        if (current) {
+          const t = current.trim()
+          sentences.push({ text: t, rate: classifyRate(t) })
+        }
         current = part
       } else {
         current += (current ? ' ' : '') + part
       }
     }
-    if (current.trim()) sentences.push(current.trim())
-    return sentences.length > 0 ? sentences : [text]
+    if (current.trim()) {
+      const t = current.trim()
+      sentences.push({ text: t, rate: classifyRate(t) })
+    }
+    return sentences.length > 0 ? sentences : [{ text, rate: '+0%' }]
   }
 
-  const speakOne = async (sentence: string): Promise<void> => {
+  const speakOne = async (sentence: string, rate: string = '+0%'): Promise<void> => {
     if (cancelledRef.current) return
 
     const settings = useJarvisStore.getState().settings
@@ -52,7 +92,7 @@ export function useServerTTS(callbacks: ServerTTSCallbacks) {
     const resp = await fetch(`${TTS_URL}/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: sentence, engine, voice }),
+      body: JSON.stringify({ text: sentence, engine, voice, rate }),
     })
 
     if (!resp.ok) {
@@ -96,9 +136,9 @@ export function useServerTTS(callbacks: ServerTTSCallbacks) {
       if (!cleaned) return
       const sentences = splitSentences(cleaned)
 
-      for (const sentence of sentences) {
+      for (const segment of sentences) {
         if (cancelledRef.current) break
-        await speakOne(sentence)
+        await speakOne(segment.text, segment.rate)
       }
 
       if (!cancelledRef.current) cbRef.current.onEnd?.()

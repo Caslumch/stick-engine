@@ -310,7 +310,50 @@ function AgentGroup() {
           onChange={(v) => updateSetting('agent.memory', String(v))}
         />
       </Row>
+      <AutostartRow />
+      <Row label="Global hotkey" description="Show/hide Jarvis from anywhere.">
+        <Kbd keys={['Ctrl', 'Shift', 'J']} />
+      </Row>
     </Group>
+  )
+}
+
+const IN_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+function AutostartRow() {
+  const [enabled, setEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!IN_TAURI) { setLoading(false); return }
+    import('@tauri-apps/plugin-autostart').then(({ isEnabled }) => {
+      isEnabled().then(setEnabled).finally(() => setLoading(false))
+    }).catch(() => setLoading(false))
+  }, [])
+
+  const toggle = useCallback(async (v: boolean) => {
+    if (!IN_TAURI) return
+    setEnabled(v)
+    try {
+      const { enable, disable } = await import('@tauri-apps/plugin-autostart')
+      if (v) await enable()
+      else await disable()
+    } catch (err) {
+      console.warn('[Autostart]', err)
+      setEnabled(!v) // revert on error
+    }
+  }, [])
+
+  if (!IN_TAURI) return null
+
+  return (
+    <Row label="Autostart" description="Launch Jarvis when you log in.">
+      {loading ? (
+        <span style={{ fontSize: 12, color: 'var(--t-low)' }}>...</span>
+      ) : (
+        <Toggle value={enabled} onChange={toggle} />
+      )}
+    </Row>
   )
 }
 
@@ -372,6 +415,23 @@ function VoiceGroup() {
             'pt_BR-faber-medium'
           )}
           onChange={(v) => updateSetting('tts.voice', v)}
+        />
+      </Row>
+      <Row label="Speech speed" description="Base speed. Dynamic mode adjusts per content type.">
+        <Segmented
+          options={[
+            { value: 'slow', label: 'Slow' },
+            { value: 'normal', label: 'Normal' },
+            { value: 'fast', label: 'Fast' },
+          ]}
+          value={settings['tts.speed'] ?? 'normal'}
+          onChange={(v) => updateSetting('tts.speed', v)}
+        />
+      </Row>
+      <Row label="Dynamic speed" description="Lists faster, explanations slower, questions clearer.">
+        <Toggle
+          value={settings['tts.dynamicSpeed'] !== 'false'}
+          onChange={(v) => updateSetting('tts.dynamicSpeed', String(v))}
         />
       </Row>
       <Row label="Barge-in" description="Interrupt the agent by speaking over it.">
@@ -485,6 +545,7 @@ function ToolsGroup() {
 function ShortcutsGroup() {
   return (
     <Group title="Shortcuts">
+      <Row label="Show / hide (global)"><Kbd keys={['Ctrl', '⇧', 'J']} /></Row>
       <Row label="Command palette"><Kbd keys={['⌘', 'K']} /></Row>
       <Row label="Push to talk"><Kbd keys={['space']} /></Row>
       <Row label="Switch screen"><Kbd keys={['1', '2', '3']} /></Row>

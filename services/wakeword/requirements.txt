@@ -1,0 +1,6 @@
+openwakeword
+fastapi
+uvicorn[standard]
+numpy
+sounddevice
+websockets

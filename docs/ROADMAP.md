@@ -16,6 +16,7 @@
 | 5 | Interface Viva — STICK design system, orb R3F, 7 estados, glass UI, 3 telas | 30/07 | ✅ |
 | 6 | Memoria — pgvector, embeddings, sliding window, extracao automatica | 01/08 | ✅ |
 | 7 | Conversacao Inteligente — prompt modular, fillers, classificacao de intencao | 01/08 | ✅ |
+| 8 | Voz Nativa + Always-On — tray, autostart, hotkey, OpenWakeWord, voz expressiva | 02/08 | ✅ |
 
 **Pendentes de fases anteriores:**
 - [ ] 4c: Migrar wake word pra OpenWakeWord (movido pra Fase 8)
@@ -28,13 +29,13 @@
 
 | Pilar | Descricao | Cobertura | Gap Principal |
 |-------|-----------|-----------|---------------|
-| 1. Escuta Permanente | Sempre disponivel, baixo consumo | 30% | Wake word browser-only, sem tray mode |
+| 1. Escuta Permanente | Sempre disponivel, baixo consumo | 75% | OpenWakeWord nativo + tray + autostart + global hotkey |
 | 2. Compreensao | Interpreta intencoes, proativo | 65% | Classificacao de intencao por heuristica, falta sugestoes proativas |
 | 3. Memoria | Conhece o usuario, aprende | **70%** | pgvector + embeddings + extracao automatica. Falta contexto entre sessoes |
 | 4. Conversacao Continua | Contexto entre turnos e sessoes | 50% | Sliding window + resumo. Falta carryover entre sessoes |
-| 5. Voz Humana | Pausas, ritmo, emocao, enfase | 35% | Sem controle de prosodia/SSML |
+| 5. Voz Humana | Pausas, ritmo, emocao, enfase | 60% | Velocidade dinamica + pausas naturais, falta emocao |
 | 6. Baixa Latencia | 200-500ms, respostas parciais | 65% | Fillers contextuais por intencao, TTS durante thinking |
-| 7. Interface Viva | Orb reage a tudo | **75%** | Falta emocao no orb, widget/tray |
+| 7. Interface Viva | Orb reage a tudo | **80%** | Tray mode implementado, falta emocao no orb |
 | 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 20% | So Computer capability existe |
 
 ---
@@ -99,19 +100,23 @@
 > Pilares: **1 (Escuta Permanente)**, **5 (Voz Humana)**
 
 ### 8a — Wake Word Nativo
-- [ ] OpenWakeWord como sidecar Tauri (modelo local, offline)
-- [ ] Deteccao eficiente em background (baixo CPU)
-- [ ] Funciona sem Chrome / sem browser
+- [x] OpenWakeWord como microservico Python (localhost:5002, modelo local, offline)
+- [x] Deteccao em background via sounddevice + WebSocket notifications
+- [x] Funciona sem Chrome / sem browser — captura mic do sistema
+- [x] Fallback automatico: nativo > Web Speech API
 
 ### 8b — Always-On
-- [ ] Widget flutuante / tray mode (mini orb + status)
-- [ ] Autostart com o sistema (Tauri plugin)
-- [ ] Global hotkey pra ativar/desativar
+- [x] System tray icon com menu (Mostrar/Sair) e double-click
+- [x] Minimize to tray — fechar janela esconde pro tray
+- [x] Autostart com o sistema (tauri-plugin-autostart) com toggle em Settings
+- [x] Global hotkey Ctrl+Shift+J pra mostrar/esconder de qualquer lugar
 
 ### 8c — Voz Expressiva
-- [ ] SSML ou speech marks para controlar pausas e enfase
-- [ ] Ajuste dinamico de velocidade por tipo de conteudo (listas mais rapido, explicacoes mais lento)
-- [ ] Exploracao de TTS com controle emocional (Qwen3-TTS emotions, ou alternativas)
+- [x] Velocidade dinamica por tipo de conteudo (listas +15%, explicacoes -8%, perguntas -5%)
+- [x] Rate parameter no TTS server (Edge SSML rate)
+- [x] Settings: base speed (slow/normal/fast) + toggle dynamic speed
+- [x] Pausas naturais: headers e bullets viram sentences com periodo
+- [ ] TTS com controle emocional (requer Qwen3-TTS emotions — futuro)
 
 **Entregavel:** "Jarvis" acorda o sistema a qualquer momento. Voz com pausas naturais e ritmo variavel.
 
@@ -191,8 +196,8 @@ Quando uma capability ganha autonomia, ela vira um agente:
 Fase 0-5  ██████████  Fundacao → Interface      ✅ Concluido
 Fase 6    █████████░  Memoria                   ✅ (falta contexto entre sessoes)
 Fase 7    ████████░░  Conversacao Inteligente   ✅ (falta sugestoes proativas)
-Fase 8    ░░░░░░░░░░  Voz Nativa + Always-On    ← PROXIMO
-Fase 9    ░░░░░░░░░░  Capabilities Essenciais
+Fase 8    █████████░  Voz Nativa + Always-On    ✅ (falta TTS emocional)
+Fase 9    ░░░░░░░░░░  Capabilities Essenciais   ← PROXIMO
 Fase 10   ░░░░░░░░░░  Integracoes
 ──────────────────────────────────────────────
 V2        Agentes Especializados
