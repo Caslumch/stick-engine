@@ -11,7 +11,7 @@ import { useNativeWakeWord, checkNativeWakeWord } from '../hooks/useNativeWakeWo
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
-import { STATE_LABELS, VOICE_PROMPTS, DOCK } from '../app/strings'
+import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
 /**
@@ -26,11 +26,13 @@ import type { JarvisState } from '@jarvis/shared'
 
 const IN_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
+
 export function Voice() {
   const state = useJarvisStore((s) => s.state)
   const setState = useJarvisStore((s) => s.setState)
   const streamingText = useJarvisStore((s) => s.streamingText)
   const fillerText = useJarvisStore((s) => s.fillerText)
+  const toolExecutions = useJarvisStore((s) => s.toolExecutions)
   const isListening = state === 'listening'
 
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
@@ -393,6 +395,38 @@ export function Voice() {
           }}>
             {thinkingTime}s
           </p>
+        )}
+
+        {/* Tool execution feedback */}
+        {toolExecutions.length > 0 && (
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            {toolExecutions.map((te, i) => (
+              <div key={i} style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '5px 14px',
+                borderRadius: 'var(--r-pill)',
+                background: 'var(--fill-1)',
+                border: '1px solid var(--hair)',
+                fontSize: 12.5,
+                color: te.status === 'executing' ? 'var(--accent)' : 'var(--t-low)',
+                fontFamily: 'var(--f)',
+                transition: 'all .3s',
+              }}>
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: te.status === 'executing' ? 'var(--accent)' : 'var(--st-executing)',
+                  animation: te.status === 'executing' ? 'pulse 1.2s infinite' : 'none',
+                }} />
+                {TOOL_LABELS[te.toolName] ?? te.toolName}
+                {te.status === 'done' && te.result?.success && ' — ok'}
+                {te.status === 'done' && !te.result?.success && ' — erro'}
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Feedback de erro */}

@@ -36,3 +36,26 @@ export const DOCK = {
   retry: 'Tentar de novo',
   reconnect: 'Reconectar',
 }
+
+export const TOOL_LABELS: Record<string, string> = {
+  web_search: 'Pesquisando na web',
+  finance_summary: 'Consultando finanças',
+  finance_by_category: 'Analisando categorias',
+  finance_transactions: 'Buscando transações',
+  finance_monthly: 'Carregando histórico',
+  create_reminder: 'Criando lembrete',
+  list_reminders: 'Listando lembretes',
+  complete_reminder: 'Completando lembrete',
+  delete_reminder: 'Deletando lembrete',
+  send_telegram: 'Enviando no Telegram',
+  home_list_devices: 'Listando dispositivos',
+  home_control: 'Controlando dispositivo',
+  home_scene: 'Ativando cena',
+  spotify_search: 'Pesquisando música',
+  spotify_play: 'Tocando música',
+  spotify_control: 'Controlando player',
+  spotify_now_playing: 'Verificando reprodução',
+  open_application: 'Abrindo aplicativo',
+  run_command: 'Executando comando',
+  manage_files: 'Gerenciando arquivos',
+}

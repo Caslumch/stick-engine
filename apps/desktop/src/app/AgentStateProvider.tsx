@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useJarvisStore } from '../stores/jarvis.store'
+import { isTTSPlaying } from '../hooks/ttsAudioBus'
 import type { JarvisState } from '@jarvis/shared'
 
 /**
@@ -27,6 +28,9 @@ const DEFAULT_BASE = '#4ADFB0'
  * Escreve --accent e --accent-rgb no <html> a cada troca de estado.
  * Também escreve data-state para regras CSS condicionais.
  *
+ * Monitora o TTS audio bus: se tem áudio tocando e estado é idle,
+ * corrige pra speaking. Se estado é speaking mas áudio parou, volta pra idle.
+ *
  * Nenhum componente deve importar cor de estado diretamente — todos leem var(--accent).
  */
 export function AgentStateProvider({ children }: { children: React.ReactNode }) {
@@ -39,6 +43,22 @@ export function AgentStateProvider({ children }: { children: React.ReactNode }) 
     el.style.setProperty('--accent-rgb', hexToRgb(color))
     el.dataset.state = state
   }, [state])
+
+  // Polling global: sincroniza estado com áudio real do TTS
+  useEffect(() => {
+    const id = setInterval(() => {
+      const current = useJarvisStore.getState().state
+      const playing = isTTSPlaying()
+
+      if (playing && current === 'idle') {
+        useJarvisStore.getState().setState('speaking')
+      } else if (!playing && current === 'speaking') {
+        useJarvisStore.getState().setState('idle')
+      }
+    }, 300)
+
+    return () => clearInterval(id)
+  }, [])
 
   return <>{children}</>
 }

@@ -39,3 +39,13 @@ export function getTTSBus() {
 export async function resumeTTSBus() {
   if (ctx?.state === 'suspended') await ctx.resume()
 }
+
+/** Checa se tem áudio tocando no bus (amplitude > threshold) */
+export function isTTSPlaying(threshold = 0.01): boolean {
+  if (!analyser) return false
+  const data = new Float32Array(analyser.fftSize)
+  analyser.getFloatTimeDomainData(data)
+  let sum = 0
+  for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
+  return Math.sqrt(sum / data.length) > threshold
+}
