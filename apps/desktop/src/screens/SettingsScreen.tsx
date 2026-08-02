@@ -5,10 +5,18 @@ import { useSocket } from '../hooks/useSocket'
 import { useTheme, type ThemeMode } from '../theme/ThemeProvider'
 
 /**
- * Tela de settings — grupos em cards de vidro, Appearance primeiro.
- * Espelha fielmente o stick.html (screenshots de referência).
+ * Tela de settings — tabs no topo, cards de vidro, modal de integrações.
  * Seção 11 do DESIGN_SYSTEM.md.
  */
+
+type SettingsTab = 'general' | 'voice' | 'integrations' | 'shortcuts'
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'voice', label: 'Voice' },
+  { id: 'integrations', label: 'Integrations' },
+  { id: 'shortcuts', label: 'Shortcuts' },
+]
 
 const ACCENT_SWATCHES = [
   '#4ADFB0', '#57C8FF', '#8B7BFF', '#FF9B7B', '#FFD25C', '#E6ECE9',
@@ -31,14 +39,33 @@ const TOOLS = [
   { name: 'Open app', on: true, desc: 'Abrir programas instalados' },
   { name: 'Run command', on: true, desc: 'Executar comandos no terminal' },
   { name: 'Manage files', on: true, desc: 'Criar, ler, mover e deletar arquivos' },
-  { name: 'Calendar', on: false, desc: 'Lembretes e compromissos (em breve)' },
-  { name: 'Search', on: false, desc: 'Pesquisa web (em breve)' },
-  { name: 'Notifications', on: false, desc: 'Telegram, email (em breve)' },
-  { name: 'Smart home', on: false, desc: 'Luzes, tomadas (em breve)' },
+  { name: 'Search', on: true, desc: 'Pesquisa web via Tavily' },
+  { name: 'Reminders', on: true, desc: 'Lembretes e notificações agendadas' },
+  { name: 'Telegram', on: true, desc: 'Enviar mensagens via Telegram' },
+  { name: 'Finance', on: true, desc: 'Consultar finanças (LemonFin)' },
+  { name: 'Smart home', on: true, desc: 'Controlar luzes e dispositivos (Tuya)' },
+  { name: 'Spotify', on: true, desc: 'Pesquisar e controlar música' },
 ]
+
+const LLM_MODELS = [
+  { value: 'llama3.1', label: 'Llama 3.1', desc: 'Meta. Melhor em seguir instruções e PT-BR. 8B params.' },
+  { value: 'llama3.2', label: 'Llama 3.2', desc: 'Meta. Versão compacta, rápida. 3B params.' },
+  { value: 'qwen2.5', label: 'Qwen 2.5', desc: 'Alibaba. Bom em código e raciocínio. 7B params.' },
+  { value: 'mistral', label: 'Mistral', desc: 'Mistral AI. Rápido e eficiente. 7B params.' },
+  { value: 'gemma2', label: 'Gemma 2', desc: 'Google. Compacto e preciso. 9B params.' },
+  { value: 'phi3', label: 'Phi-3', desc: 'Microsoft. Otimizado pra tarefas curtas. 3.8B params.' },
+  { value: 'deepseek-r1', label: 'DeepSeek R1', desc: 'DeepSeek. Forte em raciocínio lógico. 7B params.' },
+]
+
+const IN_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+
+// ═══════════════════════════════════════════════════════════════
+// Main
+// ═══════════════════════════════════════════════════════════════
 
 export function SettingsScreen() {
   const { loadSettings } = useSocket()
+  const [tab, setTab] = useState<SettingsTab>('general')
 
   useEffect(() => {
     loadSettings()
@@ -61,23 +88,82 @@ export function SettingsScreen() {
         }}>
           Settings
         </h1>
-        <p style={{ fontSize: 15, color: 'var(--t-low)', marginBottom: 34 }}>
+        <p style={{ fontSize: 15, color: 'var(--t-low)', marginBottom: 24 }}>
           Everything applies the moment you change it.
         </p>
 
-        <AppearanceGroup />
-        <AgentGroup />
-        <VoiceGroup />
-        <OrbGroup />
-        <ToolsGroup />
-        <IntegrationsGroup />
-        <ShortcutsGroup />
+        {/* Tabs */}
+        <div style={{
+          display: 'flex',
+          gap: 4,
+          padding: 3,
+          borderRadius: 'var(--r-pill)',
+          background: 'var(--fill-1)',
+          border: '1px solid var(--hair)',
+          marginBottom: 24,
+          position: 'relative',
+        }}>
+          <span style={{
+            position: 'absolute',
+            top: 3,
+            left: 3,
+            height: 'calc(100% - 6px)',
+            borderRadius: 'var(--r-pill)',
+            background: 'var(--fill-3)',
+            border: '1px solid var(--g-edge)',
+            transition: 'transform .44s var(--sp-morph), width .44s var(--sp-morph)',
+            width: `${100 / TABS.length}%`,
+            transform: `translateX(${TABS.findIndex(t => t.id === tab) * 100}%)`,
+          }} />
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                flex: 1,
+                position: 'relative',
+                zIndex: 1,
+                height: 34,
+                borderRadius: 'var(--r-pill)',
+                fontSize: 13,
+                fontWeight: 450,
+                color: tab === t.id ? 'var(--t-hi)' : 'var(--t-low)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--f)',
+                transition: 'color .22s',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        {tab === 'general' && <GeneralTab />}
+        {tab === 'voice' && <VoiceTab />}
+        {tab === 'integrations' && <IntegrationsTab />}
+        {tab === 'shortcuts' && <ShortcutsTab />}
       </div>
     </div>
   )
 }
 
-// ─── Appearance ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Tab: General
+// ═══════════════════════════════════════════════════════════════
+
+function GeneralTab() {
+  return (
+    <>
+      <AppearanceGroup />
+      <AgentGroup />
+      <OrbGroup />
+      <ToolsGroup />
+    </>
+  )
+}
 
 function AppearanceGroup() {
   const { mode, setMode } = useTheme()
@@ -89,7 +175,6 @@ function AppearanceGroup() {
 
   const applyAccent = (color: string) => {
     setAccent(color)
-    // Só aplica em idle (outros estados sobrescrevem)
     const state = useJarvisStore.getState().state
     if (state === 'idle') {
       document.documentElement.style.setProperty('--accent', color)
@@ -122,16 +207,6 @@ function AppearanceGroup() {
     reader.readAsDataURL(f)
   }
 
-  const applyBlur = (v: number) => {
-    setBgBlur(v)
-    document.documentElement.style.setProperty('--bg-blur', v + 'px')
-  }
-
-  const applyDim = (v: number) => {
-    setBgDim(v)
-    document.documentElement.style.setProperty('--bg-dim', String(v / 100))
-  }
-
   return (
     <Group title="Appearance">
       <Row label="Theme" description="Auto follows your system.">
@@ -152,23 +227,13 @@ function AppearanceGroup() {
               key={c}
               onClick={() => applyAccent(c)}
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: '50%',
+                width: 26, height: 26, borderRadius: '50%',
                 border: accent === c ? '2px solid var(--t-hi)' : '2px solid transparent',
-                background: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                transition: 'transform .22s var(--sp)',
-                padding: 0,
+                background: 'none', cursor: 'pointer', position: 'relative',
+                transition: 'transform .22s var(--sp)', padding: 0,
               }}
             >
-              <span style={{
-                position: 'absolute',
-                inset: 3,
-                borderRadius: '50%',
-                background: c,
-              }} />
+              <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: c }} />
             </button>
           ))}
         </div>
@@ -187,16 +252,10 @@ function AppearanceGroup() {
           <button
             onClick={() => fileRef.current?.click()}
             style={{
-              height: 32,
-              padding: '0 14px',
-              borderRadius: 'var(--r-pill)',
-              fontSize: 13,
-              color: 'var(--t-hi)',
-              background: 'var(--fill-2)',
-              border: '1px solid var(--g-edge)',
-              cursor: 'pointer',
-              fontFamily: 'var(--f)',
-              transition: '.2s',
+              height: 32, padding: '0 14px', borderRadius: 'var(--r-pill)',
+              fontSize: 13, color: 'var(--t-hi)', background: 'var(--fill-2)',
+              border: '1px solid var(--g-edge)', cursor: 'pointer',
+              fontFamily: 'var(--f)', transition: '.2s',
             }}
           >
             Custom…
@@ -205,26 +264,14 @@ function AppearanceGroup() {
         </div>
       </Row>
       <Row label="Background blur" description="More blur keeps text legible over busy photos.">
-        <Slider value={bgBlur} min={0} max={60} suffix="px" onChange={applyBlur} />
+        <Slider value={bgBlur} min={0} max={60} suffix="px" onChange={(v) => { setBgBlur(v); document.documentElement.style.setProperty('--bg-blur', v + 'px') }} />
       </Row>
       <Row label="Background dim" description="How much of the base colour sits on top.">
-        <Slider value={bgDim} min={0} max={95} suffix="%" onChange={applyDim} />
+        <Slider value={bgDim} min={0} max={95} suffix="%" onChange={(v) => { setBgDim(v); document.documentElement.style.setProperty('--bg-dim', String(v / 100)) }} />
       </Row>
     </Group>
   )
 }
-
-// ─── Agent ───────────────────────────────────────────────────
-
-const LLM_MODELS = [
-  { value: 'llama3.1', label: 'Llama 3.1', desc: 'Meta. Melhor em seguir instruções e PT-BR. 8B params.' },
-  { value: 'llama3.2', label: 'Llama 3.2', desc: 'Meta. Versão compacta, rápida. 3B params.' },
-  { value: 'qwen2.5', label: 'Qwen 2.5', desc: 'Alibaba. Bom em código e raciocínio. 7B params.' },
-  { value: 'mistral', label: 'Mistral', desc: 'Mistral AI. Rápido e eficiente. 7B params.' },
-  { value: 'gemma2', label: 'Gemma 2', desc: 'Google. Compacto e preciso. 9B params.' },
-  { value: 'phi3', label: 'Phi-3', desc: 'Microsoft. Otimizado pra tarefas curtas. 3.8B params.' },
-  { value: 'deepseek-r1', label: 'DeepSeek R1', desc: 'DeepSeek. Forte em raciocínio lógico. 7B params.' },
-]
 
 function AgentGroup() {
   const { updateSetting } = useSocket()
@@ -258,7 +305,6 @@ function AgentGroup() {
           installed={installedModels}
           onChange={(v) => {
             updateSetting('llm.ollama.model', v)
-            // Pré-carregar modelo no Ollama pra não demorar na primeira mensagem
             fetch('http://localhost:11434/api/generate', {
               method: 'POST',
               body: JSON.stringify({ model: v, prompt: '', keep_alive: '10m' }),
@@ -319,8 +365,6 @@ function AgentGroup() {
   )
 }
 
-const IN_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-
 function AutostartRow() {
   const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -341,7 +385,7 @@ function AutostartRow() {
       else await disable()
     } catch (err) {
       console.warn('[Autostart]', err)
-      setEnabled(!v) // revert on error
+      setEnabled(!v)
     }
   }, [])
 
@@ -357,95 +401,6 @@ function AutostartRow() {
     </Row>
   )
 }
-
-// ─── Voice ───────────────────────────────────────────────────
-
-function VoiceGroup() {
-  const { updateSetting } = useSocket()
-  const settings = useJarvisStore((s) => s.settings)
-
-  const ttsEngine = settings['tts.engine'] || 'edge'
-
-  return (
-    <Group title="Voice">
-      <Row label="TTS engine" description="Which voice engine synthesizes the agent's speech.">
-        <Segmented
-          options={[
-            { value: 'edge', label: 'Edge' },
-            { value: 'kokoro', label: 'Kokoro' },
-            { value: 'qwen', label: 'Qwen' },
-            { value: 'piper', label: 'Piper' },
-          ]}
-          value={ttsEngine}
-          onChange={(v) => {
-            updateSetting('tts.engine', v)
-            // Limpar voice ao trocar engine
-            updateSetting('tts.voice', '')
-          }}
-        />
-      </Row>
-      <Row label="Voice" description={
-        ttsEngine === 'edge' ? 'Microsoft neural voice.' :
-        ttsEngine === 'kokoro' ? 'Local neural voice.' :
-        ttsEngine === 'qwen' ? 'Premium voice (slow).' :
-        'Local lightweight voice.'
-      }>
-        <Segmented
-          options={
-            ttsEngine === 'edge' ? [
-              { value: 'pt-BR-AntonioNeural', label: 'Antonio' },
-              { value: 'pt-BR-FranciscaNeural', label: 'Francisca' },
-              { value: 'pt-BR-ThalitaNeural', label: 'Thalita' },
-            ] :
-            ttsEngine === 'kokoro' ? [
-              { value: 'pf_dora', label: 'Dora' },
-              { value: 'pm_alex', label: 'Alex' },
-              { value: 'pm_santa', label: 'Santa' },
-            ] :
-            ttsEngine === 'qwen' ? [
-              { value: 'ryan', label: 'Ryan' },
-              { value: 'serena', label: 'Serena' },
-              { value: 'eric', label: 'Eric' },
-            ] :
-            [{ value: 'pt_BR-faber-medium', label: 'Faber' }]
-          }
-          value={settings['tts.voice'] || (
-            ttsEngine === 'edge' ? 'pt-BR-AntonioNeural' :
-            ttsEngine === 'kokoro' ? 'pf_dora' :
-            ttsEngine === 'qwen' ? 'ryan' :
-            'pt_BR-faber-medium'
-          )}
-          onChange={(v) => updateSetting('tts.voice', v)}
-        />
-      </Row>
-      <Row label="Speech speed" description="Base speed. Dynamic mode adjusts per content type.">
-        <Segmented
-          options={[
-            { value: 'slow', label: 'Slow' },
-            { value: 'normal', label: 'Normal' },
-            { value: 'fast', label: 'Fast' },
-          ]}
-          value={settings['tts.speed'] ?? 'normal'}
-          onChange={(v) => updateSetting('tts.speed', v)}
-        />
-      </Row>
-      <Row label="Dynamic speed" description="Lists faster, explanations slower, questions clearer.">
-        <Toggle
-          value={settings['tts.dynamicSpeed'] !== 'false'}
-          onChange={(v) => updateSetting('tts.dynamicSpeed', String(v))}
-        />
-      </Row>
-      <Row label="Barge-in" description="Interrupt the agent by speaking over it.">
-        <Toggle
-          value={settings['voice.bargeIn'] !== 'false'}
-          onChange={(v) => updateSetting('voice.bargeIn', String(v))}
-        />
-      </Row>
-    </Group>
-  )
-}
-
-// ─── Orb ─────────────────────────────────────────────────────
 
 function OrbGroup() {
   const { updateSetting } = useSocket()
@@ -474,16 +429,10 @@ function OrbGroup() {
         <button
           onClick={() => useJarvisStore.getState().setAmbient(true)}
           style={{
-            height: 32,
-            padding: '0 14px',
-            borderRadius: 'var(--r-pill)',
-            fontSize: 13,
-            color: 'var(--t-hi)',
-            background: 'var(--fill-2)',
-            border: '1px solid var(--g-edge)',
-            cursor: 'pointer',
-            fontFamily: 'var(--f)',
-            transition: '.2s',
+            height: 32, padding: '0 14px', borderRadius: 'var(--r-pill)',
+            fontSize: 13, color: 'var(--t-hi)', background: 'var(--fill-2)',
+            border: '1px solid var(--g-edge)', cursor: 'pointer',
+            fontFamily: 'var(--f)', transition: '.2s',
           }}
         >
           Enter
@@ -493,11 +442,8 @@ function OrbGroup() {
   )
 }
 
-// ─── Tools ───────────────────────────────────────────────────
-
 function ToolsGroup() {
   const [tools, setTools] = useState(TOOLS)
-
   const toggle = (name: string) => {
     setTools(tools.map((t) => t.name === name ? { ...t, on: !t.on } : t))
   }
@@ -511,26 +457,16 @@ function ToolsGroup() {
             onClick={() => toggle(t.name)}
             title={t.desc}
             style={{
-              height: 32,
-              padding: '0 14px',
-              borderRadius: 'var(--r-pill)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
+              height: 32, padding: '0 14px', borderRadius: 'var(--r-pill)',
+              display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
               color: t.on ? 'var(--t-mid)' : 'var(--t-ghost)',
-              background: 'var(--fill-1)',
-              border: '1px solid var(--hair)',
-              cursor: t.on ? 'pointer' : 'default',
-              fontFamily: 'var(--f)',
-              transition: '.2s',
+              background: 'var(--fill-1)', border: '1px solid var(--hair)',
+              cursor: 'pointer', fontFamily: 'var(--f)', transition: '.2s',
               opacity: t.on ? 1 : 0.6,
             }}
           >
             <span style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
+              width: 6, height: 6, borderRadius: '50%',
               background: t.on ? 'var(--st-executing)' : 'var(--fill-3)',
             }} />
             {t.name}
@@ -541,85 +477,320 @@ function ToolsGroup() {
   )
 }
 
-// ─── Integrations ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Tab: Voice
+// ═══════════════════════════════════════════════════════════════
 
-function IntegrationsGroup() {
+function VoiceTab() {
   const { updateSetting } = useSocket()
   const settings = useJarvisStore((s) => s.settings)
+  const ttsEngine = settings['tts.engine'] || 'edge'
 
   return (
-    <Group title="Integrations">
-      <Row label="Tavily API key" description="Web search. Free tier at tavily.com.">
-        <ApiKeyInput
-          value={settings['search.tavilyApiKey'] ?? ''}
-          onChange={(v) => updateSetting('search.tavilyApiKey', v)}
-          placeholder="tvly-..."
-        />
-      </Row>
-      <Row label="Telegram bot token" description="Send messages via Telegram.">
-        <ApiKeyInput
-          value={settings['notifications.telegramBotToken'] ?? ''}
-          onChange={(v) => updateSetting('notifications.telegramBotToken', v)}
-          placeholder="123456:ABC..."
-        />
-      </Row>
-      <Row label="Telegram chat ID" description="Your chat or group ID.">
-        <ApiKeyInput
-          value={settings['notifications.telegramChatId'] ?? ''}
-          onChange={(v) => updateSetting('notifications.telegramChatId', v)}
-          placeholder="-100..."
-        />
-      </Row>
-      <Row label="LemonFin email" description="Your LemonFin account email.">
-        <ApiKeyInput
-          value={settings['finance.email'] ?? ''}
-          onChange={(v) => updateSetting('finance.email', v)}
-          placeholder="email@example.com"
-        />
-      </Row>
-      <Row label="LemonFin password" description="Used to authenticate with the finance API.">
-        <ApiKeyInput
-          value={settings['finance.password'] ?? ''}
-          onChange={(v) => updateSetting('finance.password', v)}
-          placeholder="••••••••"
-        />
-      </Row>
-      <Row label="Tuya Access ID" description="From platform.tuya.com for smart home.">
-        <ApiKeyInput
-          value={settings['home.tuyaAccessId'] ?? ''}
-          onChange={(v) => updateSetting('home.tuyaAccessId', v)}
-          placeholder="Access ID"
-        />
-      </Row>
-      <Row label="Tuya Access Secret" description="From platform.tuya.com.">
-        <ApiKeyInput
-          value={settings['home.tuyaAccessSecret'] ?? ''}
-          onChange={(v) => updateSetting('home.tuyaAccessSecret', v)}
-          placeholder="Access Secret"
-        />
-      </Row>
-      <Row label="Spotify Client ID" description="From developer.spotify.com/dashboard (free).">
-        <ApiKeyInput
-          value={settings['spotify.clientId'] ?? ''}
-          onChange={(v) => updateSetting('spotify.clientId', v)}
-          placeholder="Client ID"
-        />
-      </Row>
-      <Row label="Spotify Client Secret" description="From your Spotify app.">
-        <ApiKeyInput
-          value={settings['spotify.clientSecret'] ?? ''}
-          onChange={(v) => updateSetting('spotify.clientSecret', v)}
-          placeholder="Client Secret"
-        />
-      </Row>
-    </Group>
+    <>
+      <Group title="TTS Engine">
+        <Row label="Engine" description="Which voice engine synthesizes the agent's speech.">
+          <Segmented
+            options={[
+              { value: 'edge', label: 'Edge' },
+              { value: 'kokoro', label: 'Kokoro' },
+              { value: 'qwen', label: 'Qwen' },
+              { value: 'piper', label: 'Piper' },
+            ]}
+            value={ttsEngine}
+            onChange={(v) => {
+              updateSetting('tts.engine', v)
+              updateSetting('tts.voice', '')
+            }}
+          />
+        </Row>
+        <Row label="Voice" description={
+          ttsEngine === 'edge' ? 'Microsoft neural voice.' :
+          ttsEngine === 'kokoro' ? 'Local neural voice.' :
+          ttsEngine === 'qwen' ? 'Premium voice (slow).' :
+          'Local lightweight voice.'
+        }>
+          <Segmented
+            options={
+              ttsEngine === 'edge' ? [
+                { value: 'pt-BR-AntonioNeural', label: 'Antonio' },
+                { value: 'pt-BR-FranciscaNeural', label: 'Francisca' },
+                { value: 'pt-BR-ThalitaNeural', label: 'Thalita' },
+              ] :
+              ttsEngine === 'kokoro' ? [
+                { value: 'pf_dora', label: 'Dora' },
+                { value: 'pm_alex', label: 'Alex' },
+                { value: 'pm_santa', label: 'Santa' },
+              ] :
+              ttsEngine === 'qwen' ? [
+                { value: 'ryan', label: 'Ryan' },
+                { value: 'serena', label: 'Serena' },
+                { value: 'eric', label: 'Eric' },
+              ] :
+              [{ value: 'pt_BR-faber-medium', label: 'Faber' }]
+            }
+            value={settings['tts.voice'] || (
+              ttsEngine === 'edge' ? 'pt-BR-AntonioNeural' :
+              ttsEngine === 'kokoro' ? 'pf_dora' :
+              ttsEngine === 'qwen' ? 'ryan' :
+              'pt_BR-faber-medium'
+            )}
+            onChange={(v) => updateSetting('tts.voice', v)}
+          />
+        </Row>
+      </Group>
+      <Group title="Speech">
+        <Row label="Speed" description="Base speed. Dynamic mode adjusts per content type.">
+          <Segmented
+            options={[
+              { value: 'slow', label: 'Slow' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'fast', label: 'Fast' },
+            ]}
+            value={settings['tts.speed'] ?? 'normal'}
+            onChange={(v) => updateSetting('tts.speed', v)}
+          />
+        </Row>
+        <Row label="Dynamic speed" description="Lists faster, explanations slower, questions clearer.">
+          <Toggle
+            value={settings['tts.dynamicSpeed'] !== 'false'}
+            onChange={(v) => updateSetting('tts.dynamicSpeed', String(v))}
+          />
+        </Row>
+        <Row label="Barge-in" description="Interrupt the agent by speaking over it.">
+          <Toggle
+            value={settings['voice.bargeIn'] !== 'false'}
+            onChange={(v) => updateSetting('voice.bargeIn', String(v))}
+          />
+        </Row>
+      </Group>
+    </>
   )
 }
 
-function ApiKeyInput({ value, onChange, placeholder }: {
+// ═══════════════════════════════════════════════════════════════
+// Tab: Integrations (cards + modal)
+// ═══════════════════════════════════════════════════════════════
+
+interface Integration {
+  id: string
+  name: string
+  icon: string
+  description: string
+  fields: { key: string; label: string; placeholder: string; password?: boolean }[]
+}
+
+const INTEGRATIONS: Integration[] = [
+  {
+    id: 'tavily',
+    name: 'Tavily',
+    icon: '🔍',
+    description: 'Web search for the agent. Free tier available.',
+    fields: [
+      { key: 'search.tavilyApiKey', label: 'API Key', placeholder: 'tvly-...', password: true },
+    ],
+  },
+  {
+    id: 'telegram',
+    name: 'Telegram',
+    icon: '💬',
+    description: 'Send messages and notifications.',
+    fields: [
+      { key: 'notifications.telegramBotToken', label: 'Bot Token', placeholder: '123456:ABC...', password: true },
+      { key: 'notifications.telegramChatId', label: 'Chat ID', placeholder: '-100...' },
+    ],
+  },
+  {
+    id: 'lemonfin',
+    name: 'LemonFin',
+    icon: '💰',
+    description: 'Personal finance — expenses, income, categories.',
+    fields: [
+      { key: 'finance.email', label: 'Email', placeholder: 'email@example.com' },
+      { key: 'finance.password', label: 'Password', placeholder: '••••••••', password: true },
+      { key: 'finance.apiUrl', label: 'API URL', placeholder: 'https://lemonfin-api.onrender.com' },
+    ],
+  },
+  {
+    id: 'tuya',
+    name: 'Smart Home',
+    icon: '💡',
+    description: 'Control lights and devices via Tuya (Positivo, Smart Life).',
+    fields: [
+      { key: 'home.tuyaAccessId', label: 'Access ID', placeholder: 'Access ID' },
+      { key: 'home.tuyaAccessSecret', label: 'Access Secret', placeholder: 'Secret', password: true },
+      { key: 'home.tuyaUid', label: 'User ID', placeholder: 'UID from Tuya' },
+      { key: 'home.tuyaRegion', label: 'Region', placeholder: 'us / eu / cn' },
+    ],
+  },
+  {
+    id: 'spotify',
+    name: 'Spotify',
+    icon: '🎵',
+    description: 'Search and control music playback.',
+    fields: [
+      { key: 'spotify.clientId', label: 'Client ID', placeholder: 'Client ID' },
+      { key: 'spotify.clientSecret', label: 'Client Secret', placeholder: 'Secret', password: true },
+    ],
+  },
+]
+
+function IntegrationsTab() {
+  const [openModal, setOpenModal] = useState<string | null>(null)
+  const settings = useJarvisStore((s) => s.settings)
+
+  const isConfigured = (integration: Integration) =>
+    integration.fields.some((f) => !!settings[f.key])
+
+  const active = INTEGRATIONS.find((i) => i.id === openModal)
+
+  return (
+    <>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+        gap: 12,
+      }}>
+        {INTEGRATIONS.map((integration) => {
+          const configured = isConfigured(integration)
+          return (
+            <button
+              key={integration.id}
+              onClick={() => setOpenModal(integration.id)}
+              className="glass"
+              style={{
+                padding: '20px 18px',
+                borderRadius: 'var(--r-md)',
+                textAlign: 'left',
+                cursor: 'pointer',
+                border: 'none',
+                fontFamily: 'var(--f)',
+                transition: 'transform .22s var(--sp), box-shadow .22s',
+                position: 'relative',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'none' }}
+            >
+              <div style={{ fontSize: 28, marginBottom: 10 }}>{integration.icon}</div>
+              <div style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--t-hi)', marginBottom: 4 }}>
+                {integration.name}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--t-low)', lineHeight: 1.4 }}>
+                {integration.description}
+              </div>
+              <span style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: configured ? 'var(--st-executing)' : 'var(--fill-3)',
+                transition: 'background .3s',
+              }} />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Modal */}
+      {active && createPortal(
+        <IntegrationModal
+          integration={active}
+          onClose={() => setOpenModal(null)}
+        />,
+        document.body,
+      )}
+    </>
+  )
+}
+
+function IntegrationModal({ integration, onClose }: {
+  integration: Integration
+  onClose: () => void
+}) {
+  const { updateSetting } = useSocket()
+  const settings = useJarvisStore((s) => s.settings)
+  const backdropRef = useRef<HTMLDivElement>(null)
+
+  return (
+    <div
+      ref={backdropRef}
+      onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300,
+        display: 'grid',
+        placeItems: 'center',
+        background: 'rgba(0,0,0,.5)',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <div
+        className="glass"
+        style={{
+          width: 420,
+          maxWidth: '90vw',
+          borderRadius: 'var(--r-lg)',
+          padding: '28px 28px 22px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <span style={{ fontSize: 32 }}>{integration.icon}</span>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--t-hi)' }}>
+              {integration.name}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--t-low)' }}>
+              {integration.description}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {integration.fields.map((field) => (
+            <ModalField
+              key={field.key}
+              label={field.label}
+              value={settings[field.key] ?? ''}
+              placeholder={field.placeholder}
+              password={field.password}
+              onChange={(v) => updateSetting(field.key, v)}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: 24,
+            width: '100%',
+            height: 38,
+            borderRadius: 'var(--r-pill)',
+            fontSize: 13,
+            fontWeight: 500,
+            color: 'var(--t-hi)',
+            background: 'var(--fill-2)',
+            border: '1px solid var(--g-edge)',
+            cursor: 'pointer',
+            fontFamily: 'var(--f)',
+            transition: '.2s',
+          }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ModalField({ label, value, placeholder, password, onChange }: {
+  label: string
   value: string
-  onChange: (v: string) => void
   placeholder: string
+  password?: boolean
+  onChange: (v: string) => void
 }) {
   const [local, setLocal] = useState(value)
   const [saved, setSaved] = useState(false)
@@ -635,48 +806,50 @@ function ApiKeyInput({ value, onChange, placeholder }: {
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div>
+      <div style={{
+        fontSize: 12,
+        fontWeight: 500,
+        color: 'var(--t-low)',
+        marginBottom: 6,
+        textTransform: 'uppercase',
+        letterSpacing: '.04em',
+      }}>
+        {label}
+        {saved && <span style={{ color: 'var(--st-executing)', marginLeft: 8, textTransform: 'none' }}>Saved</span>}
+      </div>
       <input
-        type="password"
+        type={password ? 'password' : 'text'}
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={save}
         onKeyDown={(e) => e.key === 'Enter' && save()}
         placeholder={placeholder}
         style={{
-          width: 200,
-          height: 32,
-          padding: '0 12px',
+          width: '100%',
+          height: 38,
+          padding: '0 14px',
           borderRadius: 'var(--r-sm)',
-          fontSize: 12.5,
+          fontSize: 13,
           fontFamily: 'var(--f-mono)',
           color: 'var(--t-hi)',
           background: 'var(--fill-1)',
           border: '1px solid var(--hair)',
           outline: 'none',
+          boxSizing: 'border-box',
         }}
       />
-      {saved && (
-        <span style={{
-          position: 'absolute',
-          right: -40,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          fontSize: 11,
-          color: 'var(--st-executing)',
-        }}>
-          ✓
-        </span>
-      )}
     </div>
   )
 }
 
-// ─── Shortcuts ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Tab: Shortcuts
+// ═══════════════════════════════════════════════════════════════
 
-function ShortcutsGroup() {
+function ShortcutsTab() {
   return (
-    <Group title="Shortcuts">
+    <Group title="Keyboard shortcuts">
       <Row label="Show / hide (global)"><Kbd keys={['Ctrl', '⇧', 'J']} /></Row>
       <Row label="Command palette"><Kbd keys={['⌘', 'K']} /></Row>
       <Row label="Push to talk"><Kbd keys={['space']} /></Row>
@@ -688,21 +861,13 @@ function ShortcutsGroup() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Primitivos
+// Primitives
 // ═══════════════════════════════════════════════════════════════
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="glass" style={{
-      borderRadius: 'var(--r-md)',
-      marginBottom: 16,
-    }}>
-      <div style={{
-        padding: '16px 20px 6px',
-        fontSize: 12.5,
-        fontWeight: 500,
-        color: 'var(--t-low)',
-      }}>
+    <div className="glass" style={{ borderRadius: 'var(--r-md)', marginBottom: 16 }}>
+      <div style={{ padding: '16px 20px 6px', fontSize: 12.5, fontWeight: 500, color: 'var(--t-low)' }}>
         {title}
       </div>
       {children}
@@ -717,12 +882,8 @@ function Row({ label, description, children }: {
 }) {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr auto',
-      gap: 22,
-      alignItems: 'center',
-      padding: '15px 20px',
-      borderTop: '1px solid var(--hair)',
+      display: 'grid', gridTemplateColumns: '1fr auto', gap: 22,
+      alignItems: 'center', padding: '15px 20px', borderTop: '1px solid var(--hair)',
     }}>
       <div>
         <div style={{ fontSize: 14.5, color: 'var(--t-hi)', fontWeight: 450, letterSpacing: '-.008em' }}>
@@ -744,30 +905,19 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     <button
       onClick={() => onChange(!value)}
       style={{
-        width: 44,
-        height: 26,
-        borderRadius: 'var(--r-pill)',
+        width: 44, height: 26, borderRadius: 'var(--r-pill)',
         background: value ? 'rgba(var(--accent-rgb), .30)' : 'var(--fill-2)',
         border: `1px solid ${value ? 'rgba(var(--accent-rgb), .5)' : 'var(--g-edge)'}`,
-        position: 'relative',
-        cursor: 'pointer',
-        transition: '.3s',
-        padding: 0,
+        position: 'relative', cursor: 'pointer', transition: '.3s', padding: 0,
       }}
     >
       <span style={{
-        position: 'absolute',
-        top: 2,
-        left: 2,
-        width: 20,
-        height: 20,
+        position: 'absolute', top: 2, left: 2, width: 20, height: 20,
         borderRadius: '50%',
         background: value ? '#fff' : 'var(--knob)',
         transform: value ? 'translateX(18px)' : 'none',
         transition: 'transform .38s var(--sp-morph), background .3s',
-        boxShadow: value
-          ? '0 0 12px rgba(var(--accent-rgb), .7)'
-          : '0 1px 3px rgba(0,0,0,.25)',
+        boxShadow: value ? '0 0 12px rgba(var(--accent-rgb), .7)' : '0 1px 3px rgba(0,0,0,.25)',
       }} />
     </button>
   )
@@ -779,23 +929,14 @@ function Segmented({ options, value, onChange }: {
   onChange: (v: string) => void
 }) {
   const activeIdx = Math.max(0, options.findIndex((o) => o.value === value))
-
   return (
     <div style={{
-      display: 'flex',
-      position: 'relative',
-      padding: 3,
-      borderRadius: 'var(--r-pill)',
-      background: 'var(--fill-1)',
-      border: '1px solid var(--hair)',
+      display: 'flex', position: 'relative', padding: 3,
+      borderRadius: 'var(--r-pill)', background: 'var(--fill-1)', border: '1px solid var(--hair)',
     }}>
       <span style={{
-        position: 'absolute',
-        top: 3,
-        left: 0,
-        height: 'calc(100% - 6px)',
-        borderRadius: 'var(--r-pill)',
-        background: 'var(--fill-3)',
+        position: 'absolute', top: 3, left: 0, height: 'calc(100% - 6px)',
+        borderRadius: 'var(--r-pill)', background: 'var(--fill-3)',
         border: '1px solid var(--g-edge)',
         transition: 'transform .44s var(--sp-morph), width .44s var(--sp-morph)',
         width: `${100 / options.length}%`,
@@ -806,20 +947,11 @@ function Segmented({ options, value, onChange }: {
           key={opt.value}
           onClick={() => onChange(opt.value)}
           style={{
-            position: 'relative',
-            zIndex: 1,
-            height: 28,
-            padding: '0 15px',
-            borderRadius: 'var(--r-pill)',
-            fontSize: 12.5,
+            position: 'relative', zIndex: 1, height: 28, padding: '0 15px',
+            borderRadius: 'var(--r-pill)', fontSize: 12.5,
             color: opt.value === value ? 'var(--t-hi)' : 'var(--t-low)',
-            fontWeight: 450,
-            transition: 'color .22s',
-            whiteSpace: 'nowrap',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--f)',
+            fontWeight: 450, transition: 'color .22s', whiteSpace: 'nowrap',
+            background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--f)',
           }}
         >
           {opt.label}
@@ -830,36 +962,16 @@ function Segmented({ options, value, onChange }: {
 }
 
 function Slider({ value, min, max, suffix, onChange }: {
-  value: number
-  min: number
-  max: number
-  suffix?: string
-  onChange: (v: number) => void
+  value: number; min: number; max: number; suffix?: string; onChange: (v: number) => void
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: 206 }}>
       <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
+        type="range" min={min} max={max} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{
-          flex: 1,
-          height: 4,
-          borderRadius: 4,
-          background: 'var(--fill-3)',
-          appearance: 'none',
-          WebkitAppearance: 'none',
-        }}
+        style={{ flex: 1, height: 4, borderRadius: 4, background: 'var(--fill-3)', appearance: 'none', WebkitAppearance: 'none' }}
       />
-      <span style={{
-        fontFamily: 'var(--f-mono)',
-        fontSize: 12.5,
-        color: 'var(--t-mid)',
-        width: 44,
-        textAlign: 'right',
-      }}>
+      <span style={{ fontFamily: 'var(--f-mono)', fontSize: 12.5, color: 'var(--t-mid)', width: 44, textAlign: 'right' }}>
         {value}{suffix ?? ''}
       </span>
     </div>
@@ -868,9 +980,7 @@ function Slider({ value, min, max, suffix, onChange }: {
 
 function ModelSelect({ models, value, installed, onChange }: {
   models: { value: string; label: string; desc: string }[]
-  value: string
-  installed: string[]
-  onChange: (v: string) => void
+  value: string; installed: string[]; onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -903,22 +1013,13 @@ function ModelSelect({ models, value, installed, onChange }: {
   return (
     <>
       <button
-        ref={btnRef}
-        onClick={handleOpen}
+        ref={btnRef} onClick={handleOpen}
         style={{
-          height: 32,
-          padding: '0 14px',
-          borderRadius: 'var(--r-pill)',
-          fontSize: 13,
+          height: 32, padding: '0 14px', borderRadius: 'var(--r-pill)', fontSize: 13,
           color: isAvailable(value) ? 'var(--t-hi)' : 'var(--st-error)',
           background: 'var(--fill-1)',
           border: `1px solid ${isAvailable(value) ? 'var(--g-edge)' : 'rgba(255,107,107,.3)'}`,
-          cursor: 'pointer',
-          fontFamily: 'var(--f)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          transition: '.2s',
+          cursor: 'pointer', fontFamily: 'var(--f)', display: 'flex', alignItems: 'center', gap: 8, transition: '.2s',
         }}
       >
         {current?.label || value}
@@ -926,24 +1027,12 @@ function ModelSelect({ models, value, installed, onChange }: {
           <path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
         </svg>
       </button>
-
       {open && createPortal(
-        <div
-          ref={menuRef}
-          style={{
-            position: 'fixed',
-            top: pos.top,
-            right: pos.right,
-            width: 280,
-            borderRadius: 'var(--r-sm)',
-            background: 'var(--bg)',
-            border: '1px solid var(--g-edge)',
-            boxShadow: '0 18px 50px -10px rgba(0,0,0,.6)',
-            maxHeight: 360,
-            overflowY: 'auto',
-            zIndex: 200,
-          }}
-        >
+        <div ref={menuRef} style={{
+          position: 'fixed', top: pos.top, right: pos.right, width: 280,
+          borderRadius: 'var(--r-sm)', background: 'var(--bg)', border: '1px solid var(--g-edge)',
+          boxShadow: '0 18px 50px -10px rgba(0,0,0,.6)', maxHeight: 360, overflowY: 'auto', zIndex: 200,
+        }}>
           {models.map((m) => {
             const avail = isAvailable(m.value)
             const active = m.value === value
@@ -952,35 +1041,22 @@ function ModelSelect({ models, value, installed, onChange }: {
                 key={m.value}
                 onClick={() => { onChange(m.value); setOpen(false) }}
                 style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '10px 14px',
-                  background: active ? 'var(--fill-2)' : 'none',
-                  border: 'none',
-                  borderBottom: '1px solid var(--hair)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--f)',
-                  transition: 'background .15s',
+                  width: '100%', textAlign: 'left', padding: '10px 14px',
+                  background: active ? 'var(--fill-2)' : 'none', border: 'none',
+                  borderBottom: '1px solid var(--hair)', cursor: 'pointer',
+                  fontFamily: 'var(--f)', transition: 'background .15s',
                 }}
                 onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--fill-1)' }}
                 onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    fontSize: 13,
-                    fontWeight: active ? 500 : 400,
-                    color: avail ? 'var(--t-hi)' : 'var(--t-low)',
-                  }}>
+                  <span style={{ fontSize: 13, fontWeight: active ? 500 : 400, color: avail ? 'var(--t-hi)' : 'var(--t-low)' }}>
                     {m.label}
                   </span>
                   {!avail && (
                     <span style={{
-                      fontSize: 10,
-                      color: 'var(--st-error)',
-                      padding: '1px 6px',
-                      borderRadius: 'var(--r-pill)',
-                      background: 'rgba(255,107,107,.12)',
-                      fontWeight: 500,
+                      fontSize: 10, color: 'var(--st-error)', padding: '1px 6px',
+                      borderRadius: 'var(--r-pill)', background: 'rgba(255,107,107,.12)', fontWeight: 500,
                     }}>
                       not installed
                     </span>
@@ -991,12 +1067,7 @@ function ModelSelect({ models, value, installed, onChange }: {
                     </svg>
                   )}
                 </div>
-                <div style={{
-                  fontSize: 11.5,
-                  color: 'var(--t-low)',
-                  marginTop: 2,
-                  lineHeight: 1.35,
-                }}>
+                <div style={{ fontSize: 11.5, color: 'var(--t-low)', marginTop: 2, lineHeight: 1.35 }}>
                   {m.desc}
                 </div>
               </button>
@@ -1014,13 +1085,8 @@ function Kbd({ keys }: { keys: string[] }) {
     <div style={{ display: 'flex', gap: 6 }}>
       {keys.map((k) => (
         <span key={k} style={{
-          fontFamily: 'var(--f-mono)',
-          fontSize: 11.5,
-          color: 'var(--t-mid)',
-          padding: '4px 9px',
-          borderRadius: 7,
-          background: 'var(--fill-1)',
-          border: '1px solid var(--hair)',
+          fontFamily: 'var(--f-mono)', fontSize: 11.5, color: 'var(--t-mid)',
+          padding: '4px 9px', borderRadius: 7, background: 'var(--fill-1)', border: '1px solid var(--hair)',
         }}>
           {k}
         </span>
