@@ -39,6 +39,13 @@ export class ConversationRepository {
     });
   }
 
+  async updateSummary(id: string, summary: string) {
+    return this.prisma.conversation.update({
+      where: { id },
+      data: { summary },
+    });
+  }
+
   async addMessage(conversationId: string, data: {
     role: string;
     content: string;

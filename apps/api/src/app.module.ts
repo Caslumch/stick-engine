@@ -5,6 +5,7 @@ import { ConversationModule } from './modules/conversation/conversation.module';
 import { CapabilitiesModule } from './modules/capabilities/capabilities.module';
 import { ComputerModule } from './modules/capabilities/computer/computer.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { MemoryModule } from './modules/memory/memory.module';
 import { jarvisConfig } from './config/jarvis.config';
 
 @Module({
@@ -17,6 +18,7 @@ import { jarvisConfig } from './config/jarvis.config';
     SettingsModule,
     CapabilitiesModule,
     ComputerModule,
+    MemoryModule,
     ConversationModule,
   ],
 })

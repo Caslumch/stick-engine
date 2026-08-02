@@ -3,11 +3,12 @@ import type { ToolSet } from 'ai';
 import { z } from 'zod';
 import { ConversationRepository } from './conversation.repository';
 import { LlmService } from '../llm/llm.service';
+import { MemoryService } from '../memory/memory.service';
 import { CapabilityRegistryService } from '../capabilities/capability-registry.service';
 import type { LlmStreamCallback } from '../../common/interfaces';
 import type { DecisionMadePayload } from '@jarvis/shared';
 
-const SYSTEM_PROMPT = `Voce e o Jarvis, um assistente pessoal inteligente e privado.
+const SYSTEM_PROMPT_BASE = `Voce e o Jarvis, um assistente pessoal inteligente e privado.
 
 REGRA ABSOLUTA: Responda EXCLUSIVAMENTE em portugues brasileiro. NUNCA use chines, ingles ou qualquer outro idioma.
 
@@ -20,7 +21,14 @@ Regras:
 - Quando o usuario pedir pra executar algo no computador, use as tools disponiveis.
 - Sempre explique o que voce fez apos executar uma tool.
 - NAO tente executar tools quando o usuario so esta conversando ou cumprimentando.
+- Quando o usuario pedir pra voce lembrar de algo, confirme que voce guardou na memoria.
+- Use as memorias sobre o usuario para personalizar suas respostas.
 - LEMBRE-SE: toda resposta em portugues brasileiro, sem excecao.`;
+
+/** Max messages to keep in the prompt (excluding summary) */
+const SLIDING_WINDOW_SIZE = 30;
+/** Summarize when total messages exceed this */
+const SUMMARIZE_THRESHOLD = 40;
 
 export interface ToolExecutionEvent {
   toolName: string;
@@ -35,6 +43,7 @@ export class ConversationService {
   constructor(
     private readonly repository: ConversationRepository,
     private readonly llm: LlmService,
+    private readonly memory: MemoryService,
     private readonly capabilities: CapabilityRegistryService,
   ) {}
 
@@ -56,7 +65,6 @@ export class ConversationService {
 
   /**
    * Build AI SDK tools from the CapabilityRegistry.
-   * Each registered Tool becomes a CoreTool with execute() wired to the registry.
    */
   private buildTools(onToolExecution?: (event: ToolExecutionEvent) => void): ToolSet {
     const registeredTools = this.capabilities.getAllTools();
@@ -65,7 +73,6 @@ export class ConversationService {
     const aiTools: ToolSet = {};
 
     for (const t of registeredTools) {
-      // Build zod schema from JSON schema properties
       const schemaObj: Record<string, z.ZodTypeAny> = {};
       const props = t.parameters.properties;
       for (const [key, prop] of Object.entries(props)) {
@@ -108,6 +115,54 @@ export class ConversationService {
     return aiTools;
   }
 
+  /**
+   * Build the system prompt with relevant memories injected.
+   */
+  private async buildSystemPrompt(userMessage: string): Promise<string> {
+    const memoryContext = await this.memory.getRelevantContext(userMessage);
+    return SYSTEM_PROMPT_BASE + memoryContext;
+  }
+
+  /**
+   * Build message history with sliding window.
+   * If there are more messages than the threshold, summarize the older ones.
+   */
+  private async buildHistory(
+    conversationId: string,
+    systemPrompt: string,
+  ): Promise<Array<{ role: string; content: string }>> {
+    const conversation = await this.repository.findById(conversationId);
+    const allMessages = conversation?.messages ?? [];
+
+    // Check if we need to summarize
+    if (allMessages.length > SUMMARIZE_THRESHOLD && !conversation?.summary) {
+      this.summarizeOldMessages(conversationId, allMessages);
+    }
+
+    const history: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    // If we have a summary, prepend it
+    if (conversation?.summary) {
+      history.push({
+        role: 'system',
+        content: `Resumo da conversa anterior:\n${conversation.summary}`,
+      });
+    }
+
+    // Take the last N messages (sliding window)
+    const recentMessages = allMessages.length > SLIDING_WINDOW_SIZE
+      ? allMessages.slice(-SLIDING_WINDOW_SIZE)
+      : allMessages;
+
+    for (const m of recentMessages) {
+      history.push({ role: m.role, content: m.content });
+    }
+
+    return history;
+  }
+
   async handleMessage(
     conversationId: string,
     text: string,
@@ -115,27 +170,30 @@ export class ConversationService {
     onDecision?: (decision: DecisionMadePayload) => void,
     onToolExecution?: (event: ToolExecutionEvent) => void,
   ) {
-    // 1. Persist user message
+    // 1. Check for explicit memory save ("Jarvis, lembra que...")
+    const explicitMemory = this.memory.extractExplicitMemory(text);
+    if (explicitMemory) {
+      await this.memory.save(explicitMemory.content, explicitMemory.type, 'explicit');
+      this.logger.log(`Explicit memory saved: [${explicitMemory.type}] ${explicitMemory.content}`);
+    }
+
+    // 2. Persist user message
     await this.repository.addMessage(conversationId, {
       role: 'user',
       content: text,
     });
 
-    // 2. Load conversation history with system prompt
-    const messages = await this.repository.getMessages(conversationId);
-    const history = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ];
+    // 3. Build system prompt with relevant memories
+    const systemPrompt = await this.buildSystemPrompt(text);
 
-    // 3. Build tools from capability registry
+    // 4. Build history with sliding window
+    const history = await this.buildHistory(conversationId, systemPrompt);
+
+    // 5. Build tools from capability registry
     const tools = this.buildTools(onToolExecution);
     const hasTools = Object.keys(tools).length > 0;
 
-    // 4. Generate response via LLM (streamed, with tool calling)
+    // 6. Generate response via LLM (streamed, with tool calling)
     const response = await this.llm.generate({
       messages: history,
       tools: hasTools ? tools : undefined,
@@ -144,7 +202,7 @@ export class ConversationService {
       onDecision,
     });
 
-    // 5. Persist assistant message
+    // 7. Persist assistant message
     const saved = await this.repository.addMessage(conversationId, {
       role: 'assistant',
       content: response.content,
@@ -153,13 +211,94 @@ export class ConversationService {
       toolCalls: response.toolCalls as any,
     });
 
-    // 6. Auto-generate title after first user message
-    const messageCount = messages.length;
-    if (messageCount === 1) {
+    // 8. Auto-generate title after first user message
+    const allMessages = await this.repository.getMessages(conversationId);
+    if (allMessages.length <= 2) {
       this.generateTitle(conversationId, text);
     }
 
+    // 9. Try to extract implicit memories from the conversation (async, non-blocking)
+    this.extractImplicitMemories(text, response.content);
+
     return saved;
+  }
+
+  /**
+   * Summarize older messages and store the summary in the conversation.
+   * Runs async — does not block the response.
+   */
+  private async summarizeOldMessages(
+    conversationId: string,
+    messages: Array<{ role: string; content: string }>,
+  ) {
+    try {
+      const oldMessages = messages.slice(0, -SLIDING_WINDOW_SIZE);
+      const transcript = oldMessages
+        .map((m) => `${m.role}: ${m.content}`)
+        .join('\n');
+
+      const result = await this.llm.generate({
+        messages: [
+          {
+            role: 'system',
+            content: 'Resuma a conversa abaixo em um paragrafo conciso em portugues. Capture os pontos principais, decisoes tomadas e informacoes importantes. Responda APENAS o resumo.',
+          },
+          { role: 'user', content: transcript },
+        ],
+      });
+
+      const summary = result.content.trim();
+      if (summary) {
+        await this.repository.updateSummary(conversationId, summary);
+        this.logger.log(`Conversation ${conversationId} summarized (${oldMessages.length} messages)`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to summarize conversation: ${error}`);
+    }
+  }
+
+  /**
+   * Try to extract implicit facts from the conversation.
+   * e.g., "Eu uso VS Code" → save preference.
+   * Runs async, non-blocking.
+   */
+  private async extractImplicitMemories(userMessage: string, assistantResponse: string) {
+    try {
+      const result = await this.llm.generate({
+        messages: [
+          {
+            role: 'system',
+            content: `Analise a mensagem do usuario e identifique fatos pessoais que valham ser lembrados.
+Tipos validos: preference, person, project, device, habit, fact.
+
+Responda APENAS em JSON array. Se nao houver nada relevante, responda [].
+Formato: [{"type": "...", "content": "..."}]
+
+Exemplos de fatos relevantes:
+- "Eu uso VS Code" → {"type": "preference", "content": "Usa VS Code como editor"}
+- "Meu irmao se chama Pedro" → {"type": "person", "content": "Irmao se chama Pedro"}
+- "Acordo todo dia as 7h" → {"type": "habit", "content": "Acorda as 7h todo dia"}
+
+NAO extraia fatos triviais, perguntas ou comandos. Apenas informacoes pessoais duradouras.`,
+          },
+          { role: 'user', content: `Mensagem do usuario: "${userMessage}"` },
+        ],
+      });
+
+      const text = result.content.trim();
+      // Extract JSON array from response
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) return;
+
+      const facts = JSON.parse(match[0]);
+      for (const fact of facts) {
+        if (fact.type && fact.content) {
+          await this.memory.save(fact.content, fact.type, 'inferred');
+        }
+      }
+    } catch {
+      // Non-critical — silent fail
+    }
   }
 
   private async generateTitle(conversationId: string, firstMessage: string) {

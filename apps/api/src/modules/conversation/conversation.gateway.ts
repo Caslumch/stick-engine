@@ -13,6 +13,7 @@ import { WsEvent } from '@jarvis/shared';
 import type { MessageSendPayload, JarvisState } from '@jarvis/shared';
 import { ConversationService } from './conversation.service';
 import { SettingsService } from '../settings/settings.service';
+import { MemoryService } from '../memory/memory.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class ConversationGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -25,6 +26,7 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
   constructor(
     private readonly conversationService: ConversationService,
     private readonly settingsService: SettingsService,
+    private readonly memoryService: MemoryService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -148,6 +150,27 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
   async handleSettingsUpdate(@MessageBody() payload: { key: string; value: string }) {
     await this.settingsService.set(payload.key, payload.value);
     return { success: true };
+  }
+
+  @SubscribeMessage(WsEvent.MemoryList)
+  async handleMemoryList(@MessageBody() payload?: { type?: string }) {
+    return this.memoryService.list(payload?.type as any);
+  }
+
+  @SubscribeMessage(WsEvent.MemorySave)
+  async handleMemorySave(@MessageBody() payload: { content: string; type: string }) {
+    return this.memoryService.save(payload.content, payload.type as any, 'explicit');
+  }
+
+  @SubscribeMessage(WsEvent.MemoryDelete)
+  async handleMemoryDelete(@MessageBody() payload: { id: string }) {
+    await this.memoryService.delete(payload.id);
+    return { success: true };
+  }
+
+  @SubscribeMessage(WsEvent.MemorySearch)
+  async handleMemorySearch(@MessageBody() payload: { query: string; limit?: number }) {
+    return this.memoryService.search(payload.query, payload.limit);
   }
 
   private emitStateChange(state: JarvisState) {

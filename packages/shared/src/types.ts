@@ -41,6 +41,20 @@ export interface CapabilityResult {
   message?: string;
 }
 
+// === Memory ===
+
+export type MemoryType = 'preference' | 'person' | 'project' | 'device' | 'habit' | 'fact';
+export type MemorySource = 'explicit' | 'inferred' | 'conversation';
+
+export interface Memory {
+  id: string;
+  type: MemoryType;
+  content: string;
+  source: MemorySource;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // === WebSocket Events ===
 
 export enum WsEvent {
@@ -53,6 +67,10 @@ export enum WsEvent {
   StateGet = 'state:get',
   SettingsGet = 'settings:get',
   SettingsUpdate = 'settings:update',
+  MemoryList = 'memory:list',
+  MemorySave = 'memory:save',
+  MemoryDelete = 'memory:delete',
+  MemorySearch = 'memory:search',
 
   // Server -> Client
   MessageStream = 'message:stream',

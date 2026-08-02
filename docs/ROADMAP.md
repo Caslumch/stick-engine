@@ -1,260 +1,197 @@
 # Roadmap — Jarvis AI
 
-> Roadmap detalhado com fases incrementais. Cada fase tem entregas claras e pode ser desenvolvida no seu ritmo.
+> Orientado pelos 8 pilares da visao (`VISION.md`). Cada fase prioriza o que mais aproxima o Jarvis de uma presenca real.
 
 ---
 
-## Fase 0 — Fundacao ✅ (Concluida em 27/07/2026)
+## Historico (Concluido)
 
-**Objetivo:** Setup do monorepo, infraestrutura base e "hello world" end-to-end.
+| Fase | Entrega | Data | Status |
+|------|---------|------|--------|
+| 0 | Fundacao — monorepo, NestJS, Tauri, WebSocket, Prisma | 27/07 | ✅ |
+| 1 | Chat por Texto — Ollama/OpenAI, streaming, historico | 27/07 | ✅ |
+| 2 | Decision Engine — local-first, fallback, config na UI | 27/07 | ✅ |
+| 3 | Tool Calling — CapabilityRegistry, Computer capability | 29/07 | ✅ |
+| 4 | Voz — STT (Whisper), TTS (multi-engine), Wake Word (Web Speech API), VAD, barge-in | 30/07 | ✅ |
+| 5 | Interface Viva — STICK design system, orb R3F, 7 estados, glass UI, 3 telas | 30/07 | ✅ |
 
-- [x] Criar monorepo com Turborepo + pnpm
-- [x] Setup `apps/api` com NestJS + TypeScript
-- [x] Setup `apps/desktop` com Vite + React + Tailwind + Tauri
-- [x] Setup `packages/shared` com types compartilhados
-- [x] Docker Compose com PostgreSQL + Redis
-- [x] Prisma schema inicial (Conversation, Message)
-- [x] WebSocket gateway basico (NestJS <-> React) com reconexao automatica
-- [x] Verificar que desktop abre e conecta ao backend
-- [x] Prettier configurado
-- [x] Arquitetura clean pragmatica (gateway/service/repository por modulo)
-- [x] Config centralizado com `@nestjs/config`
-- [x] LLM providers com AI SDK (sem fetch manual)
-- [x] Injecao dinamica de providers via `LLM_PROVIDERS` token
-- [x] Fallback chain entre providers
-- [x] WebSocket emit por client (nao broadcast)
-- [x] Instalar Rust e adicionar Tauri como shell desktop
-- [x] README com instrucoes de setup
-
-**Entregavel:** Monorepo funcional. Desktop abre, conecta via WebSocket ao backend, e exibe "Jarvis Online". ✅
-
-**Pendente:**
-- [x] ESLint configurado (monorepo root, TS + React hooks)
+**Pendentes de fases anteriores:**
+- [ ] 4c: Migrar wake word pra OpenWakeWord (movido pra Fase 8)
+- [ ] 5.10: Widget flutuante / tray (movido pra Fase 8)
+- [ ] 5.11: Autostart com o sistema (movido pra Fase 8)
 
 ---
 
-## Fase 1 — Chat por Texto ✅ (Concluida em 27/07/2026)
+## Gap Analysis — Visao vs Realidade
 
-**Objetivo:** Conversar com o Jarvis via texto usando LLM local.
-
-- [x] Modulo `llm/` com LLM Gateway (interface abstrata)
-- [x] Provider Ollama (LLM local) via AI SDK + OpenAI-compatible endpoint
-- [x] Provider OpenAI (LLM cloud) via AI SDK
-- [x] Endpoint/evento WebSocket para enviar mensagem
-- [x] Streaming de resposta via WebSocket
-- [x] UI de chat no desktop (input + mensagens + auto-scroll + timestamps)
-- [x] Persistir conversas no PostgreSQL via Prisma
-- [x] Tela de historico de conversas
-- [x] System prompt do Jarvis (personalidade, PT-BR, tom)
-- [x] Geracao automatica de titulo da conversa
-- [x] Botao de nova conversa
-- [x] Indicador de provider (ollama/openai) nas mensagens
-- [x] Tratamento de erro com mensagem amigavel na UI
-- [x] Carregar mensagens de conversa antiga no historico
-- [x] Deletar conversas do historico
-
-**Entregavel:** Digitar uma mensagem no desktop, Jarvis responde via Ollama com streaming em PT-BR. ✅
+| Pilar | Descricao | Cobertura | Gap Principal |
+|-------|-----------|-----------|---------------|
+| 1. Escuta Permanente | Sempre disponivel, baixo consumo | 30% | Wake word browser-only, sem tray mode |
+| 2. Compreensao | Interpreta intencoes, proativo | 40% | Prompt basico, sem classificacao de intencao |
+| 3. Memoria | Conhece o usuario, aprende | **0%** | Nada implementado |
+| 4. Conversacao Continua | Contexto entre turnos e sessoes | 20% | Conversas isoladas, sem sliding window |
+| 5. Voz Humana | Pausas, ritmo, emocao, enfase | 35% | Sem controle de prosodia/SSML |
+| 6. Baixa Latencia | 200-500ms, respostas parciais | 45% | Sem fillers, latencia depende do LLM |
+| 7. Interface Viva | Orb reage a tudo | **75%** | Falta emocao no orb, widget/tray |
+| 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 20% | So Computer capability existe |
 
 ---
 
-## Fase 2 — Decision Engine + Cloud ✅ (Concluida em 27/07/2026)
+## Fase 6 — Memoria
 
-**Objetivo:** Jarvis decide sozinho quando usar local vs cloud.
+> **Prioridade maxima.** Pre-requisito para compreensao, conversacao continua e personalizacao.
+>
+> Pilares: **3 (Memoria)**, **4 (Conversacao Continua)**, **2 (Compreensao)**
 
-> Nota: Decision Engine basico e fallback ja foram implementados na Fase 0. Esta fase refina as regras e adiciona configuracao na UI.
+### 6a — Contexto de Conversa
+- [x] Sliding window de mensagens (ultimas 30 + resumo das anteriores)
+- [x] Resumo automatico de conversas longas (LLM gera summary apos 40 msgs)
+- [ ] Contexto carregado entre sessoes ("continuar de onde parou")
 
-- [x] Modulo `decision/` com Decision Engine
-- [x] Regras iniciais: internet? contexto grande? pesquisa?
-- [x] Provider OpenAI/Anthropic (LLM cloud) via AI SDK
-- [x] Fallback automatico (se local falha, tenta cloud)
-- [x] Indicador na UI mostrando qual provider esta sendo usado (destacado)
-- [x] Configuracoes de API keys na tela de settings
-- [x] Regras configuraveis (threshold de tokens, keywords de pesquisa)
-- [x] Selector de modelo LLM no Settings (llama3.1, qwen2.5, mistral, etc.)
-- [x] Pre-carregamento do modelo na GPU ao trocar no Settings
-- [x] Modelo dinamico via Settings (sem reiniciar backend)
-- [x] Log de decisoes visivel no frontend (MetaBar mostra modelo/provider ativo com indicador local/cloud)
+### 6b — Memoria de Longo Prazo
+- [x] Schema Prisma: `Memory` (tipo, conteudo, embedding vector(768), timestamps)
+- [x] Tipos: preferencia, pessoa, projeto, dispositivo, habito, fato
+- [x] pgvector para busca por similaridade semantica (docker pgvector/pgvector:pg17)
+- [x] Embeddings via Ollama (nomic-embed-text) ou OpenAI (text-embedding-3-small, 768d)
+- [x] Antes de responder: busca automatica de memorias relevantes e injeta no system prompt
+- [x] Comando explicito: "Jarvis, lembra que..." / "anota que..." / "memoriza que..."
+- [x] Inferencia automatica: extrai fatos de conversas naturalmente via LLM
+- [x] WebSocket events: memory:list, memory:save, memory:delete, memory:search
 
-**Entregavel:** Jarvis usa Ollama por padrao. Para perguntas complexas ou quando local falha, escala pra cloud automaticamente. ✅
-
----
-
-## Fase 3 — Tool Calling + Capabilities ✅ (Concluida em 29/07/2026)
-
-**Objetivo:** Jarvis executa acoes no computador.
-
-- [x] `CapabilityRegistry` — registro dinamico de capabilities
-- [x] Interface `Capability` + `Tool` (contratos)
-- [x] Capability: **Computer** (abrir programas, executar comandos, manipular arquivos)
-- [x] Integrar tools no prompt do LLM (tool calling via AI SDK)
-- [x] LLM invoca tools -> Core executa -> retorna resultado
-- [x] Sandbox de seguranca para execucao de comandos (whitelist + blocked patterns)
-- [x] Indicadores visuais de tool execution no chat
-- [x] Tela de capabilities instaladas no settings (tools reais com descricoes)
-
-**Entregavel:** "Jarvis, abre o VS Code" — Jarvis usa tool calling pra executar o comando. ✅
+**Entregavel:** "Jarvis, qual meu editor favorito?" — responde com base na memoria.
 
 ---
 
-## Fase 4 — Voz ✅ (Concluida em 30/07/2026)
+## Fase 7 — Conversacao Inteligente
 
-**Objetivo:** Conversar com o Jarvis por voz.
+> Jarvis deixa de ser reativo e passa a ser contextual e proativo.
+>
+> Pilares: **2 (Compreensao)**, **4 (Conversacao Continua)**, **6 (Baixa Latencia)**
 
-### 4a — Speech-to-Text ✅
-- [x] Captura de audio via getUserMedia (microfone)
-- [x] Web Speech API (SpeechRecognition) como fallback no browser
-- [x] Whisper.cpp como sidecar Tauri (modelo small, pt-BR)
-- [x] Transcricao parcial em tempo real na tela de voz
-- [x] Indicador visual "Listening" no HUD
-- [x] VAD (Voice Activity Detection) — auto-envia apos 1.5s de silencio
+### 7a — System Prompt Dinamico
+- [x] System prompt carrega memorias relevantes + contexto da sessao
+- [ ] Prompt modular: personalidade base + memorias + capabilities disponiveis
+- [ ] Configuravel via Settings (tom, formalidade, proatividade)
 
-### 4b — Text-to-Speech ✅
-- [x] Servidor TTS multi-engine (`services/tts/`)
-- [x] Engine: Edge TTS (~500ms, neural Microsoft, requer internet)
-- [x] Engine: Kokoro (~1-2s, local, GPU)
-- [x] Engine: Qwen3-TTS (~30-100s, excelente qualidade, local, GPU)
-- [x] Engine: Piper (fallback, ~100ms, local, CPU)
-- [x] Selector de engine e voz no Settings
-- [x] Indicador visual "Speaking" no HUD
-- [x] Cancel/Interrupt para TTS
-- [x] Barge-in: falar sobre o agente interrompe TTS automaticamente (400ms voz sustentada)
-- [x] Orb reage ao audio real do TTS (ttsAudioBus compartilhado)
-- [x] Estado 'speaking' so ativa quando audio realmente toca
-- [x] Limpeza de markdown/emoji antes de sintetizar (cleanForSpeech)
+### 7b — Fillers de Latencia
+- [ ] Respostas parciais imediatas antes do LLM ("Boa pergunta...", "Deixa eu ver...")
+- [ ] TTS fala o filler enquanto LLM processa
+- [ ] Estado visual: `thinking` com texto do filler
 
-### 4c — Wake Word ✅ (Web Speech API — Chrome only)
-- [x] Deteccao continua em background via Web Speech API
-- [x] Palavra: "Jarvis" (com variantes: jarves, jarvez)
-- [x] Transicao de estado: Idle -> Listening automaticamente
-- [x] Cooldown de 3s pra evitar re-deteccao
-- [ ] Migrar pra OpenWakeWord (modelo local, funciona offline e no Tauri)
+### 7c — Compreensao de Intencao
+- [ ] LLM classifica intencao antes de agir (informacao, acao, conversa, confirmacao)
+- [ ] Sugestoes proativas baseadas em contexto e memoria
+- [ ] "Esta escuro aqui" → "Quer que eu acenda a luz?"
 
-**Entregavel:** Falar com o Jarvis e ouvir a resposta com voz natural. ✅
-Wake word funciona no Chrome. Migrar pra modelo local no futuro.
+**Entregavel:** Jarvis responde em <500ms (filler), entende contexto entre turnos, e sugere acoes.
 
 ---
 
-## Fase 5 — HUD + Interface Viva (design system STICK) ✅ (Concluida em 30/07/2026)
+## Fase 8 — Voz Nativa + Always-On
 
-**Objetivo:** Interface que transmite presenca. Especificacao completa em
-docs/DESIGN_SYSTEM.md; plano de execucao em docs/HANDOFF.md.
+> Escuta permanente real e voz com personalidade.
+>
+> Pilares: **1 (Escuta Permanente)**, **5 (Voz Humana)**
 
-- [x] Componente HUD com estados basicos
-- [x] Avatar V1: esfera minimalista
-- [x] 5.0  Alinhar versoes (R3F v9 + React 19 + Three 0.185)
-- [x] 5.1  Tokens + ThemeProvider (dark/light/auto)
-- [x] 5.2  Vidro + backdrop (manchas, tint radial, imagem de fundo)
-- [x] 5.3  Estado do agente: 7 estados + propagacao de --accent por CSS
-- [x] 5.4  Orb R3F integrado, <Canvas> persistente, bridge de estado
-- [x] 5.5  Tela de voz + nav flutuante + status pill
-- [x] 5.6  Capsula de gravacao + waveform (getUserMedia)
-- [x] 5.7  Tela de chat + painel de historico em gaveta
-- [x] 5.8  Tela de settings (tema, acento, fundo, LLM, TTS, voz, orb, tools, atalhos)
-- [x] 5.9  Paleta de comandos (⌘K) + modo ambiente + create button
-- [ ] 5.10 Widget flutuante (tray + mini HUD) — SEM DESIGN AINDA
-- [ ] 5.11 Autostart com o sistema (Tauri)
+### 8a — Wake Word Nativo
+- [ ] OpenWakeWord como sidecar Tauri (modelo local, offline)
+- [ ] Deteccao eficiente em background (baixo CPU)
+- [ ] Funciona sem Chrome / sem browser
 
-**Entregavel:** Jarvis com interface que respira e transmite estado. ✅
-5.0 a 5.9 fechadas; 5.10 e 5.11 dependem de design + Tauri.
+### 8b — Always-On
+- [ ] Widget flutuante / tray mode (mini orb + status)
+- [ ] Autostart com o sistema (Tauri plugin)
+- [ ] Global hotkey pra ativar/desativar
 
----
+### 8c — Voz Expressiva
+- [ ] SSML ou speech marks para controlar pausas e enfase
+- [ ] Ajuste dinamico de velocidade por tipo de conteudo (listas mais rapido, explicacoes mais lento)
+- [ ] Exploracao de TTS com controle emocional (Qwen3-TTS emotions, ou alternativas)
 
-## Fase 6 — Memoria (Semanas 18-20)
-
-**Objetivo:** Jarvis lembra de voce.
-
-### 6a — Memoria Curto Prazo
-- [ ] Contexto da conversa atual em Redis
-- [ ] Sliding window de mensagens no prompt
-- [ ] Resumo automatico de conversas longas
-
-### 6b — Memoria Longo Prazo
-- [ ] Schema Prisma: Memory (tipo, conteudo, embedding, timestamps)
-- [ ] Salvar: preferencias, pessoas, projetos, habitos
-- [ ] Busca por similaridade (embeddings + pgvector)
-- [ ] Jarvis consulta memoria automaticamente ao responder
-- [ ] Comando "Jarvis, lembra que..." para salvar explicitamente
-
-**Entregavel:** "Jarvis, qual meu editor favorito?" — Jarvis responde com base na memoria.
+**Entregavel:** "Jarvis" acorda o sistema a qualquer momento. Voz com pausas naturais e ritmo variavel.
 
 ---
 
-## Fase 7 — Capabilities Extras (Semanas 21-25)
+## Fase 9 — Capabilities Essenciais
 
-**Objetivo:** Expandir habilidades do Jarvis.
+> Jarvis resolve problemas, nao so conversa.
+>
+> Pilar: **8 (Capacidade de Agir)**
 
-### 7a — Search
-- [ ] Capability de pesquisa web (SearXNG local ou API)
-- [ ] Jarvis decide quando precisa pesquisar
-- [ ] Retorna resultados sumarizados
+### 9a — Search
+- [ ] Capability de pesquisa web (SearXNG local ou Tavily API)
+- [ ] Decision Engine redireciona pra cloud quando detecta necessidade de pesquisa
+- [ ] Resultados sumarizados pelo LLM
 
-### 7b — Calendar
-- [ ] Capability de lembretes e compromissos
+### 9b — Calendar + Lembretes
 - [ ] CRUD de lembretes no banco
-- [ ] Notificacoes agendadas
+- [ ] Notificacoes agendadas (nativas do Tauri)
 - [ ] "Jarvis, me lembra de X amanha as 9h"
 
-### 7c — Notifications
-- [ ] Capability para enviar mensagens
-- [ ] Integracao Telegram (bot API)
-- [ ] Integracao Email (SMTP/Resend)
-- [ ] WhatsApp (futuro — API complexa)
+### 9c — Notifications
+- [ ] Telegram bot API
+- [ ] Email via SMTP/Resend
+- [ ] "Jarvis, manda isso no Telegram"
 
-**Entregavel:** "Jarvis, pesquisa sobre X" / "Me lembra disso amanha" / "Manda isso no Telegram"
+**Entregavel:** Pesquisa, lembretes e notificacoes funcionando por voz.
 
 ---
 
-## Fase 8 — Integracoes (Semanas 26-30)
+## Fase 10 — Integracoes
 
-### 8a — Finance
-- [ ] Integrar com API financeira existente do Lucas
-- [ ] "Quanto gastei esse mes?"
-- [ ] "Qual meu saldo?"
+> Jarvis controla o ambiente.
+>
+> Pilar: **8 (Capacidade de Agir)**
 
-### 8b — Home (Casa Inteligente)
-- [ ] Integracao com Home Assistant ou Tuya API
-- [ ] Capability: ligar/desligar luzes, tomadas, cenas
+### 10a — Finance
+- [ ] Integrar com API financeira existente
+- [ ] "Quanto gastei esse mes?" / "Qual meu saldo?"
+
+### 10b — Home (Casa Inteligente)
+- [ ] Home Assistant ou Tuya API
+- [ ] Controlar luzes, tomadas, cenas
 - [ ] "Jarvis, apaga as luzes"
 
-**Entregavel:** Jarvis controla financas e casa inteligente.
+### 10c — Musica
+- [ ] Spotify API (play, pause, skip, busca)
+- [ ] "Jarvis, toca algo pra relaxar"
+
+**Entregavel:** Jarvis controla financas, casa e musica.
 
 ---
 
-## V2 — Agentes Especializados (Futuro)
+## V2 — Agentes Especializados
 
-Quando uma capability ganhar autonomia suficiente, ela evolui para um agente:
+Quando uma capability ganha autonomia, ela vira um agente:
 
 - [ ] Agente financeiro com analises proativas
-- [ ] Agente de casa que aprende rotinas
-- [ ] Agente de produtividade com sugestoes
+- [ ] Agente de casa que aprende rotinas e sugere automacoes
+- [ ] Agente de produtividade com sugestoes baseadas em calendario
 - [ ] Multi-agent orchestration no Core
 
 ---
 
-## V3 — Hardware Dedicado (Futuro)
+## V3 — Hardware Dedicado
 
-- [ ] Mini PC rodando Jarvis 24/7
-- [ ] Microfones em comodos da casa
-- [ ] Avatar V2/V3 (3D)
-- [ ] Wake word com voz direcional
+- [ ] Mini PC rodando Jarvis 24/7 (Beelink/NUC/Jetson)
+- [ ] Microfones em comodos (ReSpeaker / ESP32)
+- [ ] Avatar V2/V3 (3D avancado)
+- [ ] Wake word com voz direcional (saber de qual comodo veio)
 
 ---
 
 ## Resumo Visual
 
 ```
-Fase 0  ██████████  Fundacao             ✅
-Fase 1  ██████████  Chat Texto           ✅
-Fase 2  ██████████  Decision Engine      ✅
-Fase 3  ██████████  Tool Calling         ✅
-Fase 4  ██████████  Voz                  ✅
-Fase 5  █████████░  HUD + Interface      ✅ (5.10/5.11 pendentes)
-Fase 6  ░░░░░░░░░░  Memoria
-Fase 7  ░░░░░░░░░░  Capabilities
-Fase 8  ░░░░░░░░░░  Integracoes
-────────────────────────────────────────
-V2      Agentes
-V3      Hardware
+Fase 0-5  ██████████  Fundacao → Interface      ✅ Concluido
+Fase 6    ░░░░░░░░░░  Memoria                   ← PROXIMO
+Fase 7    ░░░░░░░░░░  Conversacao Inteligente
+Fase 8    ░░░░░░░░░░  Voz Nativa + Always-On
+Fase 9    ░░░░░░░░░░  Capabilities Essenciais
+Fase 10   ░░░░░░░░░░  Integracoes
+──────────────────────────────────────────────
+V2        Agentes Especializados
+V3        Hardware Dedicado
 ```
 
-> **Dica:** As semanas sao estimativas. O importante e seguir a ordem das fases — cada uma constroi sobre a anterior.
+> Cada fase constroi sobre a anterior. Memoria (Fase 6) e o alicerce — sem ela, compreensao, conversacao continua e personalizacao nao funcionam.
