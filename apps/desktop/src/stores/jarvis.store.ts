@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { JarvisState, Message, Conversation, DecisionMadePayload } from '@jarvis/shared';
+import type { JarvisState, Message, Conversation, DecisionMadePayload, IntentClassification } from '@jarvis/shared';
 
 type View = 'voice' | 'chat' | 'history' | 'settings';
 
@@ -23,11 +23,15 @@ interface JarvisStore {
   messages: Message[];
   streamingText: string;
 
-  // Decision
+  // Decision & Intent
   lastDecision: DecisionMadePayload | null;
+  lastIntent: IntentClassification | null;
 
   // Tool execution
   toolExecutions: ToolExecution[];
+
+  // Filler
+  fillerText: string;
 
   // Settings
   settings: Record<string, string>;
@@ -45,9 +49,11 @@ interface JarvisStore {
   clearStream: () => void;
   newConversation: () => void;
   setLastDecision: (decision: DecisionMadePayload) => void;
+  setLastIntent: (intent: IntentClassification) => void;
   addToolExecution: (exec: ToolExecution) => void;
   updateToolExecution: (toolName: string, result: ToolExecution['result']) => void;
   clearToolExecutions: () => void;
+  setFillerText: (text: string) => void;
   setSettings: (settings: Record<string, string>) => void;
   updateSetting: (key: string, value: string) => void;
 }
@@ -64,8 +70,11 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   streamingText: '',
 
   lastDecision: null,
+  lastIntent: null,
 
   toolExecutions: [],
+
+  fillerText: '',
 
   settings: {},
 
@@ -79,8 +88,9 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   setMessages: (messages) => set({ messages }),
   appendStreamToken: (token) => set((s) => ({ streamingText: s.streamingText + token })),
   clearStream: () => set({ streamingText: '' }),
-  newConversation: () => set({ conversationId: null, messages: [], streamingText: '', lastDecision: null, toolExecutions: [] }),
+  newConversation: () => set({ conversationId: null, messages: [], streamingText: '', fillerText: '', lastDecision: null, lastIntent: null, toolExecutions: [] }),
   setLastDecision: (lastDecision) => set({ lastDecision }),
+  setLastIntent: (lastIntent) => set({ lastIntent }),
   addToolExecution: (exec) => set((s) => ({ toolExecutions: [...s.toolExecutions, exec] })),
   updateToolExecution: (toolName, result) =>
     set((s) => ({
@@ -91,6 +101,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
       ),
     })),
   clearToolExecutions: () => set({ toolExecutions: [] }),
+  setFillerText: (fillerText) => set({ fillerText }),
   setSettings: (settings) => set({ settings }),
   updateSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),
 }));

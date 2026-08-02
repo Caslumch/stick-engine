@@ -5,18 +5,18 @@ import { ConversationRepository } from './conversation.repository';
 import { LlmService } from '../llm/llm.service';
 import { MemoryService } from '../memory/memory.service';
 import { CapabilityRegistryService } from '../capabilities/capability-registry.service';
+import { SettingsService } from '../settings/settings.service';
 import type { LlmStreamCallback } from '../../common/interfaces';
-import type { DecisionMadePayload } from '@jarvis/shared';
+import type { DecisionMadePayload, IntentClassification, IntentType } from '@jarvis/shared';
 
-const SYSTEM_PROMPT_BASE = `Voce e o Jarvis, um assistente pessoal inteligente e privado.
+// ── System Prompt Modules ───────────────────────────────────────────
 
-REGRA ABSOLUTA: Responda EXCLUSIVAMENTE em portugues brasileiro. NUNCA use chines, ingles ou qualquer outro idioma.
+const PROMPT_IDENTITY = `Voce e o Jarvis, um assistente pessoal inteligente e privado.
+Seu nome e Jarvis, nao Qwen, nao ChatGPT, nao outro.
+Voce roda localmente no computador do usuario.
+REGRA ABSOLUTA: Responda EXCLUSIVAMENTE em portugues brasileiro. NUNCA use chines, ingles ou qualquer outro idioma.`;
 
-Regras:
-- Seja direto e conciso.
-- Use um tom amigavel e natural. Voce entende girias e cumprimentos brasileiros como "eai", "fala", "opa", "beleza", "e ai mano", "salve", "bom dia", etc. Responda de forma natural e amigavel.
-- Seu nome e Jarvis, nao Qwen, nao ChatGPT, nao outro.
-- Voce roda localmente no computador do usuario.
+const PROMPT_RULES = `Regras:
 - Se nao souber algo, diga que nao sabe.
 - Quando o usuario pedir pra executar algo no computador, use as tools disponiveis.
 - Sempre explique o que voce fez apos executar uma tool.
@@ -24,6 +24,24 @@ Regras:
 - Quando o usuario pedir pra voce lembrar de algo, confirme que voce guardou na memoria.
 - Use as memorias sobre o usuario para personalizar suas respostas.
 - LEMBRE-SE: toda resposta em portugues brasileiro, sem excecao.`;
+
+const TONE_PROMPTS: Record<string, string> = {
+  friendly: 'Use um tom amigavel e natural. Voce entende girias e cumprimentos brasileiros como "eai", "fala", "opa", "beleza", "e ai mano", "salve", "bom dia". Responda de forma natural e amigavel.',
+  formal: 'Use um tom profissional e educado. Evite girias e linguagem coloquial. Seja cortez e preciso.',
+  casual: 'Use um tom bem descontraido, como um amigo proximo. Use girias, emojis leves e humor quando fizer sentido.',
+};
+
+const PROACTIVITY_PROMPTS: Record<string, string> = {
+  low: 'Apenas responda o que foi perguntado. Nao faca sugestoes a menos que pedido.',
+  medium: 'Alem de responder, faca sugestoes breves quando relevante, mas sem insistir.',
+  high: 'Seja proativo: sugira proximos passos, antecipe necessidades e ofereca alternativas. Se perceber algo que pode ajudar o usuario, mencione.',
+};
+
+const VERBOSITY_PROMPTS: Record<string, string> = {
+  concise: 'Seja direto e conciso. Respostas curtas e objetivas.',
+  balanced: 'Equilibre brevidade e detalhe. Explique o necessario sem ser prolixo.',
+  detailed: 'Explique com detalhes e contexto. Inclua exemplos quando util.',
+};
 
 /** Max messages to keep in the prompt (excluding summary) */
 const SLIDING_WINDOW_SIZE = 30;
@@ -45,6 +63,7 @@ export class ConversationService {
     private readonly llm: LlmService,
     private readonly memory: MemoryService,
     private readonly capabilities: CapabilityRegistryService,
+    private readonly settings: SettingsService,
   ) {}
 
   async createConversation(title?: string) {
@@ -116,11 +135,52 @@ export class ConversationService {
   }
 
   /**
-   * Build the system prompt with relevant memories injected.
+   * Build a modular system prompt:
+   * identity + personality (tone/verbosity/proactivity) + rules + capabilities + memories
    */
-  private async buildSystemPrompt(userMessage: string): Promise<string> {
-    const memoryContext = await this.memory.getRelevantContext(userMessage);
-    return SYSTEM_PROMPT_BASE + memoryContext;
+  private async buildSystemPrompt(userMessage: string, intent?: IntentClassification): Promise<string> {
+    const [tone, proactivity, verbosity, memoryContext] = await Promise.all([
+      this.settings.get('personality.tone'),
+      this.settings.get('personality.proactivity'),
+      this.settings.get('personality.verbosity'),
+      this.memory.getRelevantContext(userMessage),
+    ]);
+
+    const sections: string[] = [
+      PROMPT_IDENTITY,
+      '',
+      TONE_PROMPTS[tone] ?? TONE_PROMPTS.friendly,
+      VERBOSITY_PROMPTS[verbosity] ?? VERBOSITY_PROMPTS.concise,
+      PROACTIVITY_PROMPTS[proactivity] ?? PROACTIVITY_PROMPTS.medium,
+      '',
+      PROMPT_RULES,
+    ];
+
+    // Intent context helps the LLM understand user goal
+    if (intent) {
+      const intentHints: Record<IntentType, string> = {
+        information: 'O usuario esta pedindo informacao. Responda de forma informativa.',
+        action: 'O usuario quer que voce execute uma acao. Use as tools disponiveis se aplicavel.',
+        conversation: 'O usuario esta conversando casualmente. Seja natural e amigavel.',
+        confirmation: 'O usuario esta confirmando ou negando algo. Seja breve.',
+        memory: 'O usuario quer que voce memorize algo. Confirme que guardou.',
+      };
+      sections.push('', `Contexto da intencao: ${intentHints[intent.intent]}`);
+    }
+
+    // Capabilities available
+    const tools = this.capabilities.getAllTools();
+    if (tools.length > 0) {
+      const toolList = tools.map((t) => `- ${t.name}: ${t.description}`).join('\n');
+      sections.push('', 'Ferramentas disponiveis:', toolList);
+    }
+
+    // Memories
+    if (memoryContext) {
+      sections.push(memoryContext);
+    }
+
+    return sections.join('\n');
   }
 
   /**
@@ -163,13 +223,54 @@ export class ConversationService {
     return history;
   }
 
+  /**
+   * Fast intent classification via heuristics (no LLM call = zero latency).
+   */
+  classifyIntent(text: string): IntentClassification {
+    const lower = text.toLowerCase().trim();
+
+    // Memory intent
+    if (/^(lembra|anota|memoriza|guarda|salva)\s/i.test(lower)) {
+      return { intent: 'memory', confidence: 0.95 };
+    }
+
+    // Confirmation
+    if (/^(sim|nao|s|n|ok|pode|confirma|cancela|isso|exato|isso mesmo|nega|claro|com certeza)\s*[.!]?$/i.test(lower)) {
+      return { intent: 'confirmation', confidence: 0.9 };
+    }
+
+    // Action intent — commands
+    if (/^(abre|abra|execut|rod[ae]|cri[ae]|delet|apag|instal|fecha|liga|desliga|acend|apaga|toca|para|paus)/i.test(lower)) {
+      return { intent: 'action', confidence: 0.85 };
+    }
+
+    // Information intent — questions
+    if (/^(o que|qual|quais|como|quando|onde|por ?que|quem|quanto|quantos|quantas|me (diz|fala|conta|explica))/i.test(lower) || lower.endsWith('?')) {
+      return { intent: 'information', confidence: 0.8 };
+    }
+
+    // Conversation — greetings, casual
+    if (/^(oi|ola|eai|fala|salve|bom dia|boa tarde|boa noite|beleza|opa|tudo bem|valeu|obrigad|tchau|ate mais|falou)/i.test(lower)) {
+      return { intent: 'conversation', confidence: 0.85 };
+    }
+
+    // Default: information (most messages are questions)
+    return { intent: 'information', confidence: 0.5 };
+  }
+
   async handleMessage(
     conversationId: string,
     text: string,
     onToken: LlmStreamCallback,
     onDecision?: (decision: DecisionMadePayload) => void,
     onToolExecution?: (event: ToolExecutionEvent) => void,
+    onIntent?: (intent: IntentClassification) => void,
   ) {
+    // 0. Classify intent (zero-latency heuristic)
+    const intent = this.classifyIntent(text);
+    onIntent?.(intent);
+    this.logger.log(`Intent: ${intent.intent} (${intent.confidence})`);
+
     // 1. Check for explicit memory save ("Jarvis, lembra que...")
     const explicitMemory = this.memory.extractExplicitMemory(text);
     if (explicitMemory) {
@@ -183,8 +284,8 @@ export class ConversationService {
       content: text,
     });
 
-    // 3. Build system prompt with relevant memories
-    const systemPrompt = await this.buildSystemPrompt(text);
+    // 3. Build system prompt with relevant memories + intent context
+    const systemPrompt = await this.buildSystemPrompt(text, intent);
 
     // 4. Build history with sliding window
     const history = await this.buildHistory(conversationId, systemPrompt);

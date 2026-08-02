@@ -23,6 +23,11 @@ const DEFAULTS: Record<string, string> = {
   'llm.preferLocal': 'true',
   'decision.tokenThreshold': '2000',
   'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente',
+
+  // Personality
+  'personality.tone': 'friendly',       // friendly | formal | casual
+  'personality.proactivity': 'medium',  // low | medium | high
+  'personality.verbosity': 'concise',   // concise | balanced | detailed
 };
 
 // Keys that should be masked when sent to the frontend

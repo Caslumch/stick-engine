@@ -29,6 +29,7 @@ export function Voice() {
   const state = useJarvisStore((s) => s.state)
   const setState = useJarvisStore((s) => s.setState)
   const streamingText = useJarvisStore((s) => s.streamingText)
+  const fillerText = useJarvisStore((s) => s.fillerText)
   const isListening = state === 'listening'
 
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
@@ -170,6 +171,41 @@ export function Voice() {
     return () => bargeInVad.stop()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
+
+  // --- Falar filler enquanto LLM processa ---
+  const fillerSpokenRef = useRef('')
+  useEffect(() => {
+    if (state === 'thinking' && fillerText && fillerText !== fillerSpokenRef.current) {
+      fillerSpokenRef.current = fillerText
+      // Fala o filler sem mudar o estado pra 'speaking' — continua 'thinking'
+      const settings = useJarvisStore.getState().settings
+      const engine = settings['tts.engine'] || 'edge'
+      const voice = settings['tts.voice'] || ''
+      fetch('http://localhost:5001/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: fillerText, engine, voice }),
+      }).then(async (resp) => {
+        if (!resp.ok || cancelledRef.current) return
+        const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
+        const bytes = await resp.arrayBuffer()
+        const bus = getTTSBus()
+        await resumeTTSBus()
+        const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
+        if (useJarvisStore.getState().state !== 'thinking') return
+        const source = bus.ctx.createBufferSource()
+        source.buffer = audioBuffer
+        source.connect(bus.input)
+        source.start()
+      }).catch(() => {})
+    }
+    if (state !== 'thinking') {
+      fillerSpokenRef.current = ''
+    }
+  }, [state, fillerText])
+
+  // --- Ref pra cancelamento compartilhado ---
+  const cancelledRef = useRef(false)
 
   // --- Falar mensagens novas do assistente ---
   const spokenIdsRef = useRef<Set<string>>(new Set())
@@ -317,7 +353,7 @@ export function Voice() {
         }}>
           {isListening && transcript
             ? transcript
-            : streamingText || VOICE_PROMPTS[state]}
+            : streamingText || (state === 'thinking' && fillerText) || VOICE_PROMPTS[state]}
         </p>
 
         {/* Timer de thinking */}

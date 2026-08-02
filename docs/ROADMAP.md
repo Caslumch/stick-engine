@@ -14,6 +14,8 @@
 | 3 | Tool Calling — CapabilityRegistry, Computer capability | 29/07 | ✅ |
 | 4 | Voz — STT (Whisper), TTS (multi-engine), Wake Word (Web Speech API), VAD, barge-in | 30/07 | ✅ |
 | 5 | Interface Viva — STICK design system, orb R3F, 7 estados, glass UI, 3 telas | 30/07 | ✅ |
+| 6 | Memoria — pgvector, embeddings, sliding window, extracao automatica | 01/08 | ✅ |
+| 7 | Conversacao Inteligente — prompt modular, fillers, classificacao de intencao | 01/08 | ✅ |
 
 **Pendentes de fases anteriores:**
 - [ ] 4c: Migrar wake word pra OpenWakeWord (movido pra Fase 8)
@@ -27,11 +29,11 @@
 | Pilar | Descricao | Cobertura | Gap Principal |
 |-------|-----------|-----------|---------------|
 | 1. Escuta Permanente | Sempre disponivel, baixo consumo | 30% | Wake word browser-only, sem tray mode |
-| 2. Compreensao | Interpreta intencoes, proativo | 40% | Prompt basico, sem classificacao de intencao |
-| 3. Memoria | Conhece o usuario, aprende | **0%** | Nada implementado |
-| 4. Conversacao Continua | Contexto entre turnos e sessoes | 20% | Conversas isoladas, sem sliding window |
+| 2. Compreensao | Interpreta intencoes, proativo | 65% | Classificacao de intencao por heuristica, falta sugestoes proativas |
+| 3. Memoria | Conhece o usuario, aprende | **70%** | pgvector + embeddings + extracao automatica. Falta contexto entre sessoes |
+| 4. Conversacao Continua | Contexto entre turnos e sessoes | 50% | Sliding window + resumo. Falta carryover entre sessoes |
 | 5. Voz Humana | Pausas, ritmo, emocao, enfase | 35% | Sem controle de prosodia/SSML |
-| 6. Baixa Latencia | 200-500ms, respostas parciais | 45% | Sem fillers, latencia depende do LLM |
+| 6. Baixa Latencia | 200-500ms, respostas parciais | 65% | Fillers contextuais por intencao, TTS durante thinking |
 | 7. Interface Viva | Orb reage a tudo | **75%** | Falta emocao no orb, widget/tray |
 | 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 20% | So Computer capability existe |
 
@@ -70,20 +72,23 @@
 
 ### 7a — System Prompt Dinamico
 - [x] System prompt carrega memorias relevantes + contexto da sessao
-- [ ] Prompt modular: personalidade base + memorias + capabilities disponiveis
-- [ ] Configuravel via Settings (tom, formalidade, proatividade)
+- [x] Prompt modular: personalidade base + memorias + capabilities disponiveis
+- [x] Configuravel via Settings (tom, proatividade, detalhamento)
 
 ### 7b — Fillers de Latencia
-- [ ] Respostas parciais imediatas antes do LLM ("Boa pergunta...", "Deixa eu ver...")
-- [ ] TTS fala o filler enquanto LLM processa
-- [ ] Estado visual: `thinking` com texto do filler
+- [x] Respostas parciais imediatas antes do LLM ("Boa pergunta...", "Deixa eu ver...")
+- [x] TTS fala o filler enquanto LLM processa
+- [x] Estado visual: `thinking` com texto do filler
+- [x] Fillers contextuais por tipo de intencao
 
 ### 7c — Compreensao de Intencao
-- [ ] LLM classifica intencao antes de agir (informacao, acao, conversa, confirmacao)
-- [ ] Sugestoes proativas baseadas em contexto e memoria
-- [ ] "Esta escuro aqui" → "Quer que eu acenda a luz?"
+- [x] Classificacao de intencao por heuristicas (zero latencia): information, action, conversation, confirmation, memory
+- [x] Intent injetado no system prompt para guiar resposta do LLM
+- [x] Evento `intent:classified` no WebSocket para o frontend
+- [ ] Sugestoes proativas baseadas em contexto e memoria (movido pra Fase 9)
+- [ ] "Esta escuro aqui" → "Quer que eu acenda a luz?" (requer integracoes — Fase 10)
 
-**Entregavel:** Jarvis responde em <500ms (filler), entende contexto entre turnos, e sugere acoes.
+**Entregavel:** Jarvis responde em <500ms (filler), entende contexto entre turnos, classifica intencao.
 
 ---
 
@@ -184,9 +189,9 @@ Quando uma capability ganha autonomia, ela vira um agente:
 
 ```
 Fase 0-5  ██████████  Fundacao → Interface      ✅ Concluido
-Fase 6    ░░░░░░░░░░  Memoria                   ← PROXIMO
-Fase 7    ░░░░░░░░░░  Conversacao Inteligente
-Fase 8    ░░░░░░░░░░  Voz Nativa + Always-On
+Fase 6    █████████░  Memoria                   ✅ (falta contexto entre sessoes)
+Fase 7    ████████░░  Conversacao Inteligente   ✅ (falta sugestoes proativas)
+Fase 8    ░░░░░░░░░░  Voz Nativa + Always-On    ← PROXIMO
 Fase 9    ░░░░░░░░░░  Capabilities Essenciais
 Fase 10   ░░░░░░░░░░  Integracoes
 ──────────────────────────────────────────────

@@ -5,7 +5,9 @@ import type {
   StateChangePayload,
   MessageStreamPayload,
   MessageCompletePayload,
+  MessageFillerPayload,
   DecisionMadePayload,
+  IntentClassification,
   Conversation,
   Message,
 } from '@jarvis/shared';
@@ -50,6 +52,16 @@ export function useSocket() {
       const current = useJarvisStore.getState().state;
       if (current === 'speaking' && payload.state === 'idle') return;
       store.setState(payload.state);
+      // Filler text comes with 'thinking' state
+      if (payload.filler) {
+        store.setFillerText(payload.filler);
+      } else if (payload.state === 'idle') {
+        store.setFillerText('');
+      }
+    });
+
+    socket.on(WsEvent.MessageFiller, (payload: MessageFillerPayload) => {
+      store.setFillerText(payload.text);
     });
 
     socket.on(WsEvent.MessageStream, (payload: MessageStreamPayload) => {
@@ -59,6 +71,7 @@ export function useSocket() {
     socket.on(WsEvent.MessageComplete, (payload: MessageCompletePayload) => {
       store.clearStream();
       store.clearToolExecutions();
+      store.setFillerText('');
       store.addMessage(payload.message);
 
       if (!useJarvisStore.getState().conversationId) {
@@ -79,6 +92,10 @@ export function useSocket() {
 
     socket.on(WsEvent.DecisionMade, (payload: DecisionMadePayload) => {
       store.setLastDecision(payload);
+    });
+
+    socket.on(WsEvent.IntentClassified, (payload: IntentClassification) => {
+      store.setLastIntent(payload);
     });
 
     socket.on(WsEvent.CapabilityExecuting, (payload: { toolName: string; args: Record<string, unknown> }) => {

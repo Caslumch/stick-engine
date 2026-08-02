@@ -10,10 +10,25 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { WsEvent } from '@jarvis/shared';
-import type { MessageSendPayload, JarvisState } from '@jarvis/shared';
+import type { MessageSendPayload, JarvisState, MessageFillerPayload, IntentClassification, IntentType } from '@jarvis/shared';
 import { ConversationService } from './conversation.service';
 import { SettingsService } from '../settings/settings.service';
 import { MemoryService } from '../memory/memory.service';
+
+const FILLERS_BY_INTENT: Record<IntentType, string[]> = {
+  information: ['Deixa eu ver...', 'Boa pergunta...', 'Hmm, deixa eu pensar...', 'Vou verificar...'],
+  action: ['Certo, vou fazer isso...', 'Só um instante...', 'Preparando...', 'Já vou executar...'],
+  conversation: [''],  // No filler for casual chat — feels more natural
+  confirmation: ['Entendido...', 'Certo...'],
+  memory: ['Anotando...', 'Guardando isso...'],
+};
+
+function pickFiller(intent: IntentType): string {
+  const fillers = FILLERS_BY_INTENT[intent] ?? FILLERS_BY_INTENT.information;
+  const valid = fillers.filter(Boolean);
+  if (valid.length === 0) return '';
+  return valid[Math.floor(Math.random() * valid.length)];
+}
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class ConversationGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -51,7 +66,18 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
       conversationId = conversation.id;
     }
 
-    this.emitStateChange('thinking');
+    // Classify intent first to pick a contextual filler
+    const intent = this.conversationService.classifyIntent(payload.text);
+    const filler = pickFiller(intent.intent);
+
+    this.emitStateChange('thinking', filler || undefined);
+
+    if (filler) {
+      client.emit(WsEvent.MessageFiller, {
+        text: filler,
+        conversationId,
+      } satisfies MessageFillerPayload);
+    }
 
     try {
       const message = await this.conversationService.handleMessage(
@@ -77,6 +103,9 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
               conversationId,
             });
           }
+        },
+        (classifiedIntent) => {
+          client.emit(WsEvent.IntentClassified, classifiedIntent);
         },
       );
 
@@ -173,8 +202,8 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     return this.memoryService.search(payload.query, payload.limit);
   }
 
-  private emitStateChange(state: JarvisState) {
+  private emitStateChange(state: JarvisState, filler?: string) {
     this.state = state;
-    this.server.emit(WsEvent.StateChange, { state });
+    this.server.emit(WsEvent.StateChange, { state, filler });
   }
 }

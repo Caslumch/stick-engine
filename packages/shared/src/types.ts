@@ -55,6 +55,16 @@ export interface Memory {
   updatedAt: string;
 }
 
+// === Intent Classification ===
+
+export type IntentType = 'information' | 'action' | 'conversation' | 'confirmation' | 'memory';
+
+export interface IntentClassification {
+  intent: IntentType;
+  confidence: number;
+  suggestion?: string;
+}
+
 // === WebSocket Events ===
 
 export enum WsEvent {
@@ -76,6 +86,8 @@ export enum WsEvent {
   MessageStream = 'message:stream',
   MessageComplete = 'message:complete',
   MessageError = 'message:error',
+  MessageFiller = 'message:filler',
+  IntentClassified = 'intent:classified',
   StateChange = 'state:change',
   DecisionMade = 'decision:made',
   CapabilityExecuting = 'capability:executing',
@@ -101,10 +113,16 @@ export interface MessageCompletePayload {
 
 export interface StateChangePayload {
   state: JarvisState;
+  filler?: string;
   metadata?: {
     provider?: string;
     tool?: string;
   };
+}
+
+export interface MessageFillerPayload {
+  text: string;
+  conversationId: string;
 }
 
 export interface DecisionMadePayload {

@@ -265,15 +265,37 @@ function AgentGroup() {
           }}
         />
       </Row>
-      <Row label="Persona" description="How much personality the replies carry.">
+      <Row label="Tone" description="How the agent sounds — friendly, formal, or casual.">
         <Segmented
           options={[
-            { value: 'warm', label: 'Warm' },
-            { value: 'terse', label: 'Terse' },
-            { value: 'dry', label: 'Dry' },
+            { value: 'friendly', label: 'Friendly' },
+            { value: 'formal', label: 'Formal' },
+            { value: 'casual', label: 'Casual' },
           ]}
-          value={settings['agent.persona'] ?? 'terse'}
-          onChange={(v) => updateSetting('agent.persona', v)}
+          value={settings['personality.tone'] ?? 'friendly'}
+          onChange={(v) => updateSetting('personality.tone', v)}
+        />
+      </Row>
+      <Row label="Proactivity" description="How eagerly the agent offers suggestions.">
+        <Segmented
+          options={[
+            { value: 'low', label: 'Low' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+          ]}
+          value={settings['personality.proactivity'] ?? 'medium'}
+          onChange={(v) => updateSetting('personality.proactivity', v)}
+        />
+      </Row>
+      <Row label="Verbosity" description="How detailed the answers are.">
+        <Segmented
+          options={[
+            { value: 'concise', label: 'Concise' },
+            { value: 'balanced', label: 'Balanced' },
+            { value: 'detailed', label: 'Detailed' },
+          ]}
+          value={settings['personality.verbosity'] ?? 'concise'}
+          onChange={(v) => updateSetting('personality.verbosity', v)}
         />
       </Row>
       <Row label="Wake word" description="Always-on hotword detection, running locally.">

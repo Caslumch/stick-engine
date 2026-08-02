@@ -83,6 +83,34 @@ function SettingToggle({
   );
 }
 
+function SettingSelect({
+  label,
+  settingKey,
+  options,
+}: {
+  label: string;
+  settingKey: string;
+  options: { value: string; label: string }[];
+}) {
+  const value = useJarvisStore((s) => s.settings[settingKey] ?? options[0]?.value ?? '');
+  const { updateSetting } = useSocket();
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-jarvis-text">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => updateSetting(settingKey, e.target.value)}
+        className="px-3 py-1.5 rounded-lg text-sm bg-jarvis-bg text-jarvis-text border border-jarvis-border focus:ring-1 focus:ring-jarvis-primary/50 outline-none transition-all"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function Settings() {
   const { setView } = useJarvisStore();
   const { loadSettings } = useSocket();
@@ -141,6 +169,42 @@ export function Settings() {
               label="Modelo"
               settingKey="llm.openai.model"
               placeholder="gpt-4o-mini"
+            />
+          </div>
+        </section>
+
+        {/* Personalidade */}
+        <section className="space-y-4">
+          <h2 className="text-sm font-medium text-jarvis-primary uppercase tracking-wider">
+            Personalidade
+          </h2>
+          <div className="p-4 rounded-xl bg-jarvis-surface border border-jarvis-border space-y-4">
+            <SettingSelect
+              label="Tom"
+              settingKey="personality.tone"
+              options={[
+                { value: 'friendly', label: 'Amigável' },
+                { value: 'formal', label: 'Formal' },
+                { value: 'casual', label: 'Descontraído' },
+              ]}
+            />
+            <SettingSelect
+              label="Proatividade"
+              settingKey="personality.proactivity"
+              options={[
+                { value: 'low', label: 'Baixa' },
+                { value: 'medium', label: 'Média' },
+                { value: 'high', label: 'Alta' },
+              ]}
+            />
+            <SettingSelect
+              label="Detalhamento"
+              settingKey="personality.verbosity"
+              options={[
+                { value: 'concise', label: 'Conciso' },
+                { value: 'balanced', label: 'Equilibrado' },
+                { value: 'detailed', label: 'Detalhado' },
+              ]}
             />
           </div>
         </section>
