@@ -170,6 +170,37 @@
 
 ---
 
+## Fase 11 — Distribuicao (Instalador)
+
+> Jarvis vira um app instalavel — um .msi/.exe que qualquer pessoa roda sem setup de dev.
+>
+> Pilar: **Experiencia de uso**
+
+### 11a — Empacotamento dos Servicos
+- [ ] TTS server → PyInstaller .exe standalone
+- [ ] Wake Word server → PyInstaller .exe standalone
+- [ ] NestJS API → Node SEA (Single Executable Application) ou pkg
+- [ ] Bundled como Tauri sidecars (externalBin)
+
+### 11b — Banco Local
+- [ ] Migrar de PostgreSQL + pgvector pra SQLite + sqlite-vss
+- [ ] Zero Docker, zero config — banco local no AppData do usuario
+- [ ] Migrar Prisma provider de postgresql pra sqlite
+
+### 11c — Instalador
+- [ ] `pnpm tauri build` gera .msi (Windows) / .dmg (Mac)
+- [ ] First-run wizard: detecta Ollama, guia download se necessario
+- [ ] Auto-pull do modelo LLM na primeira execucao
+- [ ] Todos os sidecars sobem automaticamente com o app
+
+### 11d — Updates
+- [ ] Tauri updater plugin pra auto-update
+- [ ] Versionamento semantico
+
+**Entregavel:** Usuario baixa Jarvis.msi, instala, abre e usa. Sem terminal, sem Docker, sem Python manual.
+
+---
+
 ## V2 — Agentes Especializados
 
 Quando uma capability ganha autonomia, ela vira um agente:
@@ -199,6 +230,7 @@ Fase 7    ████████░░  Conversacao Inteligente   ✅ (falta s
 Fase 8    █████████░  Voz Nativa + Always-On    ✅ (falta TTS emocional)
 Fase 9    ░░░░░░░░░░  Capabilities Essenciais   ← PROXIMO
 Fase 10   ░░░░░░░░░░  Integracoes
+Fase 11   ░░░░░░░░░░  Distribuicao (Instalador)
 ──────────────────────────────────────────────
 V2        Agentes Especializados
 V3        Hardware Dedicado
