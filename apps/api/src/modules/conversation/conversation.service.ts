@@ -11,10 +11,17 @@ import type { DecisionMadePayload, IntentClassification, IntentType } from '@jar
 
 // ── System Prompt Modules ───────────────────────────────────────────
 
-const PROMPT_IDENTITY = `Voce e o Jarvis, um assistente pessoal inteligente e privado.
+function buildIdentityPrompt(): string {
+  const now = new Date();
+  const date = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Sao_Paulo' });
+  const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
+  return `Voce e o Jarvis, um assistente pessoal inteligente e privado.
 Seu nome e Jarvis, nao Qwen, nao ChatGPT, nao outro.
 Voce roda localmente no computador do usuario.
+Data e hora atual: ${date}, ${time}.
 REGRA ABSOLUTA: Responda EXCLUSIVAMENTE em portugues brasileiro. NUNCA use chines, ingles ou qualquer outro idioma.`;
+}
 
 const PROMPT_RULES = `Regras:
 - Se nao souber algo, diga que nao sabe.
@@ -147,7 +154,7 @@ export class ConversationService {
     ]);
 
     const sections: string[] = [
-      PROMPT_IDENTITY,
+      buildIdentityPrompt(),
       '',
       TONE_PROMPTS[tone] ?? TONE_PROMPTS.friendly,
       VERBOSITY_PROMPTS[verbosity] ?? VERBOSITY_PROMPTS.concise,

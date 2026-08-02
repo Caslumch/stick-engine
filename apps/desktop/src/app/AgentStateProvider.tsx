@@ -45,17 +45,28 @@ export function AgentStateProvider({ children }: { children: React.ReactNode }) 
   }, [state])
 
   // Polling global: sincroniza estado com áudio real do TTS
+  // Grace period de 800ms pra não flickar durante pausas entre frases
   useEffect(() => {
+    let silentSince = 0
+
     const id = setInterval(() => {
       const current = useJarvisStore.getState().state
       const playing = isTTSPlaying()
 
-      if (playing && current === 'idle') {
-        useJarvisStore.getState().setState('speaking')
-      } else if (!playing && current === 'speaking') {
-        useJarvisStore.getState().setState('idle')
+      if (playing) {
+        silentSince = 0
+        if (current === 'idle') {
+          useJarvisStore.getState().setState('speaking')
+        }
+      } else if (current === 'speaking') {
+        if (silentSince === 0) {
+          silentSince = Date.now()
+        } else if (Date.now() - silentSince > 800) {
+          useJarvisStore.getState().setState('idle')
+          silentSince = 0
+        }
       }
-    }, 300)
+    }, 200)
 
     return () => clearInterval(id)
   }, [])
