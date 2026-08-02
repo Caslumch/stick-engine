@@ -15,7 +15,7 @@ import asyncio
 import json
 import time
 import threading
-from contextlib import asynccontextmanager
+import queue
 
 import numpy as np
 import sounddevice as sd
@@ -29,7 +29,6 @@ SAMPLE_RATE = 16000
 CHUNK_SAMPLES = 1280  # 80ms chunks (OpenWakeWord expects 80ms)
 THRESHOLD = 0.5       # Detection confidence threshold
 COOLDOWN_SECS = 3.0   # Ignore detections for N seconds after a trigger
-REFRACTORY_SECS = 0.5 # Min time between checks
 
 # ─── State ───────────────────────────────────────────────────
 
@@ -38,6 +37,9 @@ connected_clients: set[WebSocket] = set()
 is_listening = False
 listen_thread: threading.Thread | None = None
 stop_event = threading.Event()
+
+# Thread-safe queue for detections
+detection_queue: queue.Queue = queue.Queue()
 
 
 def load_model():
@@ -56,7 +58,7 @@ def load_model():
 
 # ─── Audio capture + detection loop ─────────────────────────
 
-def detection_loop(loop: asyncio.AbstractEventLoop):
+def detection_loop():
     """Runs in a background thread. Captures mic audio and runs inference."""
     global is_listening
 
@@ -78,7 +80,7 @@ def detection_loop(loop: asyncio.AbstractEventLoop):
         audio = (indata[:, 0] * 32767).astype(np.int16)
 
         # Run prediction
-        prediction = oww_model.predict(audio)
+        oww_model.predict(audio)
 
         # Check all model outputs
         for model_name, scores in oww_model.prediction_buffer.items():
@@ -91,11 +93,13 @@ def detection_loop(loop: asyncio.AbstractEventLoop):
                 last_detection = now
                 print(f"[WakeWord] Detected '{model_name}' (confidence: {score:.3f})")
 
-                # Notify connected clients
-                asyncio.run_coroutine_threadsafe(
-                    broadcast_detection(model_name, score),
-                    loop,
-                )
+                # Put detection in thread-safe queue
+                detection_queue.put({
+                    "event": "wake_word_detected",
+                    "model": model_name,
+                    "confidence": round(float(score), 3),
+                    "timestamp": now,
+                })
 
     try:
         with sd.InputStream(
@@ -116,26 +120,30 @@ def detection_loop(loop: asyncio.AbstractEventLoop):
         print("[WakeWord] Listening stopped.")
 
 
-async def broadcast_detection(model_name: str, confidence: float):
-    """Send detection event to all connected WebSocket clients."""
-    msg = json.dumps({
-        "event": "wake_word_detected",
-        "model": model_name,
-        "confidence": round(confidence, 3),
-        "timestamp": time.time(),
-    })
-
-    disconnected = set()
-    for ws in connected_clients:
+async def broadcast_loop():
+    """Async loop that drains the detection queue and broadcasts to WS clients."""
+    while True:
         try:
-            await ws.send_text(msg)
-        except Exception:
-            disconnected.add(ws)
+            # Non-blocking check
+            detection = detection_queue.get_nowait()
+            msg = json.dumps(detection)
+            print(f"[WakeWord] Broadcasting to {len(connected_clients)} client(s)")
 
-    connected_clients.difference_update(disconnected)
+            disconnected = set()
+            for ws in connected_clients:
+                try:
+                    await ws.send_text(msg)
+                except Exception:
+                    disconnected.add(ws)
+
+            connected_clients.difference_update(disconnected)
+        except queue.Empty:
+            pass
+
+        await asyncio.sleep(0.05)  # 50ms poll
 
 
-def start_listening(loop: asyncio.AbstractEventLoop):
+def start_listening():
     """Start the detection loop in a background thread."""
     global listen_thread
 
@@ -143,7 +151,7 @@ def start_listening(loop: asyncio.AbstractEventLoop):
         return
 
     stop_event.clear()
-    listen_thread = threading.Thread(target=detection_loop, args=(loop,), daemon=True)
+    listen_thread = threading.Thread(target=detection_loop, daemon=True)
     listen_thread.start()
 
 
@@ -156,12 +164,16 @@ def stop_listening():
 
 # ─── FastAPI ─────────────────────────────────────────────────
 
+from contextlib import asynccontextmanager
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    loop = asyncio.get_event_loop()
-    start_listening(loop)
+    start_listening()
+    # Start the broadcast loop as a background task
+    task = asyncio.create_task(broadcast_loop())
     yield
     stop_listening()
+    task.cancel()
 
 
 app = FastAPI(title="Jarvis Wake Word", lifespan=lifespan)
@@ -181,55 +193,35 @@ async def health():
 
 @app.post("/start")
 async def start():
-    """Start listening for wake word."""
-    loop = asyncio.get_event_loop()
-    start_listening(loop)
+    start_listening()
     return {"status": "listening"}
 
 
 @app.post("/stop")
 async def stop():
-    """Stop listening for wake word."""
     stop_listening()
     return {"status": "stopped"}
 
 
-@app.post("/threshold")
-async def set_threshold(value: float):
-    """Adjust detection threshold (0.0 - 1.0)."""
-    global THRESHOLD
-    THRESHOLD = max(0.1, min(1.0, value))
-    return {"threshold": THRESHOLD}
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    """WebSocket endpoint for real-time wake word notifications."""
     await ws.accept()
     connected_clients.add(ws)
     print(f"[WakeWord] Client connected ({len(connected_clients)} total)")
 
     try:
-        # Send initial status
         await ws.send_text(json.dumps({
             "event": "connected",
             "listening": is_listening,
             "model": "hey_jarvis",
         }))
 
-        # Keep connection alive, handle control messages
+        # Keep connection alive
         while True:
             data = await ws.receive_text()
             try:
                 msg = json.loads(data)
-                if msg.get("action") == "start":
-                    loop = asyncio.get_event_loop()
-                    start_listening(loop)
-                    await ws.send_text(json.dumps({"event": "status", "listening": True}))
-                elif msg.get("action") == "stop":
-                    stop_listening()
-                    await ws.send_text(json.dumps({"event": "status", "listening": False}))
-                elif msg.get("action") == "ping":
+                if msg.get("action") == "ping":
                     await ws.send_text(json.dumps({"event": "pong"}))
             except json.JSONDecodeError:
                 pass

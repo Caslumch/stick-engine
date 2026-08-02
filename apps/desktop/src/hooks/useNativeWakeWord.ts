@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useJarvisStore } from '../stores/jarvis.store'
 
 const WAKEWORD_WS_URL = 'ws://localhost:5002/ws'
 
@@ -10,7 +11,7 @@ export interface NativeWakeWordOptions {
 /**
  * Wake word nativo via OpenWakeWord (serviço local em localhost:5002).
  * Conecta via WebSocket e recebe eventos de detecção.
- * Funciona sem browser — o microfone é capturado pelo serviço Python.
+ * O WebSocket fica sempre conectado; o estado idle é checado no callback.
  */
 export function useNativeWakeWord({ onWake, enabled }: NativeWakeWordOptions) {
   const onWakeRef = useRef(onWake)
@@ -20,55 +21,57 @@ export function useNativeWakeWord({ onWake, enabled }: NativeWakeWordOptions) {
   const cooldownRef = useRef(false)
 
   useEffect(() => {
-    if (!enabled) {
-      wsRef.current?.close()
-      wsRef.current = null
-      return
-    }
+    if (!enabled) return
 
     let mounted = true
 
     const connect = () => {
-      if (!mounted) return
+      if (!mounted || wsRef.current) return
 
-      try {
-        const ws = new WebSocket(WAKEWORD_WS_URL)
-        wsRef.current = ws
+      console.log('[NativeWakeWord] Connecting to', WAKEWORD_WS_URL)
 
-        ws.onopen = () => {
-          console.log('[NativeWakeWord] Connected to wake word service')
-        }
+      const ws = new WebSocket(WAKEWORD_WS_URL)
+      wsRef.current = ws
 
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            if (data.event === 'wake_word_detected' && !cooldownRef.current) {
-              console.log(`[NativeWakeWord] Detected: ${data.model} (${data.confidence})`)
+      ws.onopen = () => {
+        console.log('[NativeWakeWord] ✓ Connected')
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('[NativeWakeWord] Message:', data.event, data)
+
+          if (data.event === 'wake_word_detected') {
+            const state = useJarvisStore.getState().state
+            console.log('[NativeWakeWord] Wake detected, state:', state, 'cooldown:', cooldownRef.current)
+
+            if (state === 'idle' && !cooldownRef.current) {
               cooldownRef.current = true
+              console.log('[NativeWakeWord] → Triggering onWake!')
               onWakeRef.current()
 
-              // Cooldown de 5s pra evitar detecções durante uso do mic
               setTimeout(() => {
                 cooldownRef.current = false
               }, 5000)
             }
-          } catch {}
-        }
-
-        ws.onclose = () => {
-          wsRef.current = null
-          if (mounted) {
-            // Reconectar após 3s
-            reconnectTimer.current = window.setTimeout(connect, 3000)
           }
+        } catch (e) {
+          console.warn('[NativeWakeWord] Parse error:', e)
         }
+      }
 
-        ws.onerror = () => {
-          ws.close()
+      ws.onclose = () => {
+        console.log('[NativeWakeWord] Disconnected')
+        wsRef.current = null
+        if (mounted) {
+          reconnectTimer.current = window.setTimeout(connect, 3000)
         }
-      } catch {
-        // Serviço não disponível — tentar de novo depois
-        reconnectTimer.current = window.setTimeout(connect, 5000)
+      }
+
+      ws.onerror = (e) => {
+        console.warn('[NativeWakeWord] Error:', e)
+        ws.close()
       }
     }
 
@@ -77,8 +80,10 @@ export function useNativeWakeWord({ onWake, enabled }: NativeWakeWordOptions) {
     return () => {
       mounted = false
       clearTimeout(reconnectTimer.current)
-      wsRef.current?.close()
-      wsRef.current = null
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
     }
   }, [enabled])
 
@@ -98,6 +103,7 @@ export async function checkNativeWakeWord(): Promise<boolean> {
     clearTimeout(timer)
     if (!resp.ok) return false
     const data = await resp.json()
+    console.log('[NativeWakeWord] Health check:', data)
     return data.status === 'ok'
   } catch {
     return false

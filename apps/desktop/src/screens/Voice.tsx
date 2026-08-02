@@ -306,8 +306,9 @@ export function Voice() {
   }, [])
 
   // Native wake word (OpenWakeWord service — works everywhere, even in Tauri)
+  // Stays connected always; checks idle state internally on detection
   useNativeWakeWord({
-    enabled: nativeWakeWordReady && state === 'idle',
+    enabled: nativeWakeWordReady,
     onWake: wakeWordCallback,
   })
 
