@@ -36,6 +36,20 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+model Reminder {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  dueAt       DateTime
+  completed   Boolean   @default(false)
+  notified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([dueAt])
+  @@index([completed])
+}
+
 model Memory {
   id        String   @id @default(cuid())
   type      String   // preference | person | project | device | habit | fact

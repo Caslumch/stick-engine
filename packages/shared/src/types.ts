@@ -92,6 +92,7 @@ export enum WsEvent {
   DecisionMade = 'decision:made',
   CapabilityExecuting = 'capability:executing',
   CapabilityResult = 'capability:result',
+  ReminderDue = 'reminder:due',
 }
 
 // === WebSocket Payloads ===

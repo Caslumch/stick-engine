@@ -70,6 +70,7 @@ export function SettingsScreen() {
         <VoiceGroup />
         <OrbGroup />
         <ToolsGroup />
+        <IntegrationsGroup />
         <ShortcutsGroup />
       </div>
     </div>
@@ -537,6 +538,95 @@ function ToolsGroup() {
         ))}
       </div>
     </Group>
+  )
+}
+
+// ─── Integrations ───────────────────────────────────────────
+
+function IntegrationsGroup() {
+  const { updateSetting } = useSocket()
+  const settings = useJarvisStore((s) => s.settings)
+
+  return (
+    <Group title="Integrations">
+      <Row label="Tavily API key" description="Web search. Free tier at tavily.com.">
+        <ApiKeyInput
+          value={settings['search.tavilyApiKey'] ?? ''}
+          onChange={(v) => updateSetting('search.tavilyApiKey', v)}
+          placeholder="tvly-..."
+        />
+      </Row>
+      <Row label="Telegram bot token" description="Send messages via Telegram.">
+        <ApiKeyInput
+          value={settings['notifications.telegramBotToken'] ?? ''}
+          onChange={(v) => updateSetting('notifications.telegramBotToken', v)}
+          placeholder="123456:ABC..."
+        />
+      </Row>
+      <Row label="Telegram chat ID" description="Your chat or group ID.">
+        <ApiKeyInput
+          value={settings['notifications.telegramChatId'] ?? ''}
+          onChange={(v) => updateSetting('notifications.telegramChatId', v)}
+          placeholder="-100..."
+        />
+      </Row>
+    </Group>
+  )
+}
+
+function ApiKeyInput({ value, onChange, placeholder }: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  const [local, setLocal] = useState(value)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => { setLocal(value) }, [value])
+
+  const save = () => {
+    if (local !== value) {
+      onChange(local)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type="password"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Enter' && save()}
+        placeholder={placeholder}
+        style={{
+          width: 200,
+          height: 32,
+          padding: '0 12px',
+          borderRadius: 'var(--r-sm)',
+          fontSize: 12.5,
+          fontFamily: 'var(--f-mono)',
+          color: 'var(--t-hi)',
+          background: 'var(--fill-1)',
+          border: '1px solid var(--hair)',
+          outline: 'none',
+        }}
+      />
+      {saved && (
+        <span style={{
+          position: 'absolute',
+          right: -40,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontSize: 11,
+          color: 'var(--st-executing)',
+        }}>
+          ✓
+        </span>
+      )}
+    </div>
   )
 }
 

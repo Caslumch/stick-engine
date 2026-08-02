@@ -14,6 +14,7 @@ import type { MessageSendPayload, JarvisState, MessageFillerPayload, IntentClass
 import { ConversationService } from './conversation.service';
 import { SettingsService } from '../settings/settings.service';
 import { MemoryService } from '../memory/memory.service';
+import { RemindersCapability } from '../capabilities/reminders/reminders.capability';
 
 const FILLERS_BY_INTENT: Record<IntentType, string[]> = {
   information: ['Deixa eu ver...', 'Boa pergunta...', 'Hmm, deixa eu pensar...', 'Vou verificar...'],
@@ -42,7 +43,13 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     private readonly conversationService: ConversationService,
     private readonly settingsService: SettingsService,
     private readonly memoryService: MemoryService,
-  ) {}
+    private readonly reminders: RemindersCapability,
+  ) {
+    // Wire up reminder notifications to broadcast via WebSocket
+    this.reminders.onNotification = (reminder) => {
+      this.server?.emit(WsEvent.ReminderDue, reminder);
+    };
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);

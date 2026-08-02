@@ -110,6 +110,21 @@ export function useSocket() {
       store.updateToolExecution(payload.toolName, payload.result);
     });
 
+    socket.on(WsEvent.ReminderDue, (payload: { id: string; title: string; description?: string }) => {
+      // Browser/Tauri notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Jarvis — Lembrete', {
+          body: payload.title + (payload.description ? `\n${payload.description}` : ''),
+        });
+      } else if ('Notification' in window && Notification.permission !== 'denied') {
+        Notification.requestPermission().then((p) => {
+          if (p === 'granted') {
+            new Notification('Jarvis — Lembrete', { body: payload.title });
+          }
+        });
+      }
+    });
+
     return () => {
       socket.disconnect();
     };

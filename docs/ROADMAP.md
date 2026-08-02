@@ -17,6 +17,7 @@
 | 6 | Memoria — pgvector, embeddings, sliding window, extracao automatica | 01/08 | ✅ |
 | 7 | Conversacao Inteligente — prompt modular, fillers, classificacao de intencao | 01/08 | ✅ |
 | 8 | Voz Nativa + Always-On — tray, autostart, hotkey, OpenWakeWord, voz expressiva | 02/08 | ✅ |
+| 9 | Capabilities Essenciais — pesquisa web, lembretes, notificacoes Telegram | 02/08 | ✅ |
 
 **Pendentes de fases anteriores:**
 - [ ] 4c: Migrar wake word pra OpenWakeWord (movido pra Fase 8)
@@ -36,7 +37,7 @@
 | 5. Voz Humana | Pausas, ritmo, emocao, enfase | 60% | Velocidade dinamica + pausas naturais, falta emocao |
 | 6. Baixa Latencia | 200-500ms, respostas parciais | 65% | Fillers contextuais por intencao, TTS durante thinking |
 | 7. Interface Viva | Orb reage a tudo | **80%** | Tray mode implementado, falta emocao no orb |
-| 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 20% | So Computer capability existe |
+| 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 55% | Search, reminders, Telegram + Computer |
 
 ---
 
@@ -129,19 +130,23 @@
 > Pilar: **8 (Capacidade de Agir)**
 
 ### 9a — Search
-- [ ] Capability de pesquisa web (SearXNG local ou Tavily API)
-- [ ] Decision Engine redireciona pra cloud quando detecta necessidade de pesquisa
-- [ ] Resultados sumarizados pelo LLM
+- [x] Capability de pesquisa web via Tavily API
+- [x] Tool `web_search` registrada no CapabilityRegistry
+- [x] API key configuravel em Settings > Integrations
+- [x] Resultados com answer + snippets retornados ao LLM
 
 ### 9b — Calendar + Lembretes
-- [ ] CRUD de lembretes no banco
-- [ ] Notificacoes agendadas (nativas do Tauri)
-- [ ] "Jarvis, me lembra de X amanha as 9h"
+- [x] Schema Prisma: modelo `Reminder` (title, dueAt, completed, notified)
+- [x] CRUD: create_reminder, list_reminders, complete_reminder, delete_reminder
+- [x] Notification checker a cada 30s — emite `reminder:due` via WebSocket
+- [x] Notificacao nativa do browser/Tauri quando lembrete vence
+- [x] "Jarvis, me lembra de X amanha as 9h" funciona via tool calling
 
 ### 9c — Notifications
-- [ ] Telegram bot API
-- [ ] Email via SMTP/Resend
-- [ ] "Jarvis, manda isso no Telegram"
+- [x] Capability `send_telegram` via Telegram Bot API
+- [x] Bot token e chat ID configuraveis em Settings > Integrations
+- [x] "Jarvis, manda isso no Telegram" funciona via tool calling
+- [ ] Email via SMTP/Resend (futuro)
 
 **Entregavel:** Pesquisa, lembretes e notificacoes funcionando por voz.
 
@@ -228,8 +233,8 @@ Fase 0-5  ██████████  Fundacao → Interface      ✅ Conclu
 Fase 6    █████████░  Memoria                   ✅ (falta contexto entre sessoes)
 Fase 7    ████████░░  Conversacao Inteligente   ✅ (falta sugestoes proativas)
 Fase 8    █████████░  Voz Nativa + Always-On    ✅ (falta TTS emocional)
-Fase 9    ░░░░░░░░░░  Capabilities Essenciais   ← PROXIMO
-Fase 10   ░░░░░░░░░░  Integracoes
+Fase 9    █████████░  Capabilities Essenciais   ✅ (falta email)
+Fase 10   ░░░░░░░░░░  Integracoes               ← PROXIMO
 Fase 11   ░░░░░░░░░░  Distribuicao (Instalador)
 ──────────────────────────────────────────────
 V2        Agentes Especializados

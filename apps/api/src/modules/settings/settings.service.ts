@@ -28,10 +28,17 @@ const DEFAULTS: Record<string, string> = {
   'personality.tone': 'friendly',       // friendly | formal | casual
   'personality.proactivity': 'medium',  // low | medium | high
   'personality.verbosity': 'concise',   // concise | balanced | detailed
+
+  // Search
+  'search.tavilyApiKey': '',
+
+  // Notifications
+  'notifications.telegramBotToken': '',
+  'notifications.telegramChatId': '',
 };
 
 // Keys that should be masked when sent to the frontend
-const SENSITIVE_KEYS = ['llm.openai.apiKey'];
+const SENSITIVE_KEYS = ['llm.openai.apiKey', 'search.tavilyApiKey', 'notifications.telegramBotToken'];
 
 @Injectable()
 export class SettingsService {
