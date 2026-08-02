@@ -570,6 +570,48 @@ function IntegrationsGroup() {
           placeholder="-100..."
         />
       </Row>
+      <Row label="LemonFin email" description="Your LemonFin account email.">
+        <ApiKeyInput
+          value={settings['finance.email'] ?? ''}
+          onChange={(v) => updateSetting('finance.email', v)}
+          placeholder="email@example.com"
+        />
+      </Row>
+      <Row label="LemonFin password" description="Used to authenticate with the finance API.">
+        <ApiKeyInput
+          value={settings['finance.password'] ?? ''}
+          onChange={(v) => updateSetting('finance.password', v)}
+          placeholder="••••••••"
+        />
+      </Row>
+      <Row label="Tuya Access ID" description="From platform.tuya.com for smart home.">
+        <ApiKeyInput
+          value={settings['home.tuyaAccessId'] ?? ''}
+          onChange={(v) => updateSetting('home.tuyaAccessId', v)}
+          placeholder="Access ID"
+        />
+      </Row>
+      <Row label="Tuya Access Secret" description="From platform.tuya.com.">
+        <ApiKeyInput
+          value={settings['home.tuyaAccessSecret'] ?? ''}
+          onChange={(v) => updateSetting('home.tuyaAccessSecret', v)}
+          placeholder="Access Secret"
+        />
+      </Row>
+      <Row label="Spotify Client ID" description="From developer.spotify.com/dashboard (free).">
+        <ApiKeyInput
+          value={settings['spotify.clientId'] ?? ''}
+          onChange={(v) => updateSetting('spotify.clientId', v)}
+          placeholder="Client ID"
+        />
+      </Row>
+      <Row label="Spotify Client Secret" description="From your Spotify app.">
+        <ApiKeyInput
+          value={settings['spotify.clientSecret'] ?? ''}
+          onChange={(v) => updateSetting('spotify.clientSecret', v)}
+          placeholder="Client Secret"
+        />
+      </Row>
     </Group>
   )
 }

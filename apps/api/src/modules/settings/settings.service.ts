@@ -32,13 +32,28 @@ const DEFAULTS: Record<string, string> = {
   // Search
   'search.tavilyApiKey': '',
 
+  // Finance (LemonFin)
+  'finance.apiUrl': 'https://lemonfin-api.onrender.com',
+  'finance.email': '',
+  'finance.password': '',
+
+  // Smart Home (Tuya)
+  'home.tuyaAccessId': '',
+  'home.tuyaAccessSecret': '',
+  'home.tuyaRegion': 'us',
+  'home.tuyaUid': '',
+
   // Notifications
   'notifications.telegramBotToken': '',
   'notifications.telegramChatId': '',
+
+  // Spotify
+  'spotify.clientId': '',
+  'spotify.clientSecret': '',
 };
 
 // Keys that should be masked when sent to the frontend
-const SENSITIVE_KEYS = ['llm.openai.apiKey', 'search.tavilyApiKey', 'notifications.telegramBotToken'];
+const SENSITIVE_KEYS = ['llm.openai.apiKey', 'search.tavilyApiKey', 'notifications.telegramBotToken', 'finance.password', 'spotify.clientSecret', 'home.tuyaAccessSecret'];
 
 @Injectable()
 export class SettingsService {

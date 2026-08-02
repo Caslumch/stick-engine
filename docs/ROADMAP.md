@@ -18,6 +18,7 @@
 | 7 | Conversacao Inteligente — prompt modular, fillers, classificacao de intencao | 01/08 | ✅ |
 | 8 | Voz Nativa + Always-On — tray, autostart, hotkey, OpenWakeWord, voz expressiva | 02/08 | ✅ |
 | 9 | Capabilities Essenciais — pesquisa web, lembretes, notificacoes Telegram | 02/08 | ✅ |
+| 10 | Integracoes — financas (LemonFin), casa (Tuya/Positivo), musica (Spotify) | 02/08 | ✅ |
 
 **Pendentes de fases anteriores:**
 - [ ] 4c: Migrar wake word pra OpenWakeWord (movido pra Fase 8)
@@ -37,7 +38,7 @@
 | 5. Voz Humana | Pausas, ritmo, emocao, enfase | 60% | Velocidade dinamica + pausas naturais, falta emocao |
 | 6. Baixa Latencia | 200-500ms, respostas parciais | 65% | Fillers contextuais por intencao, TTS durante thinking |
 | 7. Interface Viva | Orb reage a tudo | **80%** | Tray mode implementado, falta emocao no orb |
-| 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 55% | Search, reminders, Telegram + Computer |
+| 8. Capacidade de Agir | Smart home, lembretes, pesquisa | 85% | Finance, home, Spotify, search, reminders, Telegram, computer |
 
 ---
 
@@ -159,17 +160,20 @@
 > Pilar: **8 (Capacidade de Agir)**
 
 ### 10a — Finance
-- [ ] Integrar com API financeira existente
-- [ ] "Quanto gastei esse mes?" / "Qual meu saldo?"
+- [x] Capability finance conectando ao LemonFin API (lemonfin-api.onrender.com)
+- [x] Tools: finance_summary, finance_by_category, finance_transactions, finance_monthly
+- [x] Autenticacao JWT automatica com re-auth
+- [x] "Quanto gastei esse mes?" / "Qual meu saldo?" / "Gastos por categoria"
 
 ### 10b — Home (Casa Inteligente)
-- [ ] Home Assistant ou Tuya API
-- [ ] Controlar luzes, tomadas, cenas
-- [ ] "Jarvis, apaga as luzes"
+- [x] Capability home via Tuya Cloud API (compativel com Positivo Smart Home)
+- [x] Tools: home_list_devices, home_control (on/off/brightness/color), home_scene
+- [x] "Jarvis, apaga as luzes" / "acende a luz do quarto" / "muda pra azul"
 
 ### 10c — Musica
-- [ ] Spotify API (play, pause, skip, busca)
-- [ ] "Jarvis, toca algo pra relaxar"
+- [x] Capability Spotify: search (Client Credentials) + playback (User Token)
+- [x] Tools: spotify_search, spotify_play, spotify_control, spotify_now_playing
+- [x] "Jarvis, toca algo pra relaxar" / "pula essa" / "o que ta tocando?"
 
 **Entregavel:** Jarvis controla financas, casa e musica.
 
@@ -234,7 +238,7 @@ Fase 6    █████████░  Memoria                   ✅ (falta c
 Fase 7    ████████░░  Conversacao Inteligente   ✅ (falta sugestoes proativas)
 Fase 8    █████████░  Voz Nativa + Always-On    ✅ (falta TTS emocional)
 Fase 9    █████████░  Capabilities Essenciais   ✅ (falta email)
-Fase 10   ░░░░░░░░░░  Integracoes               ← PROXIMO
+Fase 10   ██████████  Integracoes               ✅
 Fase 11   ░░░░░░░░░░  Distribuicao (Instalador)
 ──────────────────────────────────────────────
 V2        Agentes Especializados
