@@ -207,17 +207,6 @@ export function Voice() {
     return () => clearInterval(id)
   }, [state])
 
-  // --- Wake word: "Jarvis" aciona o mic ---
-  const wakeWordEnabled = state === 'idle' && !IN_TAURI // Só funciona no Chrome
-  useWakeWord({
-    enabled: wakeWordEnabled,
-    onWake: () => {
-      if (useJarvisStore.getState().state === 'idle') {
-        handleMicClick()
-      }
-    },
-  })
-
   // --- Handlers ---
   const handleMicClick = () => {
     if (state === 'idle') {
@@ -254,6 +243,18 @@ export function Voice() {
     ttsRef.current.cancel()
     setState('idle')
   }, [setState])
+
+  // --- Wake word: "Jarvis" aciona o mic ---
+  const wakeWordEnabled = state === 'idle' && !IN_TAURI
+  useWakeWord({
+    enabled: wakeWordEnabled,
+    onWake: () => {
+      console.log('[WakeWord] "Jarvis" detectado!')
+      if (useJarvisStore.getState().state === 'idle') {
+        handleMicClick()
+      }
+    },
+  })
 
   const leftAction = getLeftAction(state, handleCancel)
   const rightAction = getRightAction(state, handleInterrupt)
