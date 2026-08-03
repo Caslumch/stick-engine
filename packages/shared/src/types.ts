@@ -81,6 +81,11 @@ export enum WsEvent {
   MemorySave = 'memory:save',
   MemoryDelete = 'memory:delete',
   MemorySearch = 'memory:search',
+  McpList = 'mcp:list',
+  McpAdd = 'mcp:add',
+  McpUpdate = 'mcp:update',
+  McpRemove = 'mcp:remove',
+  McpReconnect = 'mcp:reconnect',
 
   // Server -> Client
   MessageStream = 'message:stream',

@@ -15,6 +15,7 @@ import { ConversationService } from './conversation.service';
 import { SettingsService } from '../settings/settings.service';
 import { MemoryService } from '../memory/memory.service';
 import { RemindersCapability } from '../capabilities/reminders/reminders.capability';
+import { McpService } from '../mcp/mcp.service';
 
 const FILLERS_BY_INTENT: Record<IntentType, string[]> = {
   information: ['Deixa eu ver...', 'Boa pergunta...', 'Hmm, deixa eu pensar...', 'Vou verificar...'],
@@ -44,6 +45,7 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     private readonly settingsService: SettingsService,
     private readonly memoryService: MemoryService,
     private readonly reminders: RemindersCapability,
+    private readonly mcp: McpService,
   ) {
     // Wire up reminder notifications to broadcast via WebSocket
     this.reminders.onNotification = (reminder) => {
@@ -207,6 +209,49 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
   @SubscribeMessage(WsEvent.MemorySearch)
   async handleMemorySearch(@MessageBody() payload: { query: string; limit?: number }) {
     return this.memoryService.search(payload.query, payload.limit);
+  }
+
+  // ── MCP ───────────────────────────────────────────────────
+
+  @SubscribeMessage(WsEvent.McpList)
+  async handleMcpList() {
+    return this.mcp.listServers();
+  }
+
+  @SubscribeMessage(WsEvent.McpAdd)
+  async handleMcpAdd(@MessageBody() payload: {
+    name: string;
+    transport: string;
+    command?: string;
+    args?: string;
+    url?: string;
+  }) {
+    return this.mcp.addServer(payload);
+  }
+
+  @SubscribeMessage(WsEvent.McpUpdate)
+  async handleMcpUpdate(@MessageBody() payload: {
+    id: string;
+    name?: string;
+    transport?: string;
+    command?: string;
+    args?: string;
+    url?: string;
+    enabled?: boolean;
+  }) {
+    const { id, ...data } = payload;
+    return this.mcp.updateServer(id, data);
+  }
+
+  @SubscribeMessage(WsEvent.McpRemove)
+  async handleMcpRemove(@MessageBody() payload: { id: string }) {
+    await this.mcp.removeServer(payload.id);
+    return { success: true };
+  }
+
+  @SubscribeMessage(WsEvent.McpReconnect)
+  async handleMcpReconnect(@MessageBody() payload: { id: string }) {
+    return this.mcp.reconnect(payload.id);
   }
 
   private emitStateChange(state: JarvisState, filler?: string) {

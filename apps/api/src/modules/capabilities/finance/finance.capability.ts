@@ -114,7 +114,10 @@ export class FinanceCapability implements Capability, OnModuleInit {
       this.settings.get('finance.password'),
     ]);
 
+    this.logger.log(`Auth attempt: email=${email ? email.slice(0, 3) + '***' : 'EMPTY'}, password=${password ? '***' : 'EMPTY'}, url=${apiUrl}`);
+
     if (!email || !password) {
+      this.logger.warn('Missing email or password');
       return null;
     }
 
@@ -126,12 +129,15 @@ export class FinanceCapability implements Capability, OnModuleInit {
       });
 
       if (!resp.ok) {
-        this.logger.error(`LemonFin auth failed: ${resp.status}`);
+        const body = await resp.text();
+        this.logger.error(`LemonFin auth failed: ${resp.status} - ${body}`);
         return null;
       }
 
       const data = await resp.json();
-      this.accessToken = data.accessToken;
+      const jwt = data.token ?? data.accessToken;
+      this.logger.log(`LemonFin auth success: token=${jwt ? 'OK' : 'MISSING'}, status=${data.status}`);
+      this.accessToken = jwt;
 
       // Re-auth after 50 minutes (token likely expires in 60)
       setTimeout(() => { this.accessToken = null; }, 50 * 60 * 1000);

@@ -36,6 +36,18 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+model McpServer {
+  id        String   @id @default(cuid())
+  name      String
+  transport String   // "stdio" | "sse" | "streamable-http"
+  command   String?  // For stdio: command to run (e.g. "npx", "node")
+  args      String?  // For stdio: JSON array of args
+  url       String?  // For sse/http: server URL
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Reminder {
   id          String    @id @default(cuid())
   title       String

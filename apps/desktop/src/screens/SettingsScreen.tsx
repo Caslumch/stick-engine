@@ -701,6 +701,11 @@ function IntegrationsTab() {
         />,
         document.body,
       )}
+
+      {/* MCP Servers */}
+      <div style={{ marginTop: 24 }}>
+        <McpServersSection />
+      </div>
     </>
   )
 }
@@ -844,6 +849,173 @@ function ModalField({ label, value, placeholder, password, onChange }: {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ─── MCP Servers ────────────────────────────────────────────
+
+function McpServersSection() {
+  const { mcpList, mcpAdd, mcpRemove, mcpReconnect } = useSocket()
+  const [servers, setServers] = useState<any[]>([])
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ name: '', transport: 'stdio', command: '', args: '', url: '' })
+
+  const refresh = useCallback(() => {
+    mcpList().then(setServers)
+  }, [mcpList])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const handleAdd = async () => {
+    if (!form.name) return
+    await mcpAdd({
+      name: form.name,
+      transport: form.transport,
+      command: form.transport === 'stdio' ? form.command : undefined,
+      args: form.transport === 'stdio' ? form.args : undefined,
+      url: form.transport !== 'stdio' ? form.url : undefined,
+    })
+    setForm({ name: '', transport: 'stdio', command: '', args: '', url: '' })
+    setAdding(false)
+    refresh()
+  }
+
+  const handleRemove = async (id: string) => {
+    await mcpRemove(id)
+    refresh()
+  }
+
+  const handleReconnect = async (id: string) => {
+    await mcpReconnect(id)
+    refresh()
+  }
+
+  return (
+    <Group title="MCP Servers">
+      {servers.length === 0 && !adding && (
+        <div style={{ padding: '16px 20px', fontSize: 13, color: 'var(--t-low)' }}>
+          No MCP servers configured. Add one to extend the agent's capabilities.
+        </div>
+      )}
+
+      {servers.map((s) => (
+        <div key={s.id} style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 20px', borderTop: '1px solid var(--hair)',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: s.connected ? 'var(--st-executing)' : 'var(--st-error)',
+            boxShadow: `0 0 8px ${s.connected ? 'var(--st-executing)' : 'var(--st-error)'}`,
+          }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 450, color: 'var(--t-hi)' }}>{s.name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--t-low)', fontFamily: 'var(--f-mono)' }}>
+              {s.transport} · {s.tools?.length ?? 0} tools
+              {s.command && ` · ${s.command}`}
+              {s.url && ` · ${s.url}`}
+            </div>
+          </div>
+          <button
+            onClick={() => handleReconnect(s.id)}
+            style={{
+              height: 28, padding: '0 10px', borderRadius: 'var(--r-pill)',
+              fontSize: 11, color: 'var(--t-mid)', background: 'var(--fill-1)',
+              border: '1px solid var(--hair)', cursor: 'pointer', fontFamily: 'var(--f)',
+            }}
+          >
+            Reconnect
+          </button>
+          <button
+            onClick={() => handleRemove(s.id)}
+            style={{
+              height: 28, padding: '0 10px', borderRadius: 'var(--r-pill)',
+              fontSize: 11, color: 'var(--st-error)', background: 'rgba(255,107,107,.08)',
+              border: '1px solid rgba(255,107,107,.2)', cursor: 'pointer', fontFamily: 'var(--f)',
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+
+      {adding ? (
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--hair)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Server name"
+              style={mcpInputStyle}
+            />
+            <select
+              value={form.transport}
+              onChange={(e) => setForm({ ...form, transport: e.target.value })}
+              style={mcpInputStyle}
+            >
+              <option value="stdio">stdio</option>
+              <option value="sse">SSE</option>
+              <option value="streamable-http">HTTP</option>
+            </select>
+          </div>
+          {form.transport === 'stdio' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input
+                value={form.command}
+                onChange={(e) => setForm({ ...form, command: e.target.value })}
+                placeholder="Command (e.g. npx, node)"
+                style={mcpInputStyle}
+              />
+              <input
+                value={form.args}
+                onChange={(e) => setForm({ ...form, args: e.target.value })}
+                placeholder='Args JSON (e.g. ["-y","@mcp/server"])'
+                style={mcpInputStyle}
+              />
+            </div>
+          ) : (
+            <input
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+              placeholder="Server URL (e.g. http://localhost:3002/mcp)"
+              style={mcpInputStyle}
+            />
+          )}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={() => setAdding(false)} style={mcpBtnStyle}>Cancel</button>
+            <button onClick={handleAdd} style={{ ...mcpBtnStyle, color: 'var(--t-hi)', borderColor: 'var(--g-edge)' }}>
+              Connect
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--hair)' }}>
+          <button
+            onClick={() => setAdding(true)}
+            style={{
+              height: 34, padding: '0 16px', borderRadius: 'var(--r-pill)',
+              fontSize: 13, color: 'var(--accent)', background: 'rgba(var(--accent-rgb), .08)',
+              border: '1px solid rgba(var(--accent-rgb), .2)', cursor: 'pointer', fontFamily: 'var(--f)',
+            }}
+          >
+            + Add MCP Server
+          </button>
+        </div>
+      )}
+    </Group>
+  )
+}
+
+const mcpInputStyle: React.CSSProperties = {
+  height: 34, padding: '0 12px', borderRadius: 'var(--r-sm)',
+  fontSize: 12.5, fontFamily: 'var(--f-mono)', color: 'var(--t-hi)',
+  background: 'var(--fill-1)', border: '1px solid var(--hair)', outline: 'none',
+  boxSizing: 'border-box', width: '100%',
+}
+
+const mcpBtnStyle: React.CSSProperties = {
+  height: 32, padding: '0 14px', borderRadius: 'var(--r-pill)',
+  fontSize: 12, color: 'var(--t-low)', background: 'var(--fill-1)',
+  border: '1px solid var(--hair)', cursor: 'pointer', fontFamily: 'var(--f)',
+}
+
 // Tab: Shortcuts
 // ═══════════════════════════════════════════════════════════════
 

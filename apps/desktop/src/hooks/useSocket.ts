@@ -202,5 +202,43 @@ export function useSocket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { sendMessage, loadConversations, loadConversationMessages, deleteConversation, loadSettings, updateSetting };
+  const mcpList = useCallback((): Promise<any[]> => {
+    return new Promise((resolve) => {
+      const socket = socketRef.current;
+      if (!socket) return resolve([]);
+      socket.emit(WsEvent.McpList, {}, (data: any[]) => resolve(data));
+    });
+  }, []);
+
+  const mcpAdd = useCallback((data: {
+    name: string; transport: string; command?: string; args?: string; url?: string;
+  }): Promise<any> => {
+    return new Promise((resolve) => {
+      const socket = socketRef.current;
+      if (!socket) return resolve({ error: 'not connected' });
+      socket.emit(WsEvent.McpAdd, data, (result: any) => resolve(result));
+    });
+  }, []);
+
+  const mcpRemove = useCallback((id: string): Promise<any> => {
+    return new Promise((resolve) => {
+      const socket = socketRef.current;
+      if (!socket) return resolve({ error: 'not connected' });
+      socket.emit(WsEvent.McpRemove, { id }, (result: any) => resolve(result));
+    });
+  }, []);
+
+  const mcpReconnect = useCallback((id: string): Promise<any> => {
+    return new Promise((resolve) => {
+      const socket = socketRef.current;
+      if (!socket) return resolve({ error: 'not connected' });
+      socket.emit(WsEvent.McpReconnect, { id }, (result: any) => resolve(result));
+    });
+  }, []);
+
+  return {
+    sendMessage, loadConversations, loadConversationMessages, deleteConversation,
+    loadSettings, updateSetting,
+    mcpList, mcpAdd, mcpRemove, mcpReconnect,
+  };
 }

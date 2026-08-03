@@ -12,6 +12,7 @@ import { HomeModule } from './modules/capabilities/home/home.module';
 import { SpotifyModule } from './modules/capabilities/spotify/spotify.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { MemoryModule } from './modules/memory/memory.module';
+import { McpModule } from './modules/mcp/mcp.module';
 import { jarvisConfig } from './config/jarvis.config';
 
 @Module({
@@ -31,6 +32,7 @@ import { jarvisConfig } from './config/jarvis.config';
     HomeModule,
     SpotifyModule,
     MemoryModule,
+    McpModule,
     ConversationModule,
   ],
 })
