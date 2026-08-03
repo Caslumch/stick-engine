@@ -225,6 +225,7 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     command?: string;
     args?: string;
     url?: string;
+    apiKey?: string;
   }) {
     return this.mcp.addServer(payload);
   }

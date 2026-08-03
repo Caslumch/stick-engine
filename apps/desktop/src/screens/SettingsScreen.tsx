@@ -855,7 +855,7 @@ function McpServersSection() {
   const { mcpList, mcpAdd, mcpRemove, mcpReconnect } = useSocket()
   const [servers, setServers] = useState<any[]>([])
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ name: '', transport: 'stdio', command: '', args: '', url: '' })
+  const [form, setForm] = useState({ name: '', transport: 'streamable-http', command: '', args: '', url: '', apiKey: '' })
 
   const refresh = useCallback(() => {
     mcpList().then(setServers)
@@ -871,8 +871,9 @@ function McpServersSection() {
       command: form.transport === 'stdio' ? form.command : undefined,
       args: form.transport === 'stdio' ? form.args : undefined,
       url: form.transport !== 'stdio' ? form.url : undefined,
+      apiKey: form.apiKey || undefined,
     })
-    setForm({ name: '', transport: 'stdio', command: '', args: '', url: '' })
+    setForm({ name: '', transport: 'streamable-http', command: '', args: '', url: '', apiKey: '' })
     setAdding(false)
     refresh()
   }
@@ -978,6 +979,13 @@ function McpServersSection() {
               style={mcpInputStyle}
             />
           )}
+          <input
+            type="password"
+            value={form.apiKey}
+            onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+            placeholder="API Key (optional)"
+            style={mcpInputStyle}
+          />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={() => setAdding(false)} style={mcpBtnStyle}>Cancel</button>
             <button onClick={handleAdd} style={{ ...mcpBtnStyle, color: 'var(--t-hi)', borderColor: 'var(--g-edge)' }}>

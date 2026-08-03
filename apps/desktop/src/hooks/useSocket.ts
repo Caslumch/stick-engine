@@ -211,7 +211,7 @@ export function useSocket() {
   }, []);
 
   const mcpAdd = useCallback((data: {
-    name: string; transport: string; command?: string; args?: string; url?: string;
+    name: string; transport: string; command?: string; args?: string; url?: string; apiKey?: string;
   }): Promise<any> => {
     return new Promise((resolve) => {
       const socket = socketRef.current;

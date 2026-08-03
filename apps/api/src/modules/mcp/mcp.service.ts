@@ -78,14 +78,30 @@ export class McpService implements OnModuleInit {
           if (!server.url) {
             return { error: 'SSE transport requires a URL' };
           }
-          transport = new SSEClientTransport(new URL(server.url));
+          const sseHeaders: Record<string, string> = {};
+          if (server.apiKey) {
+            sseHeaders['Authorization'] = `Bearer ${server.apiKey}`;
+          }
+          transport = new SSEClientTransport(new URL(server.url), {
+            requestInit: {
+              headers: sseHeaders,
+            },
+          });
           break;
         }
         case 'streamable-http': {
           if (!server.url) {
             return { error: 'HTTP transport requires a URL' };
           }
-          transport = new StreamableHTTPClientTransport(new URL(server.url));
+          const headers: Record<string, string> = {};
+          if (server.apiKey) {
+            headers['Authorization'] = `Bearer ${server.apiKey}`;
+          }
+          transport = new StreamableHTTPClientTransport(new URL(server.url), {
+            requestInit: {
+              headers,
+            },
+          });
           break;
         }
         default:
@@ -209,6 +225,7 @@ export class McpService implements OnModuleInit {
     command?: string;
     args?: string;
     url?: string;
+    apiKey?: string;
   }) {
     const server = await this.prisma.mcpServer.create({ data });
     this.logger.log(`MCP server added: "${data.name}" (${data.transport})`);
@@ -226,6 +243,7 @@ export class McpService implements OnModuleInit {
       command?: string;
       args?: string;
       url?: string;
+      apiKey?: string;
       enabled?: boolean;
     },
   ) {
