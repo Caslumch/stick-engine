@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText, streamText, isStepCount } from 'ai';
-import { createOllama } from 'ollama-ai-provider';
+import { createOpenAI } from '@ai-sdk/openai';
 import type { LlmProvider, LlmRequest, LlmResponse, LlmStreamCallback } from '../../../common/interfaces';
 import { prepareMessages } from './prepare-messages';
 import { SettingsService } from '../../settings/settings.service';
@@ -28,8 +28,11 @@ export class OllamaProvider implements LlmProvider {
   }
 
   private createModel(modelId: string): any {
-    const ollama = createOllama({ baseURL: `${this.baseUrl}/api` });
-    return ollama(modelId);
+    const client = createOpenAI({
+      baseURL: `${this.baseUrl}/v1`,
+      apiKey: 'ollama',
+    });
+    return client.chat(modelId);
   }
 
   async generate(request: LlmRequest): Promise<LlmResponse> {
