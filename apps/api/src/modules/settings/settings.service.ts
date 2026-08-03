@@ -31,6 +31,7 @@ const DEFAULTS: Record<string, string> = {
 
   // Search
   'search.tavilyApiKey': '',
+  'openai.webSearch': 'true',
 
   // Finance (LemonFin)
   'finance.apiUrl': 'https://lemonfin-api.onrender.com',

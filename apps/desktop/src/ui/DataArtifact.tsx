@@ -35,6 +35,14 @@ function extractRows(rawData: unknown, rawMessage?: string): DataRow[] {
     try { data = JSON.parse(data) } catch { return [] }
   }
 
+  // Desembrulhar envelope { data: [...], meta: {...} } — padrão de API paginada
+  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    const obj = data as Record<string, unknown>
+    if (Array.isArray(obj.data) && obj.data.length > 0) {
+      data = obj.data
+    }
+  }
+
   if (Array.isArray(data)) {
     return data.slice(0, 20).map((item, i) => parseItem(item, i))
   }

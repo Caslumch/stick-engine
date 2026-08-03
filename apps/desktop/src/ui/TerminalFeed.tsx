@@ -34,7 +34,7 @@ interface LogEntry {
   error?: string
 }
 
-const DISMISS_MS = 12000
+const DISMISS_MS = 120000 // 2 minutos
 
 export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -142,6 +142,20 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
           }}>
             execuções
           </span>
+          <span
+            onClick={(e) => {
+              e.stopPropagation()
+              setLog([])
+              seenToolsRef.current.clear()
+            }}
+            style={{
+              marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%',
+              display: 'grid', placeItems: 'center',
+              fontSize: 10, color: 'var(--t-ghost)', cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--t-mid)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--t-ghost)')}
+          >✕</span>
         </div>
 
         {/* Log */}

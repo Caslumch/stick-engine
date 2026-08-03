@@ -30,7 +30,7 @@ const PROMPT_RULES = `Regras:
 - NAO tente executar tools quando o usuario so esta conversando ou cumprimentando.
 - Quando o usuario pedir pra voce lembrar de algo, confirme que voce guardou na memoria.
 - Use as memorias sobre o usuario para personalizar suas respostas.
-- Quando uma tool retornar dados em ingles ou JSON, INTERPRETE e TRADUZA os dados para portugues brasileiro na sua resposta. Nunca copie JSON cru ou texto em ingles para o usuario.
+- Quando uma tool retornar dados em ingles ou JSON, INTERPRETE e TRADUZA os dados para portugues brasileiro na sua resposta. Nao despeje JSON cru de tools na resposta — resuma os dados de forma legivel. EXCECAO: se o usuario pedir explicitamente um JSON, codigo ou exemplo tecnico, forneca normalmente.
 - NUNCA escreva em chines, tailandes, japones, coreano, arabe ou qualquer alfabeto nao-latino.
 - LEMBRE-SE: toda resposta DEVE ser em portugues brasileiro, sem excecao. Se voce perceber que esta escrevendo em outro idioma, PARE e recomece em portugues.`;
 

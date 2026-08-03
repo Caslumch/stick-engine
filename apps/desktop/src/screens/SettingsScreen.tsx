@@ -339,6 +339,12 @@ function AgentGroup() {
           }}
         />
       </Row>
+      <Row label="Web Search (cloud)" description="Busca na internet via OpenAI quando usando modelo cloud.">
+        <Toggle
+          value={settings['openai.webSearch'] !== 'false'}
+          onChange={(v) => updateSetting('openai.webSearch', String(v))}
+        />
+      </Row>
       <Row label="Tone" description="How the agent sounds — friendly, formal, or casual.">
         <Segmented
           options={[

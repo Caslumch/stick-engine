@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText, streamText, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -10,6 +10,7 @@ import { SettingsService } from '../../settings/settings.service';
 export class OpenAiProvider implements LlmProvider {
   readonly name = 'openai';
   readonly type = 'cloud' as const;
+  private readonly logger = new Logger(OpenAiProvider.name);
 
   private readonly modelId: string;
   private readonly envApiKey: string;
@@ -28,17 +29,30 @@ export class OpenAiProvider implements LlmProvider {
     return fromSettings || this.envApiKey;
   }
 
+  /** Mescla as tools do request com webSearch da OpenAI se habilitado */
+  private async buildTools(openai: ReturnType<typeof createOpenAI>, requestTools?: LlmRequest['tools']) {
+    const webSearchEnabled = (await this.settings.get('openai.webSearch')) !== 'false';
+    const tools: Record<string, any> = { ...requestTools };
+
+    if (webSearchEnabled) {
+      tools.web_search_openai = openai.tools.webSearch();
+      this.logger.debug('OpenAI webSearch tool injected');
+    }
+
+    return Object.keys(tools).length > 0 ? tools : undefined;
+  }
+
   async generate(request: LlmRequest): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const hasTools = request.tools && Object.keys(request.tools).length > 0;
+    const tools = await this.buildTools(openai, request.tools);
 
     const result = await generateText({
       model: openai.chat(this.modelId),
       system,
       messages,
-      ...(hasTools && {
-        tools: request.tools,
+      ...(tools && {
+        tools,
         stopWhen: isStepCount(request.maxSteps ?? 5),
       }),
     });
@@ -63,14 +77,14 @@ export class OpenAiProvider implements LlmProvider {
   async generateStream(request: LlmRequest, onToken: LlmStreamCallback): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const hasTools = request.tools && Object.keys(request.tools).length > 0;
+    const tools = await this.buildTools(openai, request.tools);
 
     const result = streamText({
       model: openai.chat(this.modelId),
       system,
       messages,
-      ...(hasTools && {
-        tools: request.tools,
+      ...(tools && {
+        tools,
         stopWhen: isStepCount(request.maxSteps ?? 5),
       }),
     });

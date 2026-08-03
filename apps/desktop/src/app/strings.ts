@@ -60,4 +60,5 @@ export const TOOL_LABELS: Record<string, string> = {
   manage_files: 'Gerenciando arquivos',
   _stt_transcribe: 'Transcrevendo áudio',
   _stt_sending: 'Enviando mensagem',
+  web_search_openai: 'Pesquisando na internet',
 }
