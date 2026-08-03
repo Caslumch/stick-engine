@@ -48,9 +48,9 @@ export function useSocket() {
     });
 
     socket.on(WsEvent.StateChange, (payload: StateChangePayload) => {
-      // Não deixar o backend sobrescrever 'speaking' — o TTS do frontend controla esse estado
+      // Não deixar o backend sobrescrever 'speaking' com idle — o TTS do frontend controla
       const current = useJarvisStore.getState().state;
-      if (current === 'speaking' && payload.state === 'idle') return;
+      if (current === 'speaking' && (payload.state === 'idle' || payload.state === 'thinking')) return;
       store.setState(payload.state);
       // Filler text comes with 'thinking' state
       if (payload.filler) {

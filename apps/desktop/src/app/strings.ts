@@ -58,4 +58,6 @@ export const TOOL_LABELS: Record<string, string> = {
   open_application: 'Abrindo aplicativo',
   run_command: 'Executando comando',
   manage_files: 'Gerenciando arquivos',
+  _stt_transcribe: 'Transcrevendo áudio',
+  _stt_sending: 'Enviando mensagem',
 }

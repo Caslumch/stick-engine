@@ -4,6 +4,7 @@ import { generateText, streamText, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LlmProvider, LlmRequest, LlmResponse, LlmStreamCallback } from '../../../common/interfaces';
 import { prepareMessages } from './prepare-messages';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class OpenAiProvider implements LlmProvider {
@@ -11,15 +12,24 @@ export class OpenAiProvider implements LlmProvider {
   readonly type = 'cloud' as const;
 
   private readonly modelId: string;
-  private readonly apiKey: string;
+  private readonly envApiKey: string;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly settings: SettingsService,
+  ) {
     this.modelId = config.get<string>('jarvis.openai.model', 'gpt-4o-mini');
-    this.apiKey = config.get<string>('jarvis.openai.apiKey', '');
+    this.envApiKey = config.get<string>('jarvis.openai.apiKey', '');
+  }
+
+  /** API key: prioridade settings (UI) > env var */
+  private async getApiKey(): Promise<string> {
+    const fromSettings = await this.settings.get('openai.apiKey');
+    return fromSettings || this.envApiKey;
   }
 
   async generate(request: LlmRequest): Promise<LlmResponse> {
-    const openai = createOpenAI({ apiKey: this.apiKey });
+    const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
     const hasTools = request.tools && Object.keys(request.tools).length > 0;
 
@@ -51,7 +61,7 @@ export class OpenAiProvider implements LlmProvider {
   }
 
   async generateStream(request: LlmRequest, onToken: LlmStreamCallback): Promise<LlmResponse> {
-    const openai = createOpenAI({ apiKey: this.apiKey });
+    const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
     const hasTools = request.tools && Object.keys(request.tools).length > 0;
 
@@ -93,6 +103,7 @@ export class OpenAiProvider implements LlmProvider {
   }
 
   async isAvailable(): Promise<boolean> {
-    return this.apiKey.length > 0;
+    const key = await this.getApiKey();
+    return key.length > 0;
   }
 }

@@ -313,6 +313,32 @@ function AgentGroup() {
           }}
         />
       </Row>
+      <Row label="Preferir local" description="Quando ativo, usa Ollama. Desativado, usa OpenAI.">
+        <Toggle
+          value={settings['llm.preferLocal'] !== 'false'}
+          onChange={(v) => updateSetting('llm.preferLocal', String(v))}
+        />
+      </Row>
+      <Row label="OpenAI API Key" description="Necessária quando 'Preferir local' está desativado.">
+        <input
+          type="password"
+          value={settings['openai.apiKey'] ?? ''}
+          placeholder="sk-..."
+          onChange={(e) => updateSetting('openai.apiKey', e.target.value)}
+          style={{
+            width: 206,
+            height: 32,
+            padding: '0 12px',
+            borderRadius: 'var(--r-xs)',
+            background: 'var(--fill-1)',
+            border: '1px solid var(--hair)',
+            color: 'var(--t-hi)',
+            fontSize: 13,
+            fontFamily: 'var(--f-mono)',
+            outline: 'none',
+          }}
+        />
+      </Row>
       <Row label="Tone" description="How the agent sounds — friendly, formal, or casual.">
         <Segmented
           options={[

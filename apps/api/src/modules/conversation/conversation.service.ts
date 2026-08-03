@@ -30,7 +30,9 @@ const PROMPT_RULES = `Regras:
 - NAO tente executar tools quando o usuario so esta conversando ou cumprimentando.
 - Quando o usuario pedir pra voce lembrar de algo, confirme que voce guardou na memoria.
 - Use as memorias sobre o usuario para personalizar suas respostas.
-- LEMBRE-SE: toda resposta em portugues brasileiro, sem excecao.`;
+- Quando uma tool retornar dados em ingles ou JSON, INTERPRETE e TRADUZA os dados para portugues brasileiro na sua resposta. Nunca copie JSON cru ou texto em ingles para o usuario.
+- NUNCA escreva em chines, tailandes, japones, coreano, arabe ou qualquer alfabeto nao-latino.
+- LEMBRE-SE: toda resposta DEVE ser em portugues brasileiro, sem excecao. Se voce perceber que esta escrevendo em outro idioma, PARE e recomece em portugues.`;
 
 const TONE_PROMPTS: Record<string, string> = {
   friendly: 'Use um tom amigavel e natural. Voce entende girias e cumprimentos brasileiros como "eai", "fala", "opa", "beleza", "e ai mano", "salve", "bom dia". Responda de forma natural e amigavel.',
@@ -57,12 +59,25 @@ const VERBOSITY_PROMPTS: Record<string, string> = {
  */
 function cleanToolArtifacts(text: string): string {
   return text
+    // Strip CJK, Thai, Arabic, Devanagari and other non-Latin script blocks that Qwen hallucinates
+    .replace(/[\u0E00-\u0E7F]+/g, '')   // Thai
+    .replace(/[\u4E00-\u9FFF]+/g, '')   // CJK Unified
+    .replace(/[\u3400-\u4DBF]+/g, '')   // CJK Extension A
+    .replace(/[\u3000-\u303F]+/g, '')   // CJK Symbols
+    .replace(/[\u0600-\u06FF]+/g, '')   // Arabic
+    .replace(/[\u0900-\u097F]+/g, '')   // Devanagari
+    .replace(/[\uAC00-\uD7AF]+/g, '')   // Korean
+    .replace(/[\u3040-\u30FF]+/g, '')   // Japanese Hiragana/Katakana
     // Qwen _icall_ ... _fcio pattern
     .replace(/_icall_\s*\{[^}]*\}\s*/g, '')
     .replace(/_icio_[^!]*\*{0,3}!?\s*/g, '')
     .replace(/_fcio\s*\*{0,3}!?\s*/g, '')
     // Llama <gorith ...> pattern
     .replace(/<gorith[^>]*>/g, '')
+    // Tool call XML tags leaked by various models
+    .replace(/<\/?tool_call>/gi, '')
+    .replace(/<\/?function_call>/gi, '')
+    .replace(/HeaderCode:\s*/gi, '')
     // Generic JSON tool call leak: {"name": "...", "arguments": ...}
     .replace(/\{"name":\s*"[^"]*",\s*"(arguments|parameters)":\s*\{[^}]*\}\}\s*/g, '')
     // Clean up leftover whitespace
@@ -200,6 +215,7 @@ export class ConversationService {
     if (tools.length > 0) {
       const toolList = tools.map((t) => `- ${t.name}: ${t.description}`).join('\n');
       sections.push('', 'Ferramentas disponiveis:', toolList);
+      sections.push('IMPORTANTE: Os resultados das ferramentas podem vir em ingles ou JSON. Voce DEVE interpretar esses dados e responder ao usuario em portugues brasileiro de forma natural e resumida.');
     }
 
     // Memories

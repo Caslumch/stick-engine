@@ -30,6 +30,9 @@ interface JarvisStore {
   // Tool execution
   toolExecutions: ToolExecution[];
 
+  /** Último resultado de tool com dados ricos — persiste após clear pra DataArtifact */
+  lastRichResult: { toolName: string; result: ToolExecution['result']; capturedAt: number } | null;
+
   // Filler
   fillerText: string;
 
@@ -53,6 +56,7 @@ interface JarvisStore {
   addToolExecution: (exec: ToolExecution) => void;
   updateToolExecution: (toolName: string, result: ToolExecution['result']) => void;
   clearToolExecutions: () => void;
+  clearLastRichResult: () => void;
   setFillerText: (text: string) => void;
   setSettings: (settings: Record<string, string>) => void;
   updateSetting: (key: string, value: string) => void;
@@ -73,6 +77,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   lastIntent: null,
 
   toolExecutions: [],
+  lastRichResult: null,
 
   fillerText: '',
 
@@ -88,19 +93,27 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   setMessages: (messages) => set({ messages }),
   appendStreamToken: (token) => set((s) => ({ streamingText: s.streamingText + token })),
   clearStream: () => set({ streamingText: '' }),
-  newConversation: () => set({ conversationId: null, messages: [], streamingText: '', fillerText: '', lastDecision: null, lastIntent: null, toolExecutions: [] }),
+  newConversation: () => set({ conversationId: null, messages: [], streamingText: '', fillerText: '', lastDecision: null, lastIntent: null, toolExecutions: [], lastRichResult: null }),
   setLastDecision: (lastDecision) => set({ lastDecision }),
   setLastIntent: (lastIntent) => set({ lastIntent }),
   addToolExecution: (exec) => set((s) => ({ toolExecutions: [...s.toolExecutions, exec] })),
   updateToolExecution: (toolName, result) =>
-    set((s) => ({
-      toolExecutions: s.toolExecutions.map((te) =>
-        te.toolName === toolName && te.status === 'executing'
-          ? { ...te, result, status: 'done' as const }
-          : te,
-      ),
-    })),
+    set((s) => {
+      const update: Partial<JarvisStore> = {
+        toolExecutions: s.toolExecutions.map((te) =>
+          te.toolName === toolName && te.status === 'executing'
+            ? { ...te, result, status: 'done' as const }
+            : te,
+        ),
+      };
+      // Salvar resultado rico pra DataArtifact (persiste após clear)
+      if (result && (result.data || result.message)) {
+        update.lastRichResult = { toolName, result, capturedAt: Date.now() };
+      }
+      return update;
+    }),
   clearToolExecutions: () => set({ toolExecutions: [] }),
+  clearLastRichResult: () => set({ lastRichResult: null }),
   setFillerText: (fillerText) => set({ fillerText }),
   setSettings: (settings) => set({ settings }),
   updateSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),

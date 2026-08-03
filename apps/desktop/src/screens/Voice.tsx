@@ -11,6 +11,10 @@ import { useNativeWakeWord, checkNativeWakeWord } from '../hooks/useNativeWakeWo
 import { useSocket } from '../hooks/useSocket'
 import { MicButton } from '../ui/MicButton'
 import { RecordingCapsule } from '../ui/RecordingCapsule'
+import { ToolHUD } from '../ui/ToolHUD'
+import { TerminalFeed } from '../ui/TerminalFeed'
+import { DataArtifact } from '../ui/DataArtifact'
+import { orbDragStart, orbDragMove, orbDragEnd } from '../orb/orbDrag'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
@@ -33,6 +37,8 @@ export function Voice() {
   const streamingText = useJarvisStore((s) => s.streamingText)
   const fillerText = useJarvisStore((s) => s.fillerText)
   const toolExecutions = useJarvisStore((s) => s.toolExecutions)
+  const addToolExecution = useJarvisStore((s) => s.addToolExecution)
+  const updateToolExecution = useJarvisStore((s) => s.updateToolExecution)
   const isListening = state === 'listening'
 
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
@@ -102,7 +108,9 @@ export function Voice() {
 
     if (IN_TAURI) {
       setTranscript('Transcrevendo...')
+      addToolExecution({ toolName: '_stt_transcribe', status: 'executing' })
       await stt.stop()
+      updateToolExecution('_stt_transcribe', { success: true, message: transcriptRef.current.trim() || 'sem áudio' })
       const text = transcriptRef.current.trim()
       setTranscript('')
       transcriptRef.current = ''
@@ -226,7 +234,8 @@ export function Voice() {
 
     spokenIdsRef.current.add(last.id)
     ttsRef.current.cancel()
-    // Estado 'speaking' será setado pelo onStart do TTS — só quando o áudio realmente tocar
+    // Setar 'speaking' imediatamente pra não piscar idle entre a mensagem chegar e o áudio tocar
+    setState('speaking')
     ttsRef.current.speak(last.content)
   }, [messages, setState])
 
@@ -332,7 +341,7 @@ export function Voice() {
       height: '100vh',
       paddingBottom: 130,
     }}>
-      {/* Plate radial atrás do orb */}
+      {/* Plate radial atrás do orb + drag overlay */}
       <div style={{
         position: 'relative',
         display: 'grid',
@@ -348,7 +357,37 @@ export function Voice() {
           background: 'radial-gradient(circle, rgba(var(--accent-rgb), .10), transparent 62%)',
           transition: 'background .7s',
         }} />
+        {/* Overlay circular pra drag-to-rotate do orb */}
+        <div
+          style={{
+            position: 'absolute',
+            width: '70%',
+            height: '70%',
+            borderRadius: '50%',
+            cursor: 'grab',
+            zIndex: 5,
+            touchAction: 'none',
+          }}
+          onPointerDown={(e) => {
+            (e.target as HTMLElement).setPointerCapture(e.pointerId)
+            ;(e.target as HTMLElement).style.cursor = 'grabbing'
+            orbDragStart(e.clientX, e.clientY)
+          }}
+          onPointerMove={(e) => orbDragMove(e.clientX, e.clientY)}
+          onPointerUp={(e) => {
+            (e.target as HTMLElement).style.cursor = 'grab'
+            orbDragEnd()
+          }}
+          onPointerLeave={() => orbDragEnd()}
+        />
       </div>
+
+      {/* HUD: painéis de status nos lados do orb */}
+      <ToolHUD executions={toolExecutions} />
+      {/* Terminal: log de execuções na esquerda */}
+      <TerminalFeed executions={toolExecutions} />
+      {/* Artifact: dados estruturados na direita (lê do store) */}
+      <DataArtifact />
 
       {/* Estado + frase */}
       <div style={{ marginTop: 26, textAlign: 'center', maxWidth: 620, padding: '0 20px' }}>
@@ -397,37 +436,7 @@ export function Voice() {
           </p>
         )}
 
-        {/* Tool execution feedback */}
-        {toolExecutions.length > 0 && (
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            {toolExecutions.map((te, i) => (
-              <div key={i} style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '5px 14px',
-                borderRadius: 'var(--r-pill)',
-                background: 'var(--fill-1)',
-                border: '1px solid var(--hair)',
-                fontSize: 12.5,
-                color: te.status === 'executing' ? 'var(--accent)' : 'var(--t-low)',
-                fontFamily: 'var(--f)',
-                transition: 'all .3s',
-              }}>
-                <span style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: te.status === 'executing' ? 'var(--accent)' : 'var(--st-executing)',
-                  animation: te.status === 'executing' ? 'pulse 1.2s infinite' : 'none',
-                }} />
-                {TOOL_LABELS[te.toolName] ?? te.toolName}
-                {te.status === 'done' && te.result?.success && ' — ok'}
-                {te.status === 'done' && !te.result?.success && ' — erro'}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Tool execution feedback agora aparece como artifacts ao redor do orb */}
 
         {/* Feedback de erro */}
         {error && (

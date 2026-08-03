@@ -4,6 +4,7 @@ import { useSocket } from '../hooks/useSocket'
 import { Composer } from '../ui/Composer'
 import { ToolCard } from '../ui/ToolCard'
 import { HistoryDrawer } from '../ui/HistoryDrawer'
+import { Markdown } from '../ui/Markdown'
 
 /**
  * Tela de chat — coluna de 700px, pill de sessão, thread com fade,
@@ -116,7 +117,7 @@ export function ChatScreen() {
                     paddingTop: 2,
                     maxWidth: '88%',
                   }}>
-                    {msg.content}
+                    <Markdown content={msg.content} />
                   </div>
                 </div>
               )

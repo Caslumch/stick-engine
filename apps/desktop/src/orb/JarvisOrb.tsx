@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { orbDrag } from './orbDrag'
 
 import { AgentState, OrbParams, STATES, lerpParams } from './config/states'
 import { AudioFeatures } from './hooks/useAudioAnalyser'
@@ -138,6 +139,8 @@ export function JarvisOrb({
   const matRef = useRef<THREE.ShaderMaterial>(null)
   const { size, viewport } = useThree()
 
+  // Drag-to-rotate — lê do orbDrag (escrito pelo Voice overlay)
+
   const transition = useRef({
     from: STATES[state],
     to: STATES[state],
@@ -186,8 +189,31 @@ export function JarvisOrb({
     })
 
     if (groupRef.current && !BILLBOARD.includes(variant)) {
-      groupRef.current.rotation.y += tr.current.spin * dt
-      groupRef.current.rotation.x = Math.sin((matRef.current?.uniforms.uTime.value ?? 0) * 0.12) * 0.1
+      const d = orbDrag
+
+      if (d.active) {
+        groupRef.current.rotation.y = d.userY
+        groupRef.current.rotation.x = d.userX
+      } else {
+        // Inércia
+        d.velX *= 0.94
+        d.velY *= 0.94
+        if (Math.abs(d.velX) > 0.0005 || Math.abs(d.velY) > 0.0005) {
+          d.userY += d.velY
+          d.userX += d.velX
+          d.userX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, d.userX))
+          groupRef.current.rotation.y = d.userY
+          groupRef.current.rotation.x = d.userX
+        } else {
+          // Retornar suavemente à rotação automática
+          const autoY = groupRef.current.rotation.y + tr.current.spin * dt
+          const autoX = Math.sin((matRef.current?.uniforms.uTime.value ?? 0) * 0.12) * 0.1
+          d.userY += (autoY - d.userY) * 0.02
+          d.userX += (autoX - d.userX) * 0.02
+          groupRef.current.rotation.y = d.userY
+          groupRef.current.rotation.x = d.userX
+        }
+      }
     }
   })
 

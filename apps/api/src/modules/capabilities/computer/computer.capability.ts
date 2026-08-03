@@ -15,7 +15,30 @@ const APP_WHITELIST = [
   'terminal', 'cmd', 'powershell', 'wt',
   'spotify', 'discord', 'slack', 'teams',
   'word', 'excel', 'powerpoint',
+  'youtube', 'google',
 ];
+
+/** Mapeia nomes amigáveis para comandos reais no Windows */
+const WIN_APP_MAP: Record<string, string> = {
+  chrome: 'start chrome',
+  firefox: 'start firefox',
+  edge: 'start msedge',
+  brave: 'start brave',
+  code: 'code',
+  notepad: 'notepad',
+  calculator: 'calc',
+  calc: 'calc',
+  explorer: 'explorer',
+  spotify: 'start spotify',
+  discord: 'start discord',
+  cmd: 'start cmd',
+  powershell: 'start powershell',
+  wt: 'start wt',
+  terminal: 'start wt',
+  // URLs — abre no navegador padrão
+  youtube: 'start https://youtube.com',
+  google: 'start https://google.com',
+};
 
 // Blocked patterns for run_command
 const BLOCKED_PATTERNS = [
@@ -41,7 +64,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre um aplicativo no computador do usuario. Exemplos: "code", "chrome", "explorer". Para abrir um arquivo ou pasta com o aplicativo, passe o path.',
+      description: 'Abre um aplicativo ou URL no computador do usuario. Exemplos: "chrome", "youtube", "https://google.com". Para pesquisar na web, use open_application com name="chrome" e path="https://google.com/search?q=sua+pesquisa".',
       parameters: {
         type: 'object',
         properties: {
@@ -131,6 +154,18 @@ export class ComputerCapability implements Capability, OnModuleInit {
   private async openApplication(name: string, targetPath?: string): Promise<CapabilityResult> {
     const normalized = name.toLowerCase().trim();
 
+    // Detectar URLs — abrir no navegador padrão
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      try {
+        const cmd = process.platform === 'win32' ? `start "" "${normalized}"` : `open "${normalized}"`;
+        await execAsync(cmd, { timeout: 10000 });
+        this.logger.log(`URL aberta: ${normalized}`);
+        return { success: true, message: `URL "${normalized}" aberta no navegador.` };
+      } catch (error) {
+        return { success: false, message: `Erro ao abrir URL: ${error instanceof Error ? error.message : String(error)}` };
+      }
+    }
+
     if (!APP_WHITELIST.includes(normalized)) {
       return {
         success: false,
@@ -142,9 +177,15 @@ export class ComputerCapability implements Capability, OnModuleInit {
       const resolvedPath = targetPath ? this.resolvePath(targetPath) : '';
       const pathArg = resolvedPath ? ` "${resolvedPath}"` : '';
       const isWindows = process.platform === 'win32';
-      const cmd = isWindows
-        ? `start "" "${normalized}"${pathArg}`
-        : `${normalized}${pathArg}`;
+
+      let cmd: string;
+      if (isWindows && WIN_APP_MAP[normalized]) {
+        cmd = WIN_APP_MAP[normalized] + pathArg;
+      } else if (isWindows) {
+        cmd = `start "" "${normalized}"${pathArg}`;
+      } else {
+        cmd = `${normalized}${pathArg}`;
+      }
 
       await execAsync(cmd, { timeout: 10000 });
 
