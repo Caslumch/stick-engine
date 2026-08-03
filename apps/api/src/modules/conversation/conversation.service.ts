@@ -50,6 +50,26 @@ const VERBOSITY_PROMPTS: Record<string, string> = {
   detailed: 'Explique com detalhes e contexto. Inclua exemplos quando util.',
 };
 
+/**
+ * Strip raw tool-call artifacts that local models (Qwen, Llama) leak into text.
+ * e.g. _icall_ {"name":"...", "arguments":...} _icio_:*cal*)_fcio ***!
+ *      <gorith tool_name {"arg": "val"}>
+ */
+function cleanToolArtifacts(text: string): string {
+  return text
+    // Qwen _icall_ ... _fcio pattern
+    .replace(/_icall_\s*\{[^}]*\}\s*/g, '')
+    .replace(/_icio_[^!]*\*{0,3}!?\s*/g, '')
+    .replace(/_fcio\s*\*{0,3}!?\s*/g, '')
+    // Llama <gorith ...> pattern
+    .replace(/<gorith[^>]*>/g, '')
+    // Generic JSON tool call leak: {"name": "...", "arguments": ...}
+    .replace(/\{"name":\s*"[^"]*",\s*"(arguments|parameters)":\s*\{[^}]*\}\}\s*/g, '')
+    // Clean up leftover whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Max messages to keep in the prompt (excluding summary) */
 const SLIDING_WINDOW_SIZE = 30;
 /** Summarize when total messages exceed this */
@@ -310,10 +330,11 @@ export class ConversationService {
       onDecision,
     });
 
-    // 7. Persist assistant message
+    // 7. Persist assistant message (clean tool-call artifacts from local models)
+    const cleanedContent = cleanToolArtifacts(response.content);
     const saved = await this.repository.addMessage(conversationId, {
       role: 'assistant',
-      content: response.content,
+      content: cleanedContent,
       provider: response.provider,
       model: response.model,
       toolCalls: response.toolCalls as any,
