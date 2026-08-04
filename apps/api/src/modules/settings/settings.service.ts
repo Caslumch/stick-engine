@@ -19,7 +19,7 @@ export interface JarvisSettings {
 const DEFAULTS: Record<string, string> = {
   'llm.ollama.model': 'llama3.1',
   'llm.ollama.url': 'http://localhost:11434',
-  'llm.openai.model': 'gpt-4o-mini',
+  'llm.openai.model': 'gpt-4o',
   'llm.preferLocal': 'true',
   'decision.tokenThreshold': '2000',
   'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente',

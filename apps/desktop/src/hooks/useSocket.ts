@@ -12,6 +12,7 @@ import type {
   Message,
 } from '@jarvis/shared';
 import { useJarvisStore } from '../stores/jarvis.store';
+import { ttsLock } from './ttsLock';
 
 const API_URL = 'http://localhost:3000';
 
@@ -48,7 +49,8 @@ export function useSocket() {
     });
 
     socket.on(WsEvent.StateChange, (payload: StateChangePayload) => {
-      // Não deixar o backend sobrescrever 'speaking' com idle — o TTS do frontend controla
+      // Enquanto TTS está ativo, bloquear QUALQUER mudança de estado vinda do backend
+      if (ttsLock.active) return;
       const current = useJarvisStore.getState().state;
       if (current === 'speaking' && (payload.state === 'idle' || payload.state === 'thinking')) return;
       store.setState(payload.state);

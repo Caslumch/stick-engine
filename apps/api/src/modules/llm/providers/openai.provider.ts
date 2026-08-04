@@ -29,14 +29,27 @@ export class OpenAiProvider implements LlmProvider {
     return fromSettings || this.envApiKey;
   }
 
-  /** Mescla as tools do request com webSearch da OpenAI se habilitado */
+  /** Modelos que suportam provider-executed tools (web search nativo) */
+  private supportsProviderTools(): boolean {
+    const model = this.modelId.toLowerCase();
+    // gpt-4o-mini NÃO suporta. gpt-4o, gpt-4.1, gpt-4o-search-preview suportam.
+    if (model.includes('mini')) return false;
+    if (model.includes('gpt-4o') || model.includes('gpt-4.1') || model.includes('o1') || model.includes('o3')) return true;
+    return false;
+  }
+
+  /** Mescla as tools do request com webSearch da OpenAI se habilitado e modelo suporta */
   private async buildTools(openai: ReturnType<typeof createOpenAI>, requestTools?: LlmRequest['tools']) {
     const webSearchEnabled = (await this.settings.get('openai.webSearch')) !== 'false';
     const tools: Record<string, any> = { ...requestTools };
 
-    if (webSearchEnabled) {
+    if (webSearchEnabled && this.supportsProviderTools()) {
       tools.web_search_openai = openai.tools.webSearch();
-      this.logger.debug('OpenAI webSearch tool injected');
+      // Remover a tool web_search do Tavily pra evitar duplicata
+      delete tools.web_search;
+      this.logger.log('OpenAI webSearch nativo ativo (modelo suporta)');
+    } else if (webSearchEnabled) {
+      this.logger.debug(`Modelo ${this.modelId} não suporta webSearch nativo — usando Tavily se configurado`);
     }
 
     return Object.keys(tools).length > 0 ? tools : undefined;

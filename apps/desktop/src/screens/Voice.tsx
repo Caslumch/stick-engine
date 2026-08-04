@@ -15,6 +15,7 @@ import { ToolHUD } from '../ui/ToolHUD'
 import { TerminalFeed } from '../ui/TerminalFeed'
 import { DataArtifact } from '../ui/DataArtifact'
 import { orbDragStart, orbDragMove, orbDragEnd } from '../orb/orbDrag'
+import { ttsLock } from '../hooks/ttsLock'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
@@ -75,9 +76,9 @@ export function Voice() {
     speak: () => {}, cancel: () => {}, isSpeaking: () => false,
   })
 
-  const ttsStartCb = () => { setState('speaking') }
-  const ttsEndCb = () => { if (useJarvisStore.getState().state === 'speaking') setState('idle') }
-  const ttsErrCb = (err: string) => { setError(`Voz: ${err}`); setState('idle') }
+  const ttsStartCb = () => { ttsLock.active = true; setState('speaking') }
+  const ttsEndCb = () => { ttsLock.active = false; if (useJarvisStore.getState().state === 'speaking') setState('idle') }
+  const ttsErrCb = (err: string) => { ttsLock.active = false; setError(`Voz: ${err}`); setState('idle') }
 
   const webTts = useSpeechSynthesis({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
   const tauriTts = useTauriTTS({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
@@ -107,8 +108,36 @@ export function Voice() {
     vad.stop()
 
     if (IN_TAURI) {
+      // Feedback imediato: muda pra thinking e fala filler enquanto Whisper processa
+      setState('thinking')
       setTranscript('Transcrevendo...')
       addToolExecution({ toolName: '_stt_transcribe', status: 'executing' })
+
+      // Filler imediato durante transcrição
+      const fillers = ['Hmm, deixa eu ouvir...', 'Um momento...', 'Já já...', 'Deixa eu ver...']
+      const filler = fillers[Math.floor(Math.random() * fillers.length)]
+      const settings = useJarvisStore.getState().settings
+      const engine = settings['tts.engine'] || 'edge'
+      const voice = settings['tts.voice'] || ''
+      fetch('http://localhost:5001/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: filler, engine, voice }),
+      }).then(async (resp) => {
+        if (!resp.ok || cancelledRef.current) return
+        const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
+        const bytes = await resp.arrayBuffer()
+        const bus = getTTSBus()
+        await resumeTTSBus()
+        // Só tocar se ainda estamos transcrevendo
+        if (useJarvisStore.getState().state !== 'thinking') return
+        const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
+        const source = bus.ctx.createBufferSource()
+        source.buffer = audioBuffer
+        source.connect(bus.input)
+        source.start()
+      }).catch(() => {})
+
       await stt.stop()
       updateToolExecution('_stt_transcribe', { success: true, message: transcriptRef.current.trim() || 'sem áudio' })
       const text = transcriptRef.current.trim()
@@ -116,7 +145,6 @@ export function Voice() {
       transcriptRef.current = ''
       sendingRef.current = false
       if (text && text !== 'Transcrevendo...') {
-        setState('thinking')
         sendMessage(text)
       } else {
         setState('idle')
