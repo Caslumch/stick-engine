@@ -210,8 +210,9 @@ export function Voice() {
   const cancelledRef = useRef(false)
 
   // --- Streaming TTS: falar frases conforme o LLM gera ---
-  const streamSpokenLenRef = useRef(0)   // quanto do stream já foi enviado pro TTS
-  const streamTTSActiveRef = useRef(false) // se o TTS streaming está ativo
+  const streamSpokenLenRef = useRef(0)       // quanto do stream já foi enviado pro TTS
+  const streamFinalSpokenRef = useRef(0)     // snapshot do spoken length antes do clear
+  const streamTTSActiveRef = useRef(false)   // se o TTS streaming está ativo
   const streamQueueRef = useRef<string[]>([]) // fila de frases pra falar
 
   /** Busca TTS pra uma frase e retorna o AudioBuffer decodificado */
@@ -295,6 +296,8 @@ export function Voice() {
   // Detectar frases completas no stream e enfileirar pro TTS
   useEffect(() => {
     if (!streamingText) {
+      // Salvar quanto foi falado antes de resetar (pro MessageComplete saber)
+      streamFinalSpokenRef.current = streamSpokenLenRef.current
       streamSpokenLenRef.current = 0
       return
     }
@@ -328,7 +331,9 @@ export function Voice() {
     spokenIdsRef.current.add(last.id)
 
     // Pegar o que sobrou (não foi falado pelo streaming)
-    const remaining = last.content.slice(streamSpokenLenRef.current).trim()
+    const spokenSoFar = streamFinalSpokenRef.current || streamSpokenLenRef.current
+    const remaining = spokenSoFar > 0 ? last.content.slice(spokenSoFar).trim() : ''
+    streamFinalSpokenRef.current = 0
     streamSpokenLenRef.current = 0
 
     if (remaining) {
