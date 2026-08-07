@@ -182,7 +182,7 @@ function HUDPanel({ entry, index, onDismiss }: { entry: HUDEntry; index: number;
       style={{
         position: 'absolute',
         transform: 'translate(-50%, -50%)',
-        maxWidth: expanded ? 280 : 240, minWidth: 160,
+        maxWidth: expanded ? 320 : 260, minWidth: 180,
         pointerEvents: 'auto',
         cursor: 'grab',
       }}

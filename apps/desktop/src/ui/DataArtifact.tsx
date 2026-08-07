@@ -191,8 +191,8 @@ export function DataArtifact() {
             position: 'fixed',
             right: 28,
             top: '50%',
-            width: expanded ? 340 : 300,
-            maxHeight: expanded ? 'min(70vh, 520px)' : 'min(40vh, 280px)',
+            width: expanded ? 400 : 340,
+            maxHeight: expanded ? 'min(80vh, 600px)' : 'min(40vh, 280px)',
             zIndex: 16,
             pointerEvents: 'auto',
             cursor: 'grab',
@@ -253,14 +253,14 @@ export function DataArtifact() {
 
             {/* Conteúdo: texto ou rows */}
             <motion.div layout style={{
-              padding: isTextContent ? '10px 14px' : '4px 0',
-              maxHeight: expanded ? 'min(60vh, 440px)' : isTextContent ? 100 : 'auto',
+              padding: isTextContent ? '12px 16px' : '4px 0',
+              maxHeight: expanded ? 'min(70vh, 520px)' : isTextContent ? 110 : 'auto',
               overflowY: expanded ? 'auto' : 'hidden',
               maskImage: !expanded ? 'linear-gradient(#000 70%, transparent)' : 'linear-gradient(#000 calc(100% - 16px), transparent)',
             }}>
               {/* Texto puro (resposta longa) */}
               {isTextContent ? (
-                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--t-mid)' }}>
+                <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--t-mid)' }}>
                   <Markdown content={textContent} />
                 </div>
               ) : null}

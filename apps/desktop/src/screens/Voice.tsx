@@ -341,16 +341,15 @@ export function Voice() {
       processStreamQueue()
     }
 
-    // Se a resposta é longa (>200 chars), mostrar como artifact expandível na direita
-    if (last.content.length > 200) {
-      useJarvisStore.getState().lastRichResult ||
-        useJarvisStore.setState({
-          lastRichResult: {
-            toolName: '_response',
-            result: { success: true, message: last.content },
-            capturedAt: Date.now(),
-          },
-        })
+    // Se a resposta é longa (>120 chars), mostrar como artifact expandível na direita
+    if (last.content.length > 120) {
+      useJarvisStore.setState({
+        lastRichResult: {
+          toolName: '_response',
+          result: { success: true, message: last.content },
+          capturedAt: Date.now(),
+        },
+      })
     }
   }, [messages, processStreamQueue])
 
