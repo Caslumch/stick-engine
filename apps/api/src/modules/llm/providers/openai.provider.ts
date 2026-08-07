@@ -37,8 +37,9 @@ export class OpenAiProvider implements LlmProvider {
     return false;
   }
 
-  /** Verifica se webSearch nativo está habilitado e o modelo suporta */
-  private async useNativeWebSearch(): Promise<boolean> {
+  /** Verifica se webSearch nativo deve ser usado pra esta request */
+  private async useNativeWebSearch(request: LlmRequest): Promise<boolean> {
+    if (!request.webSearch) return false; // só ativa quando o service pede
     const enabled = (await this.settings.get('openai.webSearch')) !== 'false';
     return enabled && this.supportsResponses();
   }
@@ -64,10 +65,9 @@ export class OpenAiProvider implements LlmProvider {
   async generate(request: LlmRequest): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const nativeSearch = await this.useNativeWebSearch();
+    const nativeSearch = await this.useNativeWebSearch(request);
     const tools = this.buildTools(openai, request.tools, nativeSearch);
 
-    // Responses API pra web search, Chat API pro resto
     const model = nativeSearch
       ? openai.responses(this.modelId)
       : openai.chat(this.modelId);
@@ -102,7 +102,7 @@ export class OpenAiProvider implements LlmProvider {
   async generateStream(request: LlmRequest, onToken: LlmStreamCallback): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const nativeSearch = await this.useNativeWebSearch();
+    const nativeSearch = await this.useNativeWebSearch(request);
     const tools = this.buildTools(openai, request.tools, nativeSearch);
 
     const model = nativeSearch

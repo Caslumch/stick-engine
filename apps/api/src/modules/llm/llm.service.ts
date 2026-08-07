@@ -9,6 +9,7 @@ export interface GenerateOptions {
   messages: Array<{ role: string; content: string }>;
   tools?: ToolSet;
   maxSteps?: number;
+  webSearch?: boolean;
   onToken?: LlmStreamCallback;
   onDecision?: (decision: DecisionMadePayload) => void;
 }
@@ -72,6 +73,7 @@ export class LlmService {
           messages: opts.messages,
           tools: opts.tools,
           maxSteps: opts.maxSteps,
+          webSearch: opts.webSearch,
         };
 
         if (opts.onToken) {

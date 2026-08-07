@@ -8,6 +8,8 @@ export interface LlmRequest {
   messages: Array<{ role: string; content: string }>;
   tools?: ToolSet;
   maxSteps?: number;
+  /** Ativar web search nativo (só quando a mensagem precisa de pesquisa) */
+  webSearch?: boolean;
 }
 
 export interface LlmToolCall {

@@ -332,7 +332,7 @@ export class ConversationService {
       if (/^(bom dia|boa tarde|boa noite)/i.test(lower)) {
         return `${greeting}! Tudo tranquilo por aqui. Precisa de algo?`;
       }
-      if (/^(tudo bem|como vai|como voce esta)/i.test(lower)) {
+      if (/^(tudo bem|tudo certo|tudo tranquilo|como vai|como voce esta|como esta|beleza)/i.test(lower)) {
         return 'Tudo certo! E você? Posso te ajudar com algo?';
       }
       if (/^(valeu|obrigad|brigad)/i.test(lower)) {
@@ -434,27 +434,28 @@ export class ConversationService {
     const tools = this.buildTools(onToolExecution);
     const hasTools = Object.keys(tools).length > 0;
 
-    // 6. Generate response via LLM (streamed, with tool calling)
-    // Emitir web_search_openai como artifact se o provider suporta
+    // 6. Detectar se precisa de web search (keywords na mensagem)
     const searchKeywords = await this.settings.get('decision.searchKeywords');
-    const looksLikeSearch = searchKeywords.split(',').some((kw) => text.toLowerCase().includes(kw.trim()));
-    if (looksLikeSearch) {
+    const needsSearch = searchKeywords.split(',').some((kw) => {
+      const k = kw.trim().toLowerCase();
+      return k && text.toLowerCase().includes(k);
+    });
+
+    if (needsSearch) {
       onToolExecution?.({ toolName: 'web_search_openai', args: { query: text } });
     }
 
+    // Generate — só passa webSearch:true quando a mensagem precisa
     const response = await this.llm.generate({
       messages: history,
       tools: hasTools ? tools : undefined,
       maxSteps: hasTools ? 5 : 1,
+      webSearch: needsSearch,
       onToken,
       onDecision,
     });
 
-    // Emitir resultado da web search se foi usada (provider-executed tools)
-    if (looksLikeSearch && response.toolResults?.some((tr) => tr.toolName === 'web_search_openai')) {
-      onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
-    } else if (looksLikeSearch) {
-      // Se emitiu executing mas não teve resultado, fechar o artifact
+    if (needsSearch) {
       onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
     }
 
