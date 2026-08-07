@@ -320,6 +320,19 @@ export function Voice() {
     setState('idle')
   }, [setState])
 
+  // --- Espaço: iniciar/enviar gravação via evento do keyboard shortcut ---
+  useEffect(() => {
+    const handler = () => {
+      const s = useJarvisStore.getState().state
+      if (s === 'idle') handleMicClick()
+      else if (s === 'listening') doSend()
+      else if (s === 'speaking') { ttsRef.current.cancel(); setState('idle') }
+    }
+    window.addEventListener('jarvis:space', handler)
+    return () => window.removeEventListener('jarvis:space', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // --- Wake word: prioridade nativa (OpenWakeWord) > Web Speech API ---
   const [nativeWakeWordReady, setNativeWakeWordReady] = useState(false)
   useEffect(() => {

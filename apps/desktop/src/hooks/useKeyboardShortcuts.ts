@@ -34,8 +34,10 @@ export function useKeyboardShortcuts() {
           break
         case ' ':
           e.preventDefault()
-          if (store.state === 'idle') store.setState('listening')
-          else if (store.state === 'listening') store.setState('thinking')
+          // Disparar evento customizado — o Voice.tsx escuta e inicia/envia gravação
+          if (store.view === 'voice') {
+            window.dispatchEvent(new CustomEvent('jarvis:space'))
+          }
           break
       }
 
