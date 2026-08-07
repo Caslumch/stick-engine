@@ -8,33 +8,48 @@ import { CapabilityRegistryService } from '../capability-registry.service';
 
 const execAsync = promisify(exec);
 
-// Whitelist of allowed applications (case-insensitive match)
-const APP_WHITELIST = [
-  'code', 'notepad', 'calculator', 'calc', 'explorer',
-  'chrome', 'firefox', 'edge', 'brave',
-  'terminal', 'cmd', 'powershell', 'wt',
-  'spotify', 'discord', 'slack', 'teams',
-  'word', 'excel', 'powerpoint',
-  'youtube', 'google',
+// Blocklist: apps perigosos que NUNCA devem ser abertos por comando de voz
+const APP_BLOCKLIST = [
+  'format', 'diskpart', 'regedit', 'taskkill', 'shutdown', 'restart',
+  'del', 'rmdir', 'rd', 'fdisk', 'cipher',
 ];
 
 /** Mapeia nomes amigáveis para comandos reais no Windows */
 const WIN_APP_MAP: Record<string, string> = {
+  // Navegadores
   chrome: 'start chrome',
+  'google chrome': 'start chrome',
   firefox: 'start firefox',
   edge: 'start msedge',
   brave: 'start brave',
+  // Dev
   code: 'code',
+  'visual studio code': 'code',
+  'vs code': 'code',
+  // Sistema
   notepad: 'notepad',
+  'bloco de notas': 'notepad',
   calculator: 'calc',
   calc: 'calc',
+  calculadora: 'calc',
   explorer: 'explorer',
-  spotify: 'start spotify',
-  discord: 'start discord',
+  'gerenciador de arquivos': 'explorer',
   cmd: 'start cmd',
   powershell: 'start powershell',
   wt: 'start wt',
   terminal: 'start wt',
+  // Apps
+  spotify: 'start spotify',
+  discord: 'start discord',
+  slack: 'start slack',
+  teams: 'start msteams',
+  steam: 'start steam',
+  telegram: 'start telegram',
+  whatsapp: 'start whatsapp',
+  // Office
+  word: 'start winword',
+  excel: 'start excel',
+  powerpoint: 'start powerpnt',
   // URLs — abre no navegador padrão
   youtube: 'start https://youtube.com',
   google: 'start https://google.com',
@@ -64,7 +79,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre um aplicativo no computador do usuario. Exemplos: "chrome", "notepad", "explorer", "spotify". NAO use esta tool para pesquisar na internet — use web_search_openai para pesquisas.',
+      description: 'Abre qualquer aplicativo instalado no computador do usuario. Passe o nome do programa (ex: "chrome", "spotify", "steam", "photoshop"). NAO use esta tool para pesquisar na internet.',
       parameters: {
         type: 'object',
         properties: {
@@ -148,14 +163,14 @@ export class ComputerCapability implements Capability, OnModuleInit {
         // Fallback 2: procurar nome de app da whitelist em qualquer campo (incluindo query, text, etc.)
         if (!name) {
           const allText = Object.values(params).join(' ').toLowerCase();
-          const found = APP_WHITELIST.find((app) => allText.includes(app));
+          const found = Object.keys(WIN_APP_MAP).find((app) => allText.includes(app));
           if (found) name = found;
         }
 
         // Fallback 3: tentar extrair "chrome", "spotify" etc. do nome da tool call
         if (!name) {
           const toolCallStr = JSON.stringify(params).toLowerCase();
-          const found = APP_WHITELIST.find((app) => toolCallStr.includes(app));
+          const found = Object.keys(WIN_APP_MAP).find((app) => toolCallStr.includes(app));
           if (found) name = found;
         }
 
@@ -193,11 +208,9 @@ export class ComputerCapability implements Capability, OnModuleInit {
       }
     }
 
-    if (!APP_WHITELIST.includes(normalized)) {
-      return {
-        success: false,
-        message: `Aplicativo "${name}" nao esta na lista permitida. Apps disponiveis: ${APP_WHITELIST.join(', ')}`,
-      };
+    // Blocklist: impedir apps perigosos
+    if (APP_BLOCKLIST.some((b) => normalized.includes(b))) {
+      return { success: false, message: `Aplicativo "${name}" bloqueado por segurança.` };
     }
 
     try {

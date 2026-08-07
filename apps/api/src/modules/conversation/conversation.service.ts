@@ -356,10 +356,12 @@ export class ConversationService {
       return `Hoje é ${date}.`;
     }
 
-    // --- Abrir app/site: detecta app na whitelist + URL/site a abrir ---
-    const APPS = ['code', 'notepad', 'calculator', 'calc', 'explorer', 'chrome', 'google chrome',
+    // --- Abrir app/site: detecta app conhecido ou qualquer nome após "abre o" ---
+    const KNOWN_APPS = ['code', 'vs code', 'visual studio code', 'notepad', 'bloco de notas',
+      'calculator', 'calc', 'calculadora', 'explorer', 'chrome', 'google chrome',
       'firefox', 'edge', 'brave', 'terminal', 'cmd', 'powershell', 'wt', 'spotify',
-      'discord', 'slack', 'teams', 'word', 'excel', 'powerpoint', 'youtube', 'google'];
+      'discord', 'slack', 'teams', 'steam', 'telegram', 'whatsapp',
+      'word', 'excel', 'powerpoint', 'youtube', 'google'];
     // Sites conhecidos pra fast-path (nome → URL)
     const SITES: Record<string, string> = {
       'whatsapp web': 'https://web.whatsapp.com', 'whatsapp': 'https://web.whatsapp.com',
@@ -375,7 +377,7 @@ export class ConversationService {
     if (/(?:abre|abra|abrir)/i.test(lower) && !needsContext) {
       // Primeiro: detectar se quer abrir um SITE específico
       const siteKey = Object.keys(SITES).find((s) => lower.includes(s));
-      const browser = APPS.filter((a) => ['chrome', 'google chrome', 'firefox', 'edge', 'brave'].includes(a)).find((a) => lower.includes(a));
+      const browser = KNOWN_APPS.filter((a) => ['chrome', 'google chrome', 'firefox', 'edge', 'brave'].includes(a)).find((a) => lower.includes(a));
 
       if (siteKey) {
         // Abrir site no navegador (especificado ou padrão)
@@ -385,11 +387,21 @@ export class ConversationService {
         return result.success ? `Abrindo ${siteKey}.` : result.message || `Não consegui abrir ${siteKey}.`;
       }
 
-      // Só abrir app (sem site)
-      const found = APPS.find((app) => lower.includes(app));
+      // Só abrir app (sem site) — tenta conhecidos primeiro, senão extrai da frase
+      const found = KNOWN_APPS.find((app) => lower.includes(app));
       if (found) {
         const result = await this.capabilities.execute('open_application', { name: found });
         return result.success ? `Abrindo ${found}.` : result.message || `Não consegui abrir ${found}.`;
+      }
+
+      // Fallback: extrair nome do app da frase e tentar abrir qualquer coisa
+      const appMatch = lower.match(/(?:abre|abra|abrir)\s+(?:o\s+|a\s+)?(.+?)(?:\s+pra\s+mim|\s+por\s+favor)?[\s.!?]*$/i);
+      if (appMatch) {
+        const appName = appMatch[1].trim();
+        if (appName.length > 1 && appName.length < 30) {
+          const result = await this.capabilities.execute('open_application', { name: appName });
+          return result.success ? `Abrindo ${appName}.` : result.message || `Não encontrei "${appName}".`;
+        }
       }
     }
 
