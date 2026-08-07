@@ -52,30 +52,48 @@ export async function searchImages(query: string, limit = 3): Promise<ImageResul
 
 /**
  * Extrai nomes de produtos/itens de uma resposta do LLM.
- * Procura por padrões numerados ou bold.
+ * Só extrai nomes que parecem ser produtos reais (com marca/modelo).
  */
 export function extractProductNames(text: string): string[] {
   const names: string[] = [];
 
-  // Padrão: "1. **Nome do Produto**" ou "- **Nome**"
-  const boldPattern = /\*\*([^*]+)\*\*/g;
+  // Palavras genéricas que NÃO são nomes de produto
+  const GENERIC = /^(resumo|dica|nota|obs|fonte|aten[çc][aã]o|importante|detalhe|pre[çc]o|custo|melhor|momento|mercado|brasil|completo|beneficio|exemplo|op[çc][aã]o|categoria|destaque|qualidade|principal|sexta|segunda|ter[çc]a|quarta|quinta|s[áa]bado|domingo|janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|\d{1,2}\s+de\s+)/i;
+
+  // Marcas conhecidas — se o texto bold contém uma dessas, é produto
+  const BRANDS = /sony|samsung|apple|iphone|galaxy|motorola|xiaomi|bose|jbl|sennheiser|akg|nvidia|amd|intel|logitech|razer|corsair|hyperx|asus|dell|lenovo|hp|lg|philips|braun|dyson|nikon|canon|gopro|dji|marshall|beats|airpods|macbook|ipad|pixel|oneplus|oppo|realme|redmi|poco|edifier|audio.technica|shure|beyerdynamic|harman|bang.*olufsen/i;
+
+  // Padrão 1: "1. **Nome do Produto**" ou "- **Nome**" — preferido
+  const numberedBold = /(?:^|\n)\s*(?:\d+[.)]\s*|[-•]\s*)\*\*([^*]+)\*\*/g;
   let match;
-  while ((match = boldPattern.exec(text)) !== null) {
+  while ((match = numberedBold.exec(text)) !== null) {
     const name = match[1].trim();
-    // Filtrar nomes muito curtos ou genéricos
-    if (name.length > 3 && name.length < 60 && !/^(resumo|dica|nota|obs|fonte)/i.test(name)) {
+    if (name.length > 3 && name.length < 60 && !GENERIC.test(name)) {
       names.push(name);
     }
   }
 
-  // Se não achou bold, tentar "1. Nome" ou "- Nome"
+  // Padrão 2: qualquer **bold** que contenha uma marca conhecida
   if (names.length === 0) {
-    const listPattern = /^[\s]*(?:\d+[.)]\s*|[-•]\s*)([A-Z][^\n.!?]{5,50})/gm;
-    while ((match = listPattern.exec(text)) !== null) {
-      names.push(match[1].trim());
+    const boldPattern = /\*\*([^*]+)\*\*/g;
+    while ((match = boldPattern.exec(text)) !== null) {
+      const name = match[1].trim();
+      if (BRANDS.test(name) && name.length < 60) {
+        names.push(name);
+      }
     }
   }
 
-  // Limitar a 5 produtos
+  // Padrão 3: "1. Nome com Marca" sem bold
+  if (names.length === 0) {
+    const listPattern = /(?:^|\n)\s*\d+[.)]\s*([A-Z][^\n]{5,50})/g;
+    while ((match = listPattern.exec(text)) !== null) {
+      const name = match[1].trim().split(/\s*[-–—:]/, 1)[0].trim();
+      if (BRANDS.test(name)) {
+        names.push(name);
+      }
+    }
+  }
+
   return [...new Set(names)].slice(0, 5);
 }
