@@ -137,10 +137,23 @@ async def speak_qwen(text: str, voice: str) -> bytes:
 
 # ─── Routes ───────────────────────────────────────────────────
 
+def sanitize_text(text: str) -> str:
+    """Remove caracteres Unicode problemáticos que crasham no Windows cp1252."""
+    import unicodedata
+    # Normalizar e substituir espaços especiais por espaço normal
+    text = unicodedata.normalize('NFKC', text)
+    # Substituir caracteres não-ascii que sobram por equivalentes
+    text = text.replace('\u202f', ' ').replace('\u2011', '-').replace('\u2013', '-').replace('\u2014', '-')
+    text = text.replace('\u2018', "'").replace('\u2019', "'").replace('\u201c', '"').replace('\u201d', '"')
+    text = text.replace('\u2026', '...')
+    return text
+
+
 @app.post("/speak")
 async def speak(req: SpeakRequest):
     t0 = time.time()
     engine = req.engine.lower()
+    req.text = sanitize_text(req.text)
 
     try:
         if engine == "edge":
@@ -165,21 +178,19 @@ async def speak(req: SpeakRequest):
             headers={"X-Duration": str(elapsed), "X-Engine": engine},
         )
     except Exception as e:
-        print(f"[{engine}] Erro: {e}")
-        import traceback
-        traceback.print_exc()
+        err_msg = str(e).encode('ascii', 'replace').decode('ascii')
+        print(f"[{engine}] Erro: {err_msg}")
         return Response(content=str(e), status_code=500)
 
 
 @app.post("/speak/stream")
 async def speak_stream(req: SpeakRequest):
-    """Streaming TTS — envia chunks de áudio conforme Edge TTS gera.
-    Reduz latência: primeiro byte em ~200ms em vez de ~500ms."""
+    """Streaming TTS — envia chunks de áudio conforme Edge TTS gera."""
     import edge_tts
 
     engine = req.engine.lower()
+    req.text = sanitize_text(req.text)
     if engine != "edge":
-        # Fallback pra batch pra engines que não suportam streaming
         return await speak(req)
 
     voice = req.voice or "pt-BR-AntonioNeural"
