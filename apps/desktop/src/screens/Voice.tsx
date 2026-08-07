@@ -81,7 +81,18 @@ export function Voice() {
   })
 
   const ttsStartCb = () => { ttsLock.active = true; setState('speaking') }
-  const ttsEndCb = () => { ttsLock.active = false; if (useJarvisStore.getState().state === 'speaking') setState('idle') }
+  const ttsEndCb = () => {
+    ttsLock.active = false
+    if (useJarvisStore.getState().state !== 'speaking') return
+    // Conversação contínua: volta a ouvir automaticamente após falar
+    setState('listening')
+    transcriptRef.current = ''
+    setTranscript('')
+    sendingRef.current = false
+    startAudio()
+    stt.start()
+    vad.start()
+  }
   const ttsErrCb = (err: string) => { ttsLock.active = false; setError(`Voz: ${err}`); setState('idle') }
 
   const webTts = useSpeechSynthesis({ onStart: ttsStartCb, onEnd: ttsEndCb, onError: ttsErrCb })
@@ -123,7 +134,6 @@ export function Voice() {
 
     if (text) {
       setState('thinking')
-      playFiller() // Filler instantâneo do cache (~5ms)
       sendMessage(text)
     } else {
       setState('idle')
@@ -182,7 +192,8 @@ export function Voice() {
   useEffect(() => {
     if (state === 'thinking' && fillerText && fillerText !== fillerSpokenRef.current) {
       fillerSpokenRef.current = fillerText
-      playFiller() // Instantâneo do cache, sem fetch
+      // Filler desativado — com Web Speech + streaming TTS, a resposta
+      // chega rápido o suficiente pra não precisar de filler
     }
     if (state !== 'thinking') {
       fillerSpokenRef.current = ''
@@ -258,7 +269,16 @@ export function Voice() {
     streamTTSActiveRef.current = false
     ttsLock.active = false
     if (!useJarvisStore.getState().streamingText) {
-      if (useJarvisStore.getState().state === 'speaking') setState('idle')
+      if (useJarvisStore.getState().state === 'speaking') {
+        // Conversação contínua: volta a ouvir após terminar de falar
+        setState('listening')
+        transcriptRef.current = ''
+        setTranscript('')
+        sendingRef.current = false
+        startAudio()
+        stt.start()
+        vad.start()
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setState])
