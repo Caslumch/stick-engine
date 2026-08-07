@@ -36,8 +36,9 @@ Responda EXCLUSIVAMENTE em portugues brasileiro.`;
 
 const PROMPT_RULES = `Regras:
 - Se nao souber algo, diga que nao sabe.
-- Quando o usuario pedir pra executar algo no computador, use as tools disponiveis.
-- Sempre explique o que voce fez apos executar uma tool.
+- Quando o usuario pedir pra executar algo, EXECUTE usando as tools. NUNCA sugira comandos pro usuario rodar — voce e quem executa.
+- Se open_application falhar, use run_command imediatamente com o comando correto. NAO pergunte se o usuario quer que voce execute — EXECUTE direto.
+- O shell de run_command e PowerShell no Windows. Use cmdlets diretamente: Start-Process, Get-ChildItem, etc.
 - NAO tente executar tools quando o usuario so esta conversando ou cumprimentando.
 - Quando o usuario pedir pra voce lembrar de algo, confirme que voce guardou na memoria.
 - Use as memorias sobre o usuario para personalizar suas respostas.
