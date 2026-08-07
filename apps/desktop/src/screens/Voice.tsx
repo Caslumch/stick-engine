@@ -144,7 +144,7 @@ export function Voice() {
   // --- VAD: auto-enviar quando detecta silêncio ---
   const vad = useVAD({
     threshold: 0.015,
-    silenceDuration: 900,
+    silenceDuration: 1800,
     onSilence: () => {
       // Só auto-enviar se estamos em listening
       if (useJarvisStore.getState().state === 'listening') {
