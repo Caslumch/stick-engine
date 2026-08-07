@@ -399,6 +399,28 @@ function AgentGroup() {
           onChange={(v) => updateSetting('personality.verbosity', v)}
         />
       </Row>
+      <Row label="System prompt" description="Instruções adicionais pro agente. Adicionado ao final do prompt padrão.">
+        <textarea
+          value={settings['agent.systemPrompt'] ?? ''}
+          placeholder="Ex: Meu nome é Lucas. Sempre responda de forma objetiva..."
+          onChange={(e) => updateSetting('agent.systemPrompt', e.target.value)}
+          rows={4}
+          style={{
+            width: '100%',
+            maxWidth: 400,
+            padding: '10px 12px',
+            borderRadius: 'var(--r-xs)',
+            background: 'var(--fill-1)',
+            border: '1px solid var(--hair)',
+            color: 'var(--t-hi)',
+            fontSize: 13,
+            fontFamily: 'var(--f-mono)',
+            lineHeight: 1.5,
+            resize: 'vertical',
+            outline: 'none',
+          }}
+        />
+      </Row>
       <Row label="Wake word" description="Always-on hotword detection, running locally.">
         <Toggle
           value={settings['voice.wakeWord'] !== 'false'}

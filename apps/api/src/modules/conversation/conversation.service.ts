@@ -204,11 +204,12 @@ export class ConversationService {
    * identity + personality (tone/verbosity/proactivity) + rules + capabilities + memories
    */
   private async buildSystemPrompt(userMessage: string, intent?: IntentClassification): Promise<string> {
-    const [tone, proactivity, verbosity, memoryContext] = await Promise.all([
+    const [tone, proactivity, verbosity, memoryContext, customPrompt] = await Promise.all([
       this.settings.get('personality.tone'),
       this.settings.get('personality.proactivity'),
       this.settings.get('personality.verbosity'),
       this.memory.getRelevantContext(userMessage),
+      this.settings.get('agent.systemPrompt'),
     ]);
 
     const sections: string[] = [
@@ -220,6 +221,11 @@ export class ConversationService {
       '',
       PROMPT_RULES,
     ];
+
+    // Instruções customizadas do usuário (editáveis nos Ajustes)
+    if (customPrompt) {
+      sections.push('', 'Instrucoes adicionais do usuario:', customPrompt);
+    }
 
     // Intent context helps the LLM understand user goal
     if (intent) {
