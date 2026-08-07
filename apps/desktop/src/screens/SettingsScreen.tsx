@@ -399,28 +399,7 @@ function AgentGroup() {
           onChange={(v) => updateSetting('personality.verbosity', v)}
         />
       </Row>
-      <Row label="System prompt" description="Instruções adicionais pro agente. Adicionado ao final do prompt padrão.">
-        <textarea
-          value={settings['agent.systemPrompt'] ?? ''}
-          placeholder="Ex: Meu nome é Lucas. Sempre responda de forma objetiva..."
-          onChange={(e) => updateSetting('agent.systemPrompt', e.target.value)}
-          rows={4}
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            padding: '10px 12px',
-            borderRadius: 'var(--r-xs)',
-            background: 'var(--fill-1)',
-            border: '1px solid var(--hair)',
-            color: 'var(--t-hi)',
-            fontSize: 13,
-            fontFamily: 'var(--f-mono)',
-            lineHeight: 1.5,
-            resize: 'vertical',
-            outline: 'none',
-          }}
-        />
-      </Row>
+      <SystemPromptEditor />
       <Row label="Wake word" description="Always-on hotword detection, running locally.">
         <Toggle
           value={settings['voice.wakeWord'] !== 'false'}
@@ -1348,5 +1327,144 @@ function Kbd({ keys }: { keys: string[] }) {
         </span>
       ))}
     </div>
+  )
+}
+
+function SystemPromptEditor() {
+  const { updateSetting } = useSocket()
+  const settings = useJarvisStore((s) => s.settings)
+  const [open, setOpen] = useState(false)
+  const value = settings['agent.systemPrompt'] ?? ''
+
+  return (
+    <>
+      <Row label="System prompt" description="Instruções adicionais pro agente.">
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            padding: '6px 16px',
+            borderRadius: 'var(--r-xs)',
+            background: 'var(--fill-1)',
+            border: '1px solid var(--hair)',
+            color: value ? 'var(--t-hi)' : 'var(--t-low)',
+            fontSize: 13,
+            fontFamily: 'var(--f-mono)',
+            cursor: 'pointer',
+          }}
+        >
+          {value ? `${value.slice(0, 30)}${value.length > 30 ? '...' : ''}` : 'Editar'}
+        </button>
+      </Row>
+
+      {/* Modal fullscreen */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 200,
+            background: 'rgba(0,0,0,.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 40,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass"
+            style={{
+              width: '100%',
+              maxWidth: 700,
+              maxHeight: '80vh',
+              borderRadius: 'var(--r-lg)',
+              padding: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid var(--hair)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--t-hi)' }}>
+                  System Prompt
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--t-low)' }}>
+                  Instruções adicionais pro agente. Adicionado ao final do prompt padrão.
+                </p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: 'var(--fill-1)', border: 'none',
+                  color: 'var(--t-mid)', fontSize: 16, cursor: 'pointer',
+                  display: 'grid', placeItems: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              value={value}
+              onChange={(e) => updateSetting('agent.systemPrompt', e.target.value)}
+              placeholder={`Exemplo:\nMeu nome é Lucas.\nSempre me chame pelo nome.\nQuando eu pedir pra abrir um app, tente protocolo URI primeiro.\nPrefiro respostas curtas e diretas.`}
+              style={{
+                flex: 1,
+                minHeight: 300,
+                padding: '20px 24px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--t-hi)',
+                fontSize: 14,
+                fontFamily: 'var(--f-mono)',
+                lineHeight: 1.6,
+                resize: 'none',
+                outline: 'none',
+              }}
+            />
+
+            {/* Footer */}
+            <div style={{
+              padding: '12px 24px',
+              borderTop: '1px solid var(--hair)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 12, color: 'var(--t-ghost)', fontFamily: 'var(--f-mono)' }}>
+                {value.length} caracteres · salva automaticamente
+              </span>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: 'var(--r-pill)',
+                  background: 'var(--accent)',
+                  border: 'none',
+                  color: '#000',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
