@@ -341,9 +341,36 @@ export class ComputerCapability implements Capability, OnModuleInit {
     return process.env.USERPROFILE || process.env.HOME || '.';
   }
 
+  /** Mapeia nomes de pastas em PT-BR pros nomes reais no Windows */
+  private readonly FOLDER_MAP: Record<string, string> = {
+    'imagens': 'Pictures',
+    'imagem': 'Pictures',
+    'fotos': 'Pictures',
+    'documentos': 'Documents',
+    'downloads': 'Downloads',
+    'desktop': 'Desktop',
+    'area de trabalho': 'Desktop',
+    'área de trabalho': 'Desktop',
+    'musica': 'Music',
+    'musicas': 'Music',
+    'música': 'Music',
+    'músicas': 'Music',
+    'videos': 'Videos',
+    'vídeos': 'Videos',
+  };
+
   private resolvePath(p: string): string {
-    if (path.isAbsolute(p)) return p;
-    return path.resolve(this.homeDir, p);
+    // Substituir ~ pelo home dir
+    let resolved = p.replace(/^~[/\\]?/, this.homeDir + path.sep);
+    // Mapear nomes PT-BR pra nomes reais
+    const lower = resolved.toLowerCase();
+    for (const [pt, en] of Object.entries(this.FOLDER_MAP)) {
+      if (lower.includes(pt)) {
+        resolved = resolved.replace(new RegExp(pt, 'i'), en);
+      }
+    }
+    if (path.isAbsolute(resolved)) return resolved;
+    return path.resolve(this.homeDir, resolved);
   }
 
   private async runCommand(command: string, cwd?: string): Promise<CapabilityResult> {
