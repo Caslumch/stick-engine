@@ -110,52 +110,42 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
         left: 22,
         top: '50%',
         transform: 'translateY(-50%)',
-        width: 250,
-        maxHeight: 'min(46vh, 360px)',
+        width: 320,
+        maxHeight: 'min(55vh, 440px)',
         zIndex: 12,
         pointerEvents: 'auto',
         cursor: 'grab',
       }}
     >
-      <div style={{
-        background: 'rgba(0, 0, 0, .38)',
+      <div className="glass" style={{
         borderRadius: 'var(--r-sm)',
-        border: '1px solid rgba(255, 255, 255, .05)',
-        padding: '10px 0',
+        padding: 0,
         overflow: 'hidden',
+        background: 'rgba(10, 10, 10, .65)',
+        backdropFilter: 'blur(24px) saturate(150%)',
       }}>
-        {/* Header */}
+        {/* Title bar estilo Linux */}
         <div style={{
-          padding: '0 12px 7px',
-          borderBottom: '1px solid rgba(255, 255, 255, .05)',
-          display: 'flex', alignItems: 'center', gap: 6,
-          marginBottom: 6,
+          padding: '8px 14px',
+          borderBottom: '1px solid rgba(255, 255, 255, .08)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(255, 255, 255, .04)',
         }}>
+          {/* Dots estilo macOS/Linux */}
+          <div style={{ display: 'flex', gap: 5 }}>
+            <span
+              onClick={(e) => { e.stopPropagation(); setLog([]); seenToolsRef.current.clear() }}
+              style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF5F57', cursor: 'pointer' }}
+            />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#FEBC2E' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#28C840' }} />
+          </div>
           <span style={{
-            width: 4, height: 4, borderRadius: '50%',
-            background: 'var(--accent)', opacity: 0.6,
-          }} />
-          <span style={{
-            fontSize: 9.5, fontFamily: 'var(--f-mono)', fontWeight: 600,
-            letterSpacing: '.06em', textTransform: 'uppercase',
-            color: 'var(--t-ghost)',
+            fontSize: 11, fontFamily: 'var(--f-mono)', fontWeight: 500,
+            color: 'var(--t-low)', marginLeft: 6,
           }}>
-            execuções
+            jarvis@local:~$
           </span>
-          <span
-            onClick={(e) => {
-              e.stopPropagation()
-              setLog([])
-              seenToolsRef.current.clear()
-            }}
-            style={{
-              marginLeft: 'auto', width: 16, height: 16, borderRadius: '50%',
-              display: 'grid', placeItems: 'center',
-              fontSize: 10, color: 'var(--t-ghost)', cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--t-mid)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--t-ghost)')}
-          >✕</span>
         </div>
 
         {/* Log */}
@@ -163,8 +153,8 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
           ref={scrollRef}
           style={{
             overflowY: 'auto',
-            maxHeight: 'min(40vh, 300px)',
-            padding: '0 12px',
+            maxHeight: 'min(48vh, 380px)',
+            padding: '10px 14px',
             maskImage: 'linear-gradient(transparent, #000 6px, #000 calc(100% - 12px), transparent)',
           }}
         >
@@ -172,46 +162,52 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
             {log.map((entry) => (
               <motion.div
                 key={entry.id}
-                initial={{ opacity: 0, y: 5 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: dur.base }}
                 style={{
                   fontFamily: 'var(--f-mono)',
-                  fontSize: 9.5,
-                  lineHeight: 1.5,
-                  marginBottom: 8,
+                  fontSize: 11,
+                  lineHeight: 1.55,
+                  marginBottom: 10,
                 }}
               >
+                {/* Prompt line */}
                 <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                  <span style={{ color: 'var(--t-ghost)', fontSize: 8.5, fontVariantNumeric: 'tabular-nums' }}>
-                    {entry.time}
-                  </span>
+                  <span style={{ color: '#28C840', fontSize: 10.5 }}>$</span>
                   <span style={{
                     color: entry.status === 'done'
-                      ? entry.success ? 'var(--st-executing)' : 'var(--st-error)'
+                      ? entry.success ? '#28C840' : 'var(--st-error)'
                       : 'var(--accent)',
-                    fontWeight: 500, fontSize: 9.5,
+                    fontWeight: 500, fontSize: 11,
                   }}>
                     {entry.label}
                   </span>
+                  <span style={{ color: 'var(--t-ghost)', fontSize: 9.5, fontVariantNumeric: 'tabular-nums', marginLeft: 'auto' }}>
+                    {entry.time}
+                  </span>
                 </div>
 
+                {/* Args como flags */}
                 {entry.args.map((arg, i) => (
-                  <div key={i} style={{ color: 'var(--t-ghost)', fontSize: 9, paddingLeft: 4, marginTop: 1 }}>
-                    {arg}
+                  <div key={i} style={{ color: 'var(--t-low)', fontSize: 10.5, paddingLeft: 16, marginTop: 1 }}>
+                    --{arg}
                   </div>
                 ))}
 
+                {/* Resultado */}
                 {entry.status === 'done' && (
-                  <div style={{ fontSize: 9, color: entry.success ? 'var(--t-low)' : 'var(--st-error)', marginTop: 2 }}>
-                    {entry.success ? '→ ok' : `→ ${entry.error || 'falha'}`}
+                  <div style={{ fontSize: 10.5, color: entry.success ? '#28C840' : 'var(--st-error)', marginTop: 3, paddingLeft: 16 }}>
+                    {entry.success ? '✓ done' : `✗ ${entry.error || 'failed'}`}
                   </div>
                 )}
 
+                {/* Loading */}
                 {entry.status === 'executing' && (
                   <div style={{
-                    marginTop: 3, height: 1.5, borderRadius: 1,
-                    background: 'rgba(255,255,255,.05)', overflow: 'hidden', width: '70%',
+                    marginTop: 4, height: 2, borderRadius: 1,
+                    background: 'rgba(255,255,255,.06)', overflow: 'hidden', width: '80%',
+                    marginLeft: 16,
                   }}>
                     <motion.div
                       initial={{ x: '-100%' }} animate={{ x: '200%' }}

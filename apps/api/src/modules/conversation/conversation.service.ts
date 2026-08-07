@@ -356,8 +356,8 @@ export class ConversationService {
     }
 
     // --- Ações diretas por padrão ---
-    // "abre o chrome" / "abra o spotify"
-    const openMatch = lower.match(/^(?:abre|abra|abre o|abra o|abre a|abra a)\s+(.+?)[\s.!]*$/i);
+    // "abre o chrome" / "abra o spotify" / "consegue abrir o chrome" / "abre o google chrome pra mim"
+    const openMatch = lower.match(/(?:abre|abra|abrir)\s+(?:o\s+|a\s+)?(.+?)(?:\s+pra\s+mim|\s+por\s+favor)?[\s.!?]*$/i);
     if (openMatch) {
       const appName = openMatch[1].trim();
       const result = await this.capabilities.execute('open_application', { name: appName });

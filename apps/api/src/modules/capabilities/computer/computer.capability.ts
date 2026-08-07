@@ -138,12 +138,34 @@ export class ComputerCapability implements Capability, OnModuleInit {
       case 'open_application': {
         // LLMs sometimes use alternate param names or send empty args
         let name = (params.name ?? params.application ?? params.app_name ?? params.app) as string;
-        // Fallback: tentar extrair app name de qualquer valor string nos params
+
+        // Fallback 1: qualquer valor string nos params
         if (!name) {
           const strValues = Object.values(params).filter((v) => typeof v === 'string' && v.trim()) as string[];
           if (strValues.length > 0) name = strValues[0];
         }
-        if (!name) return { success: false, message: `Nome do aplicativo nao fornecido. Diga qual app abrir: ${APP_WHITELIST.join(', ')}` };
+
+        // Fallback 2: procurar nome de app da whitelist em qualquer campo (incluindo query, text, etc.)
+        if (!name) {
+          const allText = Object.values(params).join(' ').toLowerCase();
+          const found = APP_WHITELIST.find((app) => allText.includes(app));
+          if (found) name = found;
+        }
+
+        // Fallback 3: tentar extrair "chrome", "spotify" etc. do nome da tool call
+        if (!name) {
+          const toolCallStr = JSON.stringify(params).toLowerCase();
+          const found = APP_WHITELIST.find((app) => toolCallStr.includes(app));
+          if (found) name = found;
+        }
+
+        if (!name) {
+          // Retornar erro com instrução clara pro LLM
+          return {
+            success: false,
+            message: 'Chame open_application com o parametro name. Exemplo: open_application({ name: "chrome" })',
+          };
+        }
         const filePath = (params.path ?? params.file_path ?? params.folder) as string | undefined;
         return this.openApplication(name, filePath);
       }
