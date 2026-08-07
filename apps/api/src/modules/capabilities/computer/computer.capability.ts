@@ -25,7 +25,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre um aplicativo pelo nome. Tenta "start <nome>" no Windows. Se falhar, use run_command com PowerShell para encontrar e abrir (Start-Process, protocolos URI como steam://, ou buscar atalhos no Menu Iniciar com Get-ChildItem).',
+      description: 'Abre um aplicativo pelo nome. Tenta "start <nome>" no Windows. Se falhar, use run_command com PowerShell. IMPORTANTE: sempre use "powershell -Command \\"...\\"" pois o terminal padrão é cmd.',
       parameters: {
         type: 'object',
         properties: {
@@ -37,7 +37,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
     },
     {
       name: 'run_command',
-      description: 'Executa um comando no terminal (cmd/PowerShell). Use para tarefas como listar arquivos, verificar processos, abrir apps por caminhos específicos, buscar executáveis, etc. Plataforma: Windows.',
+      description: 'Executa um comando no terminal. PLATAFORMA: Windows. O shell padrão é cmd. Para usar PowerShell, prefixe com: powershell -Command "..." Exemplos: powershell -Command "Start-Process steam://" ou powershell -Command "Get-ChildItem \'$env:ProgramData\\Microsoft\\Windows\\Start Menu\' -Recurse -Filter \'*steam*\'"',
       parameters: {
         type: 'object',
         properties: {
@@ -123,7 +123,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
       // Falhou — orientar o LLM a tentar via run_command
       return {
         success: false,
-        message: `"${name}" não encontrado via start. Use run_command para tentar: PowerShell Start-Process, protocolo URI (ex: steam://), ou buscar no Menu Iniciar com Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*${normalized}*"`,
+        message: `"${name}" não encontrado via start. Use run_command com: powershell -Command "Start-Process '${normalized}://'" ou powershell -Command "Get-ChildItem '$env:ProgramData\\Microsoft\\Windows\\Start Menu' -Recurse -Filter '*${normalized}*' | Select -First 1 | ForEach { Start-Process $_.FullName }"`,
         data: { command: cmd, failed: true },
       };
     }
