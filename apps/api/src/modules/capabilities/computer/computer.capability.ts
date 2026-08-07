@@ -231,13 +231,9 @@ export class ComputerCapability implements Capability, OnModuleInit {
 
       try {
         await execAsync(cmd, { timeout: 10000 });
-        const msg = targetPath
-          ? `Aplicativo "${name}" aberto com "${targetPath}".`
-          : `Aplicativo "${name}" aberto com sucesso.`;
-        this.logger.log(msg);
-        return { success: true, message: msg };
+        this.logger.log(`[CMD] ${cmd}`);
+        return { success: true, message: `Aplicativo "${name}" aberto.`, data: { command: cmd } };
       } catch {
-        // Fallback Windows: buscar no Menu Iniciar via PowerShell
         if (isWindows) {
           return this.openViaStartMenu(name, normalized);
         }
@@ -245,7 +241,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return { success: false, message: `Não consegui abrir "${name}". ${msg}` };
+      return { success: false, message: `Não consegui abrir "${name}".`, data: { error: msg } };
     }
   }
 
@@ -277,9 +273,10 @@ export class ComputerCapability implements Capability, OnModuleInit {
         return { success: false, message: `Não encontrei "${displayName}" no Menu Iniciar.` };
       }
 
-      await execAsync(`start "" "${shortcutPath}"`, { timeout: 5000 });
-      this.logger.log(`Aberto via Menu Iniciar: ${shortcutPath}`);
-      return { success: true, message: `Abrindo ${displayName}.` };
+      const launchCmd = `start "" "${shortcutPath}"`;
+      await execAsync(launchCmd, { timeout: 5000 });
+      this.logger.log(`[CMD] ${launchCmd}`);
+      return { success: true, message: `Abrindo ${displayName}.`, data: { command: launchCmd, shortcut: shortcutPath } };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return { success: false, message: `Não encontrei "${displayName}": ${msg}` };
@@ -320,7 +317,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
 
       return {
         success: true,
-        message: `Comando executado com sucesso.`,
+        message: `Comando executado.`,
         data: output.slice(0, 5000), // Limit output
       };
     } catch (error: any) {

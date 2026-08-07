@@ -30,6 +30,7 @@ interface LogEntry {
   time: string
   label: string
   args: string[]
+  command?: string // comando real executado
   status: 'executing' | 'done'
   success?: boolean
   error?: string
@@ -40,9 +41,9 @@ type TermSize = 'normal' | 'minimized' | 'maximized'
 const DISMISS_MS = 120000
 
 const SIZE_CONFIG: Record<TermSize, { width: number | string; maxHeight: string }> = {
-  minimized: { width: 280, maxHeight: '0px' },
-  normal: { width: 400, maxHeight: 'min(50vh, 420px)' },
-  maximized: { width: 560, maxHeight: 'min(75vh, 620px)' },
+  minimized: { width: 320, maxHeight: '0px' },
+  normal: { width: 460, maxHeight: 'min(55vh, 480px)' },
+  maximized: { width: 620, maxHeight: 'min(80vh, 700px)' },
 }
 
 export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
@@ -60,9 +61,11 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
         if (existingId) {
           const idx = next.findIndex((e) => e.id === existingId)
           if (idx >= 0 && exec.status === 'done' && next[idx].status !== 'done') {
+            const cmdData = exec.result?.data as any
             next[idx] = {
               ...next[idx], status: 'done',
               success: exec.result?.success,
+              command: cmdData?.command || cmdData?.shortcut || next[idx].command,
               error: exec.result?.success ? undefined : exec.result?.message?.slice(0, 60),
             }
           }
@@ -122,10 +125,10 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
       <div style={{
         borderRadius: 'var(--r-sm)',
         overflow: 'hidden',
-        background: 'rgba(10, 10, 10, .72)',
+        background: 'rgba(8, 8, 8, .88)',
         backdropFilter: 'blur(28px) saturate(140%)',
-        border: '1px solid rgba(255, 255, 255, .08)',
-        boxShadow: '0 12px 40px -10px rgba(0, 0, 0, .5)',
+        border: '1px solid rgba(255, 255, 255, .1)',
+        boxShadow: '0 16px 50px -10px rgba(0, 0, 0, .6)',
       }}>
         {/* Title bar */}
         <div style={{
@@ -238,6 +241,11 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
                       </div>
                     ))}
 
+                    {/* Comando real executado */}
+                    {entry.command && (
+                      <TypewriterCmd text={`> ${entry.command}`} fontSize={size === 'maximized' ? 11 : 10} />
+                    )}
+
                     {/* Result */}
                     {entry.status === 'done' && (
                       <div style={{
@@ -271,5 +279,48 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
         </AnimatePresence>
       </div>
     </motion.div>
+  )
+}
+
+/** Typewriter pra comandos — digita caractere por caractere */
+function TypewriterCmd({ text, fontSize = 10 }: { text: string; fontSize?: number }) {
+  const [visible, setVisible] = useState('')
+  const idxRef = useRef(0)
+
+  useEffect(() => {
+    idxRef.current = 0
+    setVisible('')
+    const interval = setInterval(() => {
+      idxRef.current++
+      if (idxRef.current >= text.length) {
+        setVisible(text)
+        clearInterval(interval)
+      } else {
+        setVisible(text.slice(0, idxRef.current))
+      }
+    }, 25)
+    return () => clearInterval(interval)
+  }, [text])
+
+  return (
+    <div style={{
+      color: '#7DD3FC',
+      fontSize,
+      fontFamily: 'var(--f-mono)',
+      paddingLeft: 18,
+      marginTop: 4,
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-all',
+    }}>
+      {visible}
+      {visible.length < text.length ? (
+        <span style={{
+          display: 'inline-block', width: 6, height: fontSize,
+          background: '#7DD3FC', marginLeft: 1, opacity: 0.7,
+          animation: 'blink 0.6s steps(1) infinite',
+          verticalAlign: 'middle',
+        }} />
+      ) : null}
+    </div>
   )
 }
