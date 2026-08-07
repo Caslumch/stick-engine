@@ -245,13 +245,70 @@ export class ComputerCapability implements Capability, OnModuleInit {
     }
   }
 
+  /** Protocolos URI conhecidos (abrem sem precisar do PATH) */
+  private readonly URI_PROTOCOLS: Record<string, string> = {
+    steam: 'steam://open/main',
+    'battle.net': 'battlenet://',
+    battlenet: 'battlenet://',
+    epic: 'com.epicgames.launcher://',
+    'epic games': 'com.epicgames.launcher://',
+    spotify: 'spotify://',
+    discord: 'discord://',
+    slack: 'slack://',
+    teams: 'msteams://',
+    telegram: 'tg://',
+    whatsapp: 'whatsapp://',
+    zoom: 'zoommtg://',
+  };
+
+  /** Caminhos comuns de instalação no Windows */
+  private readonly COMMON_PATHS: Record<string, string[]> = {
+    steam: [
+      'C:\\Program Files (x86)\\Steam\\steam.exe',
+      'C:\\Program Files\\Steam\\steam.exe',
+      'D:\\Steam\\steam.exe',
+      'D:\\Program Files (x86)\\Steam\\steam.exe',
+    ],
+    'battle.net': [
+      'C:\\Program Files (x86)\\Battle.net\\Battle.net Launcher.exe',
+    ],
+    epic: [
+      'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe',
+      'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe',
+    ],
+  };
+
   /**
-   * Fallback: busca o app no Menu Iniciar do Windows via PowerShell.
-   * Funciona pra Steam, jogos, apps instalados que não estão no PATH.
+   * Fallback: tenta protocolo URI → caminhos comuns → Menu Iniciar.
    */
   private async openViaStartMenu(displayName: string, search: string): Promise<CapabilityResult> {
+    // 1. Tentar protocolo URI
+    const uri = this.URI_PROTOCOLS[search];
+    if (uri) {
+      try {
+        const cmd = `start "" "${uri}"`;
+        await execAsync(cmd, { timeout: 5000 });
+        this.logger.log(`[CMD] ${cmd}`);
+        return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd } };
+      } catch { /* continuar */ }
+    }
+
+    // 2. Tentar caminhos comuns de instalação
+    const paths = this.COMMON_PATHS[search];
+    if (paths) {
+      for (const p of paths) {
+        try {
+          await fs.access(p);
+          const cmd = `start "" "${p}"`;
+          await execAsync(cmd, { timeout: 5000 });
+          this.logger.log(`[CMD] ${cmd}`);
+          return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd } };
+        } catch { /* próximo path */ }
+      }
+    }
+
+    // 3. Buscar no Menu Iniciar via PowerShell
     try {
-      // Buscar atalho no Menu Iniciar (ProgramData + user AppData)
       const psCmd = `
         $search = '*${search.replace(/'/g, "''")}*'
         $paths = @(
@@ -269,18 +326,15 @@ export class ComputerCapability implements Capability, OnModuleInit {
       });
 
       const shortcutPath = stdout.trim();
-      if (!shortcutPath || shortcutPath === 'NOT_FOUND') {
-        return { success: false, message: `Não encontrei "${displayName}" no Menu Iniciar.` };
+      if (shortcutPath && shortcutPath !== 'NOT_FOUND') {
+        const cmd = `start "" "${shortcutPath}"`;
+        await execAsync(cmd, { timeout: 5000 });
+        this.logger.log(`[CMD] ${cmd}`);
+        return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd, shortcut: shortcutPath } };
       }
+    } catch { /* continuar */ }
 
-      const launchCmd = `start "" "${shortcutPath}"`;
-      await execAsync(launchCmd, { timeout: 5000 });
-      this.logger.log(`[CMD] ${launchCmd}`);
-      return { success: true, message: `Abrindo ${displayName}.`, data: { command: launchCmd, shortcut: shortcutPath } };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { success: false, message: `Não encontrei "${displayName}": ${msg}` };
-    }
+    return { success: false, message: `Não encontrei "${displayName}" no sistema.` };
   }
 
   private get homeDir(): string {
