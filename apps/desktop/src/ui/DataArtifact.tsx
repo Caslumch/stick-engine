@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { spring, dur } from '../motion/tokens'
 import { TOOL_LABELS } from '../app/strings'
 import { useJarvisStore } from '../stores/jarvis.store'
+import { Markdown } from './Markdown'
 
 /* ----------------------------------------------------------------
    DataArtifact — card expandível de dados estruturados.
@@ -165,7 +166,11 @@ export function DataArtifact() {
     setExpanded((v) => !v)
   }
 
-  const visible = lastRich && rows.length > 0
+  // Texto puro: message longa sem dados estruturados (ex: resposta da LLM)
+  const isTextContent = lastRich && rows.length === 0 && (lastRich.result?.message?.length ?? 0) > 100
+  const textContent = isTextContent ? lastRich.result?.message ?? '' : ''
+
+  const visible = lastRich && (rows.length > 0 || isTextContent)
   const displayRows = expanded ? rows : rows.slice(0, COMPACT_ROWS)
   const hasMore = rows.length > COMPACT_ROWS
 
@@ -221,7 +226,7 @@ export function DataArtifact() {
                 fontFamily: 'var(--f-mono)', letterSpacing: '.03em',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                {rows.length} itens
+                {isTextContent ? 'detalhes' : `${rows.length} itens`}
                 {hasMore ? (
                   <motion.span
                     animate={{ rotate: expanded ? 180 : 0 }}
@@ -246,13 +251,21 @@ export function DataArtifact() {
               </span>
             </div>
 
-            {/* Rows */}
+            {/* Conteúdo: texto ou rows */}
             <motion.div layout style={{
-              padding: '4px 0',
-              maxHeight: expanded ? 'min(60vh, 440px)' : 'auto',
+              padding: isTextContent ? '10px 14px' : '4px 0',
+              maxHeight: expanded ? 'min(60vh, 440px)' : isTextContent ? 100 : 'auto',
               overflowY: expanded ? 'auto' : 'hidden',
-              maskImage: expanded ? 'linear-gradient(#000 calc(100% - 16px), transparent)' : 'none',
+              maskImage: !expanded ? 'linear-gradient(#000 70%, transparent)' : 'linear-gradient(#000 calc(100% - 16px), transparent)',
             }}>
+              {/* Texto puro (resposta longa) */}
+              {isTextContent ? (
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--t-mid)' }}>
+                  <Markdown content={textContent} />
+                </div>
+              ) : null}
+
+              {/* Dados estruturados */}
               <AnimatePresence initial={false}>
                 {displayRows.map((row, i) => (
                   <motion.div
@@ -284,7 +297,7 @@ export function DataArtifact() {
                 ))}
               </AnimatePresence>
 
-              {!expanded && hasMore ? (
+              {!expanded && (hasMore || isTextContent) ? (
                 <div
                   onClick={toggleExpand}
                   style={{
@@ -294,7 +307,7 @@ export function DataArtifact() {
                     textAlign: 'center', userSelect: 'none',
                   }}
                 >
-                  + {rows.length - COMPACT_ROWS} itens · expandir
+                  {hasMore ? `+ ${rows.length - COMPACT_ROWS} itens · ` : ''}expandir
                 </div>
               ) : null}
             </motion.div>

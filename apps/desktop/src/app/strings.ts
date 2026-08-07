@@ -61,4 +61,5 @@ export const TOOL_LABELS: Record<string, string> = {
   _stt_transcribe: 'Transcrevendo áudio',
   _stt_sending: 'Enviando mensagem',
   web_search_openai: 'Pesquisando na internet',
+  _response: 'Resposta',
 }

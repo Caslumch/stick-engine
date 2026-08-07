@@ -50,6 +50,7 @@ export function Voice() {
   const [transcript, setTranscript] = useState('')
   const transcriptRef = useRef('')
   const [error, setError] = useState('')
+  const [lastSpokenSentence, setLastSpokenSentence] = useState('')
   const sendingRef = useRef(false) // Previne duplo envio
 
   // --- STT ---
@@ -249,6 +250,7 @@ export function Voice() {
       if (!sentence.trim()) continue
 
       setState('speaking')
+      setLastSpokenSentence(sentence)
 
       // Usar buffer prefetched se disponível, senão buscar agora
       const buffer = prefetchPromise ? await prefetchPromise : await fetchTTSBuffer(sentence)
@@ -338,6 +340,18 @@ export function Voice() {
     if (remaining) {
       streamQueueRef.current.push(remaining)
       processStreamQueue()
+    }
+
+    // Se a resposta é longa (>200 chars), mostrar como artifact expandível na direita
+    if (last.content.length > 200) {
+      useJarvisStore.getState().lastRichResult ||
+        useJarvisStore.setState({
+          lastRichResult: {
+            toolName: '_response',
+            result: { success: true, message: last.content },
+            capturedAt: Date.now(),
+          },
+        })
     }
   }, [messages, processStreamQueue])
 
@@ -541,10 +555,17 @@ export function Voice() {
           letterSpacing: '-.015em',
           minHeight: 64,
           margin: 0,
+          maxWidth: 520,
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical' as const,
         }}>
           {isListening && transcript
             ? transcript
-            : streamingText || (state === 'thinking' && fillerText) || VOICE_PROMPTS[state]}
+            : state === 'speaking'
+              ? lastSpokenSentence
+              : (state === 'thinking' && fillerText) || VOICE_PROMPTS[state]}
         </p>
 
         {/* Timer de thinking */}
