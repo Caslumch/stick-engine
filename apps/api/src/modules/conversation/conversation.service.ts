@@ -370,7 +370,9 @@ export class ConversationService {
       'netflix': 'https://netflix.com', 'chatgpt': 'https://chatgpt.com',
       'claude': 'https://claude.ai',
     };
-    if (/(?:abre|abra|abrir)/i.test(lower)) {
+    // Pular fast-path se o pedido requer contexto da conversa (link, resultado, site, desses, algum)
+    const needsContext = /\b(link|resultado|site|desses|algum|esse|essa|aquele|aquela|primeiro|segundo|terceiro)\b/i.test(lower);
+    if (/(?:abre|abra|abrir)/i.test(lower) && !needsContext) {
       // Primeiro: detectar se quer abrir um SITE específico
       const siteKey = Object.keys(SITES).find((s) => lower.includes(s));
       const browser = APPS.filter((a) => ['chrome', 'google chrome', 'firefox', 'edge', 'brave'].includes(a)).find((a) => lower.includes(a));
