@@ -24,6 +24,9 @@ const DEFAULTS: Record<string, string> = {
   'decision.tokenThreshold': '2000',
   'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente',
 
+  // User
+  'user.city': 'Barueri',
+
   // Personality
   'personality.tone': 'friendly',       // friendly | formal | casual
   'personality.proactivity': 'medium',  // low | medium | high

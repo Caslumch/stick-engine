@@ -395,6 +395,84 @@ export class ConversationService {
         : result.message || `Não consegui controlar ${device}.`;
     }
 
+    // --- Clima / Previsão do tempo (wttr.in, grátis, sem API key) ---
+    if (/clima|previs[aã]o|tempo|chover|chuva|temperatura|vai chover|ta frio|ta quente|t[aá] frio|t[aá] quente/i.test(lower)) {
+      // Extrair cidade ou usar padrão
+      const cityMatch = lower.match(/(?:em|de|pra|para|no|na)\s+([a-záàâãéèêíïóôõúüç\s]+?)[\s?.!]*$/i);
+      const city = cityMatch?.[1]?.trim() || await this.settings.get('user.city') || 'Barueri';
+      try {
+        const resp = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=pt`);
+        if (resp.ok) {
+          const data = await resp.json();
+          const current = data.current_condition?.[0];
+          const forecast = data.weather?.[0];
+          if (current) {
+            const temp = current.temp_C;
+            const feelsLike = current.FeelsLikeC;
+            const desc = current.lang_pt?.[0]?.value || current.weatherDesc?.[0]?.value || '';
+            const humidity = current.humidity;
+            const chanceRain = forecast?.hourly?.[Math.floor(new Date().getHours() / 3)]?.chanceofrain || '0';
+            const maxTemp = forecast?.maxtempC;
+            const minTemp = forecast?.mintempC;
+
+            let response = `Agora em ${city} tá ${temp}°C, sensação de ${feelsLike}°C. ${desc}.`;
+            if (parseInt(chanceRain) > 40) {
+              response += ` Chance de chuva de ${chanceRain}%.`;
+            }
+            response += ` Mínima ${minTemp}°C, máxima ${maxTemp}°C. Umidade ${humidity}%.`;
+            return response;
+          }
+        }
+      } catch { /* fallback pro LLM */ }
+    }
+
+    // --- Calculadora ---
+    const mathMatch = lower.match(/^(?:quanto [eé]|calcula|calcule)\s+(.+?)[\s?.!]*$/i)
+      || lower.match(/^(\d[\d\s+\-*/().,%x×÷]+\d)[\s?.!]*$/);
+    if (mathMatch) {
+      try {
+        const expr = mathMatch[1]
+          .replace(/x|×/g, '*').replace(/÷/g, '/')
+          .replace(/%/g, '/100').replace(/,/g, '.');
+        // Safe eval via Function (sem acesso ao escopo)
+        const result = new Function(`return (${expr})`)();
+        if (typeof result === 'number' && isFinite(result)) {
+          return `${result.toLocaleString('pt-BR')}.`;
+        }
+      } catch { /* não é expressão válida */ }
+    }
+
+    // --- Lembretes rápidos ---
+    const reminderMatch = lower.match(/(?:cria|me lembra|lembra de|lembrete)\s*(?:de|que|pra)?\s+(.+?)(?:\s+(?:em|daqui|às?)\s+(.+?))?[\s.!]*$/i);
+    if (reminderMatch) {
+      const title = reminderMatch[1].trim();
+      const result = await this.capabilities.execute('create_reminder', { title });
+      return result.success ? `Lembrete criado: ${title}.` : `Não consegui criar o lembrete.`;
+    }
+
+    if (/^(?:quais|meus|lista)\s*(?:os\s+)?(?:meus\s+)?lembretes/i.test(lower) || /lembretes/i.test(lower)) {
+      const result = await this.capabilities.execute('list_reminders', {});
+      if (result.success && Array.isArray(result.data)) {
+        const items = result.data as any[];
+        if (items.length === 0) return 'Você não tem lembretes pendentes.';
+        const list = items.slice(0, 5).map((r: any) => r.title || r.name).join(', ');
+        return `Seus lembretes: ${list}.${items.length > 5 ? ` E mais ${items.length - 5}.` : ''}`;
+      }
+      return 'Não encontrei lembretes.';
+    }
+
+    // --- Timer / Cronômetro ---
+    const timerMatch = lower.match(/(?:timer|temporizador|cronometr[ao]|conta)\s*(?:de)?\s*(\d+)\s*(segundo|minuto|min|hora|seg|s|m|h)/i);
+    if (timerMatch) {
+      const value = parseInt(timerMatch[1]);
+      const unit = timerMatch[2].toLowerCase();
+      let seconds = value;
+      if (unit.startsWith('min') || unit === 'm') seconds = value * 60;
+      else if (unit.startsWith('hora') || unit === 'h') seconds = value * 3600;
+      // Timer será tratado pelo frontend via lastRichResult
+      return `Timer de ${value} ${unit.startsWith('seg') || unit === 's' ? 'segundos' : unit.startsWith('min') || unit === 'm' ? 'minutos' : 'horas'} iniciado.`;
+    }
+
     return null; // Precisa do LLM
   }
 
