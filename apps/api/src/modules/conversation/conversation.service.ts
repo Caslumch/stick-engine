@@ -355,15 +355,16 @@ export class ConversationService {
       return `Hoje é ${date}.`;
     }
 
-    // --- Ações diretas por padrão ---
-    // "abre o chrome" / "abra o spotify" / "consegue abrir o chrome" / "abre o google chrome pra mim"
-    const openMatch = lower.match(/(?:abre|abra|abrir)\s+(?:o\s+|a\s+)?(.+?)(?:\s+pra\s+mim|\s+por\s+favor)?[\s.!?]*$/i);
-    if (openMatch) {
-      const appName = openMatch[1].trim();
-      const result = await this.capabilities.execute('open_application', { name: appName });
-      return result.success
-        ? `Abrindo ${appName}.`
-        : result.message || `Não consegui abrir ${appName}.`;
+    // --- Abrir app: só se o nome do app está na whitelist ---
+    const APPS = ['code', 'notepad', 'calculator', 'calc', 'explorer', 'chrome', 'google chrome',
+      'firefox', 'edge', 'brave', 'terminal', 'cmd', 'powershell', 'wt', 'spotify',
+      'discord', 'slack', 'teams', 'word', 'excel', 'powerpoint', 'youtube', 'google'];
+    if (/(?:abre|abra|abrir)/i.test(lower)) {
+      const found = APPS.find((app) => lower.includes(app));
+      if (found) {
+        const result = await this.capabilities.execute('open_application', { name: found });
+        return result.success ? `Abrindo ${found}.` : result.message || `Não consegui abrir ${found}.`;
+      }
     }
 
     // "toca" / "coloca" música

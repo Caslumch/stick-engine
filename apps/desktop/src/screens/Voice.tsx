@@ -341,8 +341,8 @@ export function Voice() {
       processStreamQueue()
     }
 
-    // Se a resposta é longa (>120 chars), mostrar como artifact expandível na direita
-    if (last.content.length > 120) {
+    // Mostrar resposta como artifact expandível na direita
+    if (last.content.length > 30) {
       useJarvisStore.setState({
         lastRichResult: {
           toolName: '_response',
@@ -556,13 +556,13 @@ export function Voice() {
           maxWidth: 520,
           overflow: 'hidden',
           display: '-webkit-box',
-          WebkitLineClamp: 3,
+          WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical' as const,
         }}>
           {isListening && transcript
             ? transcript
             : state === 'speaking'
-              ? lastSpokenSentence
+              ? '' // Resposta vai pro artifact, não pro centro do orb
               : (state === 'thinking' && fillerText) || VOICE_PROMPTS[state]}
         </p>
 
