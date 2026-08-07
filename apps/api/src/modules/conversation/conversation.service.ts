@@ -78,6 +78,9 @@ function cleanToolArtifacts(text: string): string {
     .replace(/[\u0900-\u097F]+/g, '')   // Devanagari
     .replace(/[\uAC00-\uD7AF]+/g, '')   // Korean
     .replace(/[\u3040-\u30FF]+/g, '')   // Japanese Hiragana/Katakana
+    // Citações da Responses API: [[cite:turn0search0]], 【turn0forecast0】
+    .replace(/\[\[cite[^\]]*\]\]/g, '')
+    .replace(/\u3010[^】]*\u3011/g, '')
     // Qwen _icall_ ... _fcio pattern
     .replace(/_icall_\s*\{[^}]*\}\s*/g, '')
     .replace(/_icio_[^!]*\*{0,3}!?\s*/g, '')

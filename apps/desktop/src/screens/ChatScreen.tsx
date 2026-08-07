@@ -79,14 +79,16 @@ export function ChatScreen() {
             {messages.map((msg) => (
               msg.role === 'user' ? (
                 <div key={msg.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <div className="glass" style={{
-                    padding: '13px 18px',
-                    borderRadius: 'var(--r-md) var(--r-md) 6px var(--r-md)',
-                    maxWidth: '76%',
-                    color: 'var(--t-hi)',
-                    fontSize: 15,
-                  }}>
-                    {msg.content}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, maxWidth: '76%' }}>
+                    <div className="glass" style={{
+                      padding: '13px 18px',
+                      borderRadius: 'var(--r-md) var(--r-md) 6px var(--r-md)',
+                      color: 'var(--t-hi)',
+                      fontSize: 15,
+                    }}>
+                      {msg.content}
+                    </div>
+                    <MsgTime time={msg.createdAt} />
                   </div>
                 </div>
               ) : (
@@ -110,14 +112,16 @@ export function ChatScreen() {
                       transition: 'background .7s',
                     }} />
                   </div>
-                  <div style={{
-                    fontSize: 15.5,
-                    lineHeight: 1.6,
-                    color: 'var(--t-mid)',
-                    paddingTop: 2,
-                    maxWidth: '88%',
-                  }}>
-                    <Markdown content={msg.content} />
+                  <div style={{ maxWidth: '88%' }}>
+                    <div style={{
+                      fontSize: 15.5,
+                      lineHeight: 1.6,
+                      color: 'var(--t-mid)',
+                      paddingTop: 2,
+                    }}>
+                      <Markdown content={cleanCitations(msg.content)} />
+                    </div>
+                    <MsgTime time={msg.createdAt} />
                   </div>
                 </div>
               )
@@ -185,4 +189,30 @@ export function ChatScreen() {
       `}</style>
     </>
   )
+}
+
+/** Timestamp da mensagem */
+function MsgTime({ time }: { time: string }) {
+  const date = new Date(time)
+  const str = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return (
+    <span style={{
+      fontSize: 11,
+      color: 'var(--t-ghost)',
+      fontFamily: 'var(--f-mono)',
+      fontVariantNumeric: 'tabular-nums',
+      paddingLeft: 38,
+    }}>
+      {str}
+    </span>
+  )
+}
+
+/** Remove artifacts de citação da Responses API: [[cite:...]], 【...】 */
+function cleanCitations(text: string): string {
+  return text
+    .replace(/\[\[cite[^\]]*\]\]/g, '')
+    .replace(/\u3010[^】]*\u3011/g, '')  // 【turn0forecast0】
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 }

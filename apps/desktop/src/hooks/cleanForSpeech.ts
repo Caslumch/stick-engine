@@ -2,6 +2,9 @@
  *  O objetivo é texto que soe natural quando falado. */
 export function cleanForSpeech(text: string): string {
   return text
+    // Citações da Responses API — [[cite:...]], 【...】
+    .replace(/\[\[cite[^\]]*\]\]/g, '')
+    .replace(/\u3010[^】]*\u3011/g, '')
     // Code blocks — não falar código
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`([^`]+)`/g, '$1')
