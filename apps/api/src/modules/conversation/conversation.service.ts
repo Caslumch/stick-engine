@@ -561,6 +561,13 @@ export class ConversationService {
 
     if (needsSearch) {
       onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
+      // Debug: logar tool results pra ver o que a Responses API retorna
+      if (response.toolResults?.length) {
+        this.logger.debug(`Web search toolResults: ${JSON.stringify(response.toolResults).slice(0, 500)}`);
+      }
+      if (response.toolCalls?.length) {
+        this.logger.debug(`Web search toolCalls: ${JSON.stringify(response.toolCalls).slice(0, 500)}`);
+      }
     }
 
     // 7. Persist assistant message (clean tool-call artifacts from local models)
