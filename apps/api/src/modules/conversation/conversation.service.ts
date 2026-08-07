@@ -355,11 +355,34 @@ export class ConversationService {
       return `Hoje é ${date}.`;
     }
 
-    // --- Abrir app: só se o nome do app está na whitelist ---
+    // --- Abrir app/site: detecta app na whitelist + URL/site a abrir ---
     const APPS = ['code', 'notepad', 'calculator', 'calc', 'explorer', 'chrome', 'google chrome',
       'firefox', 'edge', 'brave', 'terminal', 'cmd', 'powershell', 'wt', 'spotify',
       'discord', 'slack', 'teams', 'word', 'excel', 'powerpoint', 'youtube', 'google'];
+    // Sites conhecidos pra fast-path (nome → URL)
+    const SITES: Record<string, string> = {
+      'whatsapp web': 'https://web.whatsapp.com', 'whatsapp': 'https://web.whatsapp.com',
+      'youtube': 'https://youtube.com', 'gmail': 'https://mail.google.com',
+      'google': 'https://google.com', 'twitter': 'https://x.com', 'x': 'https://x.com',
+      'github': 'https://github.com', 'linkedin': 'https://linkedin.com',
+      'instagram': 'https://instagram.com', 'facebook': 'https://facebook.com',
+      'netflix': 'https://netflix.com', 'chatgpt': 'https://chatgpt.com',
+      'claude': 'https://claude.ai',
+    };
     if (/(?:abre|abra|abrir)/i.test(lower)) {
+      // Primeiro: detectar se quer abrir um SITE específico
+      const siteKey = Object.keys(SITES).find((s) => lower.includes(s));
+      const browser = APPS.filter((a) => ['chrome', 'google chrome', 'firefox', 'edge', 'brave'].includes(a)).find((a) => lower.includes(a));
+
+      if (siteKey) {
+        // Abrir site no navegador (especificado ou padrão)
+        const url = SITES[siteKey];
+        const app = browser || 'chrome';
+        const result = await this.capabilities.execute('open_application', { name: app, path: url });
+        return result.success ? `Abrindo ${siteKey}.` : result.message || `Não consegui abrir ${siteKey}.`;
+      }
+
+      // Só abrir app (sem site)
       const found = APPS.find((app) => lower.includes(app));
       if (found) {
         const result = await this.capabilities.execute('open_application', { name: found });
