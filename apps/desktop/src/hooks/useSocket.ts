@@ -32,9 +32,18 @@ export function useSocket() {
     socket.on('connect', () => {
       console.log('Connected to Jarvis API');
       store.setConnected(true);
-      // Sair do estado offline se estava
       if (useJarvisStore.getState().state === 'offline') {
         store.setState('idle');
+      }
+      // Restaurar conversa ativa do localStorage ao reconectar
+      const savedId = localStorage.getItem('jarvis-conversationId');
+      if (savedId && useJarvisStore.getState().messages.length === 0) {
+        socket.emit(WsEvent.ConversationMessages, { conversationId: savedId }, (data: Message[]) => {
+          if (data && data.length > 0) {
+            store.setMessages(data);
+            store.setConversationId(savedId);
+          }
+        });
       }
     });
 

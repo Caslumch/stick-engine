@@ -11,6 +11,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useGlobalShortcut } from './hooks/useGlobalShortcut';
 import { useMinimizeToTray } from './hooks/useMinimizeToTray';
 import { useRestoreVisuals } from './hooks/useRestoreVisuals';
+import { useWelcome } from './hooks/useWelcome';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -27,6 +28,7 @@ export function App() {
   useGlobalShortcut();
   useMinimizeToTray();
   useRestoreVisuals();
+  useWelcome();
 
   const hideUI = isAmbient;
 

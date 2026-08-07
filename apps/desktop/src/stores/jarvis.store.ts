@@ -72,7 +72,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   view: 'voice',
   isAmbient: false,
 
-  conversationId: null,
+  conversationId: localStorage.getItem('jarvis-conversationId') || null,
   conversations: [],
   messages: [],
   streamingText: '',
@@ -92,7 +92,12 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   setConnected: (connected) => set({ connected }),
   setView: (view) => set({ view }),
   setAmbient: (isAmbient) => set({ isAmbient }),
-  setConversationId: (conversationId) => set({ conversationId }),
+  setConversationId: (conversationId) => {
+    set({ conversationId });
+    // Persistir pra não perder no reload/reconnect
+    if (conversationId) localStorage.setItem('jarvis-conversationId', conversationId);
+    else localStorage.removeItem('jarvis-conversationId');
+  },
   setConversations: (conversations) => set({ conversations }),
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
   setMessages: (messages) => set({ messages }),
