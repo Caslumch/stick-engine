@@ -22,7 +22,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="Jarvis TTS")
@@ -168,6 +168,29 @@ async def speak(req: SpeakRequest):
         import traceback
         traceback.print_exc()
         return Response(content=str(e), status_code=500)
+
+
+@app.post("/speak/stream")
+async def speak_stream(req: SpeakRequest):
+    """Streaming TTS — envia chunks de áudio conforme Edge TTS gera.
+    Reduz latência: primeiro byte em ~200ms em vez de ~500ms."""
+    import edge_tts
+
+    engine = req.engine.lower()
+    if engine != "edge":
+        # Fallback pra batch pra engines que não suportam streaming
+        return await speak(req)
+
+    voice = req.voice or "pt-BR-AntonioNeural"
+    rate = req.rate or "+0%"
+    communicate = edge_tts.Communicate(req.text, voice, rate=rate)
+
+    async def generate():
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                yield chunk["data"]
+
+    return StreamingResponse(generate(), media_type="audio/mpeg")
 
 
 @app.get("/health")

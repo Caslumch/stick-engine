@@ -136,9 +136,25 @@ export function useServerTTS(callbacks: ServerTTSCallbacks) {
       if (!cleaned) return
       const sentences = splitSentences(cleaned)
 
-      for (const segment of sentences) {
+      for (let i = 0; i < sentences.length; i++) {
         if (cancelledRef.current) break
-        await speakOne(segment.text, segment.rate)
+        // Prefetch: buscar áudio da próxima frase enquanto a atual toca
+        const nextSegment = sentences[i + 1]
+        let prefetch: Promise<void> | null = null
+        if (nextSegment && !cancelledRef.current) {
+          // Pré-aquecer a próxima requisição (o servidor começa a processar)
+          prefetch = fetch(`${TTS_URL}/speak`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: nextSegment.text,
+              engine: useJarvisStore.getState().settings['tts.engine'] || 'edge',
+              voice: useJarvisStore.getState().settings['tts.voice'] || '',
+              rate: nextSegment.rate,
+            }),
+          }).then(() => {}).catch(() => {})
+        }
+        await speakOne(sentences[i].text, sentences[i].rate)
       }
 
       if (!cancelledRef.current) cbRef.current.onEnd?.()

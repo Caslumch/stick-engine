@@ -54,6 +54,7 @@ export function useSpeechRecognition(callbacks: SpeechRecognitionCallbacks) {
   const recRef = useRef<SpeechRecognitionInstance | null>(null)
   const cbRef = useRef(callbacks)
   cbRef.current = callbacks
+  const activeRef = useRef(false) // controla auto-restart
 
   const isSupported = typeof window !== 'undefined' &&
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
@@ -66,6 +67,7 @@ export function useSpeechRecognition(callbacks: SpeechRecognitionCallbacks) {
 
     // Parar instância anterior se existir
     recRef.current?.abort()
+    activeRef.current = true
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const rec = new SR()
@@ -91,12 +93,36 @@ export function useSpeechRecognition(callbacks: SpeechRecognitionCallbacks) {
     }
 
     rec.onerror = (e: SpeechRecognitionErrorEvent) => {
-      // 'no-speech' e 'aborted' não são erros reais
       if (e.error === 'no-speech' || e.error === 'aborted') return
+      // 'network' = sem internet → Web Speech não funciona
+      if (e.error === 'network') {
+        activeRef.current = false
+        cbRef.current.onError?.('network')
+        return
+      }
       cbRef.current.onError?.(e.error)
     }
 
     rec.onend = () => {
+      // Auto-restart se ainda deveria estar ouvindo
+      // (Web Speech pode parar por timeout, rede, etc.)
+      if (activeRef.current) {
+        try {
+          const newRec = new SR()
+          newRec.continuous = true
+          newRec.interimResults = true
+          newRec.lang = 'pt-BR'
+          newRec.onresult = rec.onresult
+          newRec.onerror = rec.onerror
+          newRec.onend = rec.onend
+          recRef.current = newRec
+          newRec.start()
+        } catch {
+          activeRef.current = false
+          cbRef.current.onEnd?.()
+        }
+        return
+      }
       cbRef.current.onEnd?.()
     }
 
@@ -105,11 +131,13 @@ export function useSpeechRecognition(callbacks: SpeechRecognitionCallbacks) {
   }, [isSupported])
 
   const stop = useCallback(() => {
+    activeRef.current = false
     recRef.current?.stop()
     recRef.current = null
   }, [])
 
   const abort = useCallback(() => {
+    activeRef.current = false
     recRef.current?.abort()
     recRef.current = null
   }, [])

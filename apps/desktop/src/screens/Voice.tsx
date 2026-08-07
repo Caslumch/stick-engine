@@ -71,7 +71,9 @@ export function Voice() {
     onError: (err) => { setError(`Transcrição: ${err}`); console.warn('[STT/Whisper]', err) },
   })
 
-  const stt = IN_TAURI ? tauriStt : webStt
+  // Web Speech primeiro (transcrição em tempo real, ~200ms)
+  // Whisper como fallback (batch, ~5-15s) — só se Web Speech indisponível
+  const stt = webStt.isSupported ? webStt : tauriStt
 
   // --- TTS (via ref estável) ---
   const ttsRef = useRef<{ speak: (t: string) => void; cancel: () => void; isSpeaking: () => boolean }>({
@@ -112,37 +114,19 @@ export function Voice() {
 
     stopAudio()
     vad.stop()
+    stt.stop()
 
-    if (IN_TAURI) {
-      // Feedback imediato: muda pra thinking e fala filler instantâneo do cache
+    const text = transcriptRef.current.trim()
+    setTranscript('')
+    transcriptRef.current = ''
+    sendingRef.current = false
+
+    if (text) {
       setState('thinking')
-      setTranscript('Transcrevendo...')
-      addToolExecution({ toolName: '_stt_transcribe', status: 'executing' })
-      playFiller() // Instantâneo (~5ms) — pré-cacheado na memória
-
-      await stt.stop()
-      updateToolExecution('_stt_transcribe', { success: true, message: transcriptRef.current.trim() || 'sem áudio' })
-      const text = transcriptRef.current.trim()
-      setTranscript('')
-      transcriptRef.current = ''
-      sendingRef.current = false
-      if (text && text !== 'Transcrevendo...') {
-        sendMessage(text)
-      } else {
-        setState('idle')
-      }
+      playFiller() // Filler instantâneo do cache (~5ms)
+      sendMessage(text)
     } else {
-      stt.stop()
-      const text = transcriptRef.current.trim()
-      setTranscript('')
-      transcriptRef.current = ''
-      sendingRef.current = false
-      if (text) {
-        setState('thinking')
-        sendMessage(text)
-      } else {
-        setState('idle')
-      }
+      setState('idle')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setState, sendMessage, stopAudio])
@@ -150,7 +134,7 @@ export function Voice() {
   // --- VAD: auto-enviar quando detecta silêncio ---
   const vad = useVAD({
     threshold: 0.015,
-    silenceDuration: 1500,
+    silenceDuration: 900,
     onSilence: () => {
       // Só auto-enviar se estamos em listening
       if (useJarvisStore.getState().state === 'listening') {
@@ -213,45 +197,66 @@ export function Voice() {
   const streamTTSActiveRef = useRef(false) // se o TTS streaming está ativo
   const streamQueueRef = useRef<string[]>([]) // fila de frases pra falar
 
-  /** Processa a fila de frases — fala uma por vez sequencialmente */
+  /** Busca TTS pra uma frase e retorna o AudioBuffer decodificado */
+  const fetchTTSBuffer = async (sentence: string): Promise<AudioBuffer | null> => {
+    const settings = useJarvisStore.getState().settings
+    const engine = settings['tts.engine'] || 'edge'
+    const voice = settings['tts.voice'] || ''
+    try {
+      const resp = await fetch('http://localhost:5001/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanForSpeechInline(sentence), engine, voice }),
+      })
+      if (!resp.ok) return null
+      const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
+      const bytes = await resp.arrayBuffer()
+      const bus = getTTSBus()
+      await resumeTTSBus()
+      return bus.ctx.decodeAudioData(bytes.slice(0))
+    } catch { return null }
+  }
+
+  /** Processa a fila de frases — com prefetch da próxima enquanto toca a atual */
   const processStreamQueue = useCallback(async () => {
-    if (streamTTSActiveRef.current) return // já processando
+    if (streamTTSActiveRef.current) return
     streamTTSActiveRef.current = true
     ttsLock.active = true
+
+    let prefetchPromise: Promise<AudioBuffer | null> | null = null
 
     while (streamQueueRef.current.length > 0) {
       const sentence = streamQueueRef.current.shift()!
       if (!sentence.trim()) continue
 
       setState('speaking')
-      await new Promise<void>((resolve) => {
-        const settings = useJarvisStore.getState().settings
-        const engine = settings['tts.engine'] || 'edge'
-        const voice = settings['tts.voice'] || ''
 
-        fetch('http://localhost:5001/speak', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanForSpeechInline(sentence), engine, voice }),
-        }).then(async (resp) => {
-          if (!resp.ok) { resolve(); return }
-          const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
-          const bytes = await resp.arrayBuffer()
-          const bus = getTTSBus()
-          await resumeTTSBus()
-          const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
-          const source = bus.ctx.createBufferSource()
-          source.buffer = audioBuffer
-          source.connect(bus.input)
-          source.onended = () => resolve()
-          source.start()
-        }).catch(() => resolve())
+      // Usar buffer prefetched se disponível, senão buscar agora
+      const buffer = prefetchPromise ? await prefetchPromise : await fetchTTSBuffer(sentence)
+      prefetchPromise = null
+
+      if (!buffer) continue
+
+      // Prefetch da próxima frase enquanto a atual toca
+      const nextSentence = streamQueueRef.current[0]
+      if (nextSentence?.trim()) {
+        prefetchPromise = fetchTTSBuffer(nextSentence)
+      }
+
+      // Tocar a frase atual
+      await new Promise<void>(async (resolve) => {
+        const { getTTSBus } = await import('../hooks/ttsAudioBus')
+        const bus = getTTSBus()
+        const source = bus.ctx.createBufferSource()
+        source.buffer = buffer
+        source.connect(bus.input)
+        source.onended = () => resolve()
+        source.start()
       })
     }
 
     streamTTSActiveRef.current = false
     ttsLock.active = false
-    // Se não tem mais stream, voltar pra idle
     if (!useJarvisStore.getState().streamingText) {
       if (useJarvisStore.getState().state === 'speaking') setState('idle')
     }
