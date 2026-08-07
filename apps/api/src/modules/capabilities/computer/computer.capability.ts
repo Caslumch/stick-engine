@@ -8,65 +8,11 @@ import { CapabilityRegistryService } from '../capability-registry.service';
 
 const execAsync = promisify(exec);
 
-// Blocklist: apps perigosos que NUNCA devem ser abertos por comando de voz
-const APP_BLOCKLIST = [
-  'format', 'diskpart', 'regedit', 'taskkill', 'shutdown', 'restart',
-  'del', 'rmdir', 'rd', 'fdisk', 'cipher',
-];
-
-/** Mapeia nomes amigáveis para comandos reais no Windows */
-const WIN_APP_MAP: Record<string, string> = {
-  // Navegadores
-  chrome: 'start chrome',
-  'google chrome': 'start chrome',
-  firefox: 'start firefox',
-  edge: 'start msedge',
-  brave: 'start brave',
-  // Dev
-  code: 'code',
-  'visual studio code': 'code',
-  'vs code': 'code',
-  // Sistema
-  notepad: 'notepad',
-  'bloco de notas': 'notepad',
-  calculator: 'calc',
-  calc: 'calc',
-  calculadora: 'calc',
-  explorer: 'explorer',
-  'gerenciador de arquivos': 'explorer',
-  cmd: 'start cmd',
-  powershell: 'start powershell',
-  wt: 'start wt',
-  terminal: 'start wt',
-  // Apps
-  spotify: 'start spotify',
-  discord: 'start discord',
-  slack: 'start slack',
-  teams: 'start msteams',
-  steam: 'start steam',
-  telegram: 'start telegram',
-  whatsapp: 'start whatsapp',
-  // Office
-  word: 'start winword',
-  excel: 'start excel',
-  powerpoint: 'start powerpnt',
-  // URLs — abre no navegador padrão
-  youtube: 'start https://youtube.com',
-  google: 'start https://google.com',
-};
-
-// Blocked patterns for run_command
+// Segurança: apps/comandos que NUNCA devem ser executados
+const APP_BLOCKLIST = ['format', 'diskpart', 'regedit', 'taskkill', 'shutdown', 'restart', 'del', 'rmdir', 'rd', 'fdisk', 'cipher'];
 const BLOCKED_PATTERNS = [
-  /rm\s+(-rf?|--recursive)\s+[\/\\]/i,
-  /del\s+\/s/i,
-  /format\s+[a-z]:/i,
-  /mkfs/i,
-  /dd\s+if=/i,
-  /shutdown/i,
-  /reboot/i,
-  /:\(\)\{.*\}/,  // fork bomb
-  />\s*\/dev\/sd/i,
-  /reg\s+delete/i,
+  /rm\s+(-rf?|--recursive)\s+[\/\\]/i, /del\s+\/s/i, /format\s+[a-z]:/i,
+  /mkfs/i, /dd\s+if=/i, /shutdown/i, /reboot/i, /:\(\)\{.*\}/, />\s*\/dev\/sd/i, /reg\s+delete/i,
 ];
 
 @Injectable()
@@ -79,36 +25,24 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre aplicativos no computador. Se falhar, use run_command com PowerShell para encontrar e abrir o app. Exemplo: run_command({ command: "powershell -Command \\"Start-Process steam:\\"" }) ou procure o executavel com Get-ChildItem.',
+      description: 'Abre um aplicativo pelo nome. Tenta "start <nome>" no Windows. Se falhar, use run_command com PowerShell para encontrar e abrir (Start-Process, protocolos URI como steam://, ou buscar atalhos no Menu Iniciar com Get-ChildItem).',
       parameters: {
         type: 'object',
         properties: {
-          name: {
-            type: 'string',
-            description: 'Nome do aplicativo para abrir (ex: code, chrome, notepad)',
-          },
-          path: {
-            type: 'string',
-            description: 'Caminho do arquivo ou pasta para abrir com o aplicativo (opcional, ex: Documents/projects/meu-projeto)',
-          },
+          name: { type: 'string', description: 'Nome do aplicativo (ex: chrome, notepad, steam)' },
+          path: { type: 'string', description: 'Caminho ou URL para abrir com o app (opcional)' },
         },
         required: ['name'],
       },
     },
     {
       name: 'run_command',
-      description: 'Executa um comando no terminal do computador. Use para tarefas como listar arquivos, verificar processos, instalar pacotes, etc.',
+      description: 'Executa um comando no terminal (cmd/PowerShell). Use para tarefas como listar arquivos, verificar processos, abrir apps por caminhos específicos, buscar executáveis, etc. Plataforma: Windows.',
       parameters: {
         type: 'object',
         properties: {
-          command: {
-            type: 'string',
-            description: 'Comando para executar no terminal',
-          },
-          cwd: {
-            type: 'string',
-            description: 'Diretorio de trabalho (opcional, padrao: home do usuario)',
-          },
+          command: { type: 'string', description: 'Comando para executar' },
+          cwd: { type: 'string', description: 'Diretorio de trabalho (opcional)' },
         },
         required: ['command'],
       },
@@ -119,23 +53,10 @@ export class ComputerCapability implements Capability, OnModuleInit {
       parameters: {
         type: 'object',
         properties: {
-          action: {
-            type: 'string',
-            description: 'Acao a realizar',
-            enum: ['create_dir', 'list', 'read', 'write', 'delete', 'move', 'copy'],
-          },
-          path: {
-            type: 'string',
-            description: 'Caminho do arquivo ou pasta',
-          },
-          content: {
-            type: 'string',
-            description: 'Conteudo para escrever (apenas para action=write)',
-          },
-          destination: {
-            type: 'string',
-            description: 'Destino (apenas para action=move ou copy)',
-          },
+          action: { type: 'string', description: 'Acao', enum: ['create_dir', 'list', 'read', 'write', 'delete', 'move', 'copy'] },
+          path: { type: 'string', description: 'Caminho do arquivo ou pasta' },
+          content: { type: 'string', description: 'Conteudo (apenas write)' },
+          destination: { type: 'string', description: 'Destino (apenas move/copy)' },
         },
         required: ['action', 'path'],
       },
@@ -143,46 +64,18 @@ export class ComputerCapability implements Capability, OnModuleInit {
   ];
 
   constructor(private readonly registry: CapabilityRegistryService) {}
-
-  onModuleInit() {
-    this.registry.register(this);
-  }
+  onModuleInit() { this.registry.register(this); }
 
   async execute(toolName: string, params: Record<string, unknown>): Promise<CapabilityResult> {
     switch (toolName) {
       case 'open_application': {
-        // LLMs sometimes use alternate param names or send empty args
         let name = (params.name ?? params.application ?? params.app_name ?? params.app) as string;
-
-        // Fallback 1: qualquer valor string nos params
         if (!name) {
           const strValues = Object.values(params).filter((v) => typeof v === 'string' && v.trim()) as string[];
           if (strValues.length > 0) name = strValues[0];
         }
-
-        // Fallback 2: procurar nome de app da whitelist em qualquer campo (incluindo query, text, etc.)
-        if (!name) {
-          const allText = Object.values(params).join(' ').toLowerCase();
-          const found = Object.keys(WIN_APP_MAP).find((app) => allText.includes(app));
-          if (found) name = found;
-        }
-
-        // Fallback 3: tentar extrair "chrome", "spotify" etc. do nome da tool call
-        if (!name) {
-          const toolCallStr = JSON.stringify(params).toLowerCase();
-          const found = Object.keys(WIN_APP_MAP).find((app) => toolCallStr.includes(app));
-          if (found) name = found;
-        }
-
-        if (!name) {
-          // Retornar erro com instrução clara pro LLM
-          return {
-            success: false,
-            message: 'Chame open_application com o parametro name. Exemplo: open_application({ name: "chrome" })',
-          };
-        }
-        const filePath = (params.path ?? params.file_path ?? params.folder) as string | undefined;
-        return this.openApplication(name, filePath);
+        if (!name) return { success: false, message: 'Passe o nome do app. Use run_command se precisar buscar.' };
+        return this.openApplication(name, (params.path ?? params.file_path) as string | undefined);
       }
       case 'run_command':
         return this.runCommand(params.command as string, params.cwd as string | undefined);
@@ -193,292 +86,131 @@ export class ComputerCapability implements Capability, OnModuleInit {
     }
   }
 
+  // ── Open Application (simples — LLM resolve fallbacks via run_command) ──
+
   private async openApplication(name: string, targetPath?: string): Promise<CapabilityResult> {
     const normalized = name.toLowerCase().trim();
 
-    // Detectar URLs — abrir no navegador padrão
-    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    // URLs → abrir no navegador padrão
+    if (/^https?:\/\//i.test(normalized)) {
+      const cmd = process.platform === 'win32' ? `start "" "${normalized}"` : `open "${normalized}"`;
       try {
-        const cmd = process.platform === 'win32' ? `start "" "${normalized}"` : `open "${normalized}"`;
         await execAsync(cmd, { timeout: 10000 });
-        this.logger.log(`URL aberta: ${normalized}`);
-        return { success: true, message: `URL "${normalized}" aberta no navegador.` };
-      } catch (error) {
-        return { success: false, message: `Erro ao abrir URL: ${error instanceof Error ? error.message : String(error)}` };
+        return { success: true, message: `URL aberta.`, data: { command: cmd } };
+      } catch (e) {
+        return { success: false, message: `Erro: ${(e as Error).message}` };
       }
     }
 
-    // Blocklist: impedir apps perigosos
+    // Blocklist
     if (APP_BLOCKLIST.some((b) => normalized.includes(b))) {
-      return { success: false, message: `Aplicativo "${name}" bloqueado por segurança.` };
+      return { success: false, message: `"${name}" bloqueado por segurança.` };
     }
 
+    // Path handling
+    const isUrl = targetPath && /^https?:\/\//i.test(targetPath);
+    const resolvedPath = targetPath ? (isUrl ? targetPath : this.resolvePath(targetPath)) : '';
+    const pathArg = resolvedPath ? ` "${resolvedPath}"` : '';
+    const isWindows = process.platform === 'win32';
+
+    // Tentar abrir diretamente
+    const cmd = isWindows ? `start "" "${normalized}"${pathArg}` : `${normalized}${pathArg}`;
     try {
-      // Se path é URL, não resolver como caminho local
-      const isUrl = targetPath && /^https?:\/\//i.test(targetPath);
-      const resolvedPath = targetPath ? (isUrl ? targetPath : this.resolvePath(targetPath)) : '';
-      const pathArg = resolvedPath ? ` "${resolvedPath}"` : '';
-      const isWindows = process.platform === 'win32';
-
-      let cmd: string;
-      if (isWindows && WIN_APP_MAP[normalized]) {
-        cmd = WIN_APP_MAP[normalized] + pathArg;
-      } else if (isWindows) {
-        cmd = `start "" "${normalized}"${pathArg}`;
-      } else {
-        cmd = `${normalized}${pathArg}`;
-      }
-
-      try {
-        await execAsync(cmd, { timeout: 10000 });
-        this.logger.log(`[CMD] ${cmd}`);
-        return { success: true, message: `Aplicativo "${name}" aberto.`, data: { command: cmd } };
-      } catch {
-        if (isWindows) {
-          return this.openViaStartMenu(name, normalized);
-        }
-        throw new Error(`Não encontrei "${name}" no sistema.`);
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { success: false, message: `Não consegui abrir "${name}".`, data: { error: msg } };
+      await execAsync(cmd, { timeout: 10000 });
+      this.logger.log(`[CMD] ${cmd}`);
+      return { success: true, message: `"${name}" aberto.`, data: { command: cmd } };
+    } catch {
+      // Falhou — orientar o LLM a tentar via run_command
+      return {
+        success: false,
+        message: `"${name}" não encontrado via start. Use run_command para tentar: PowerShell Start-Process, protocolo URI (ex: steam://), ou buscar no Menu Iniciar com Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*${normalized}*"`,
+        data: { command: cmd, failed: true },
+      };
     }
   }
 
-  /** Protocolos URI conhecidos (abrem sem precisar do PATH) */
-  private readonly URI_PROTOCOLS: Record<string, string> = {
-    steam: 'steam://open/main',
-    'battle.net': 'battlenet://',
-    battlenet: 'battlenet://',
-    epic: 'com.epicgames.launcher://',
-    'epic games': 'com.epicgames.launcher://',
-    spotify: 'spotify://',
-    discord: 'discord://',
-    slack: 'slack://',
-    teams: 'msteams://',
-    telegram: 'tg://',
-    whatsapp: 'whatsapp://',
-    zoom: 'zoommtg://',
-  };
-
-  /** Caminhos comuns de instalação no Windows */
-  private readonly COMMON_PATHS: Record<string, string[]> = {
-    steam: [
-      'C:\\Program Files (x86)\\Steam\\steam.exe',
-      'C:\\Program Files\\Steam\\steam.exe',
-      'D:\\Steam\\steam.exe',
-      'D:\\Program Files (x86)\\Steam\\steam.exe',
-    ],
-    'battle.net': [
-      'C:\\Program Files (x86)\\Battle.net\\Battle.net Launcher.exe',
-    ],
-    epic: [
-      'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe',
-      'C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe',
-    ],
-  };
-
-  /**
-   * Fallback: tenta protocolo URI → caminhos comuns → Menu Iniciar.
-   */
-  private async openViaStartMenu(displayName: string, search: string): Promise<CapabilityResult> {
-    // 1. Tentar protocolo URI
-    const uri = this.URI_PROTOCOLS[search];
-    if (uri) {
-      try {
-        const cmd = `start "" "${uri}"`;
-        await execAsync(cmd, { timeout: 5000 });
-        this.logger.log(`[CMD] ${cmd}`);
-        return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd } };
-      } catch { /* continuar */ }
-    }
-
-    // 2. Tentar caminhos comuns de instalação
-    const paths = this.COMMON_PATHS[search];
-    if (paths) {
-      for (const p of paths) {
-        try {
-          await fs.access(p);
-          const cmd = `start "" "${p}"`;
-          await execAsync(cmd, { timeout: 5000 });
-          this.logger.log(`[CMD] ${cmd}`);
-          return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd } };
-        } catch { /* próximo path */ }
-      }
-    }
-
-    // 3. Buscar no Menu Iniciar via PowerShell
-    try {
-      const psCmd = `
-        $search = '*${search.replace(/'/g, "''")}*'
-        $paths = @(
-          "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
-          "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs"
-        )
-        $found = $paths | ForEach-Object {
-          Get-ChildItem $_ -Recurse -Filter '*.lnk' -ErrorAction SilentlyContinue
-        } | Where-Object { $_.BaseName -like $search } | Select-Object -First 1
-        if ($found) { Write-Output $found.FullName } else { Write-Output 'NOT_FOUND' }
-      `.trim();
-
-      const { stdout } = await execAsync(`powershell -NoProfile -Command "${psCmd.replace(/"/g, '\\"')}"`, {
-        timeout: 8000,
-      });
-
-      const shortcutPath = stdout.trim();
-      if (shortcutPath && shortcutPath !== 'NOT_FOUND') {
-        const cmd = `start "" "${shortcutPath}"`;
-        await execAsync(cmd, { timeout: 5000 });
-        this.logger.log(`[CMD] ${cmd}`);
-        return { success: true, message: `Abrindo ${displayName}.`, data: { command: cmd, shortcut: shortcutPath } };
-      }
-    } catch { /* continuar */ }
-
-    return { success: false, message: `Não encontrei "${displayName}" no sistema.` };
-  }
+  // ── Helpers ──
 
   private get homeDir(): string {
     return process.env.USERPROFILE || process.env.HOME || '.';
   }
 
-  /** Mapeia nomes de pastas em PT-BR pros nomes reais no Windows */
+  /** Mapeia nomes de pastas PT-BR pros nomes reais no Windows */
   private readonly FOLDER_MAP: Record<string, string> = {
-    'imagens': 'Pictures',
-    'imagem': 'Pictures',
-    'fotos': 'Pictures',
-    'documentos': 'Documents',
-    'downloads': 'Downloads',
-    'desktop': 'Desktop',
-    'area de trabalho': 'Desktop',
-    'área de trabalho': 'Desktop',
-    'musica': 'Music',
-    'musicas': 'Music',
-    'música': 'Music',
-    'músicas': 'Music',
-    'videos': 'Videos',
-    'vídeos': 'Videos',
+    'imagens': 'Pictures', 'imagem': 'Pictures', 'fotos': 'Pictures',
+    'documentos': 'Documents', 'downloads': 'Downloads',
+    'desktop': 'Desktop', 'area de trabalho': 'Desktop', 'área de trabalho': 'Desktop',
+    'musica': 'Music', 'musicas': 'Music', 'música': 'Music', 'músicas': 'Music',
+    'videos': 'Videos', 'vídeos': 'Videos',
   };
 
   private resolvePath(p: string): string {
-    // Substituir ~ pelo home dir
     let resolved = p.replace(/^~[/\\]?/, this.homeDir + path.sep);
-    // Mapear nomes PT-BR pra nomes reais
     const lower = resolved.toLowerCase();
     for (const [pt, en] of Object.entries(this.FOLDER_MAP)) {
-      if (lower.includes(pt)) {
-        resolved = resolved.replace(new RegExp(pt, 'i'), en);
-      }
+      if (lower.includes(pt)) resolved = resolved.replace(new RegExp(pt, 'i'), en);
     }
     if (path.isAbsolute(resolved)) return resolved;
     return path.resolve(this.homeDir, resolved);
   }
 
+  // ── Run Command ──
+
   private async runCommand(command: string, cwd?: string): Promise<CapabilityResult> {
-    // Security check
     for (const pattern of BLOCKED_PATTERNS) {
       if (pattern.test(command)) {
-        return {
-          success: false,
-          message: `Comando bloqueado por seguranca. Padrao destrutivo detectado.`,
-        };
+        return { success: false, message: 'Comando bloqueado por segurança.' };
       }
     }
-
     try {
       const workDir = cwd ? this.resolvePath(cwd) : this.homeDir;
-
-      const { stdout, stderr } = await execAsync(command, {
-        cwd: workDir,
-        timeout: 30000, // 30s max
-        maxBuffer: 1024 * 1024, // 1MB
-      });
-
+      const { stdout, stderr } = await execAsync(command, { cwd: workDir, timeout: 30000, maxBuffer: 1024 * 1024 });
       const output = stdout.trim() || stderr.trim();
-      this.logger.log(`Command executed: ${command}`);
-
-      return {
-        success: true,
-        message: `Comando executado.`,
-        data: output.slice(0, 5000), // Limit output
-      };
+      this.logger.log(`[CMD] ${command}`);
+      return { success: true, message: 'Comando executado.', data: { output: output.slice(0, 5000), command } };
     } catch (error: any) {
       const output = error.stdout?.trim() || error.stderr?.trim() || error.message;
-      return {
-        success: false,
-        message: `Erro ao executar comando: ${output?.slice(0, 2000)}`,
-      };
+      return { success: false, message: `Erro: ${output?.slice(0, 2000)}`, data: { command } };
     }
   }
 
-  private async manageFiles(params: {
-    action: string;
-    path: string;
-    content?: string;
-    destination?: string;
-  }): Promise<CapabilityResult> {
-    const filePath = this.resolvePath(params.path);
+  // ── Manage Files ──
 
+  private async manageFiles(params: { action: string; path: string; content?: string; destination?: string }): Promise<CapabilityResult> {
+    const filePath = this.resolvePath(params.path);
     try {
       switch (params.action) {
-        case 'create_dir': {
-          await fs.mkdir(filePath, { recursive: true });
-          return { success: true, message: `Pasta criada: ${filePath}` };
-        }
-
+        case 'create_dir': await fs.mkdir(filePath, { recursive: true }); return { success: true, message: `Pasta criada: ${filePath}` };
         case 'list': {
           const entries = await fs.readdir(filePath, { withFileTypes: true });
-          const list = entries.map((e) => ({
-            name: e.name,
-            type: e.isDirectory() ? 'dir' : 'file',
-          }));
-          return { success: true, message: `${list.length} itens encontrados.`, data: list };
+          return { success: true, message: `${entries.length} itens.`, data: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })) };
         }
-
         case 'read': {
           const stat = await fs.stat(filePath);
-          if (stat.size > 100 * 1024) {
-            return { success: false, message: 'Arquivo muito grande (max 100KB para leitura).' };
-          }
-          const content = await fs.readFile(filePath, 'utf-8');
-          return { success: true, message: 'Arquivo lido.', data: content };
+          if (stat.size > 100 * 1024) return { success: false, message: 'Arquivo muito grande (max 100KB).' };
+          return { success: true, message: 'Arquivo lido.', data: await fs.readFile(filePath, 'utf-8') };
         }
-
         case 'write': {
-          if (!params.content) {
-            return { success: false, message: 'Conteudo nao fornecido para escrita.' };
-          }
+          if (!params.content) return { success: false, message: 'Conteudo não fornecido.' };
           await fs.mkdir(path.dirname(filePath), { recursive: true });
           await fs.writeFile(filePath, params.content, 'utf-8');
           return { success: true, message: `Arquivo escrito: ${filePath}` };
         }
-
-        case 'delete': {
-          await fs.rm(filePath, { recursive: true });
-          return { success: true, message: `Deletado: ${filePath}` };
-        }
-
+        case 'delete': await fs.rm(filePath, { recursive: true }); return { success: true, message: `Deletado: ${filePath}` };
         case 'move': {
-          if (!params.destination) {
-            return { success: false, message: 'Destino nao fornecido.' };
-          }
+          if (!params.destination) return { success: false, message: 'Destino não fornecido.' };
           await fs.rename(filePath, this.resolvePath(params.destination));
           return { success: true, message: `Movido para: ${params.destination}` };
         }
-
         case 'copy': {
-          if (!params.destination) {
-            return { success: false, message: 'Destino nao fornecido.' };
-          }
+          if (!params.destination) return { success: false, message: 'Destino não fornecido.' };
           await fs.copyFile(filePath, this.resolvePath(params.destination));
           return { success: true, message: `Copiado para: ${params.destination}` };
         }
-
-        default:
-          return { success: false, message: `Acao desconhecida: ${params.action}` };
+        default: return { success: false, message: `Ação desconhecida: ${params.action}` };
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return { success: false, message: `Erro: ${msg}` };
+      return { success: false, message: `Erro: ${(error as Error).message}` };
     }
   }
 }

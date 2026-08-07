@@ -356,48 +356,8 @@ export class ConversationService {
       return `Hoje é ${date}.`;
     }
 
-    // --- Abrir app/site: detecta app conhecido ou qualquer nome após "abre o" ---
-    const KNOWN_APPS = ['code', 'vs code', 'visual studio code', 'notepad', 'bloco de notas',
-      'calculator', 'calc', 'calculadora', 'explorer', 'chrome', 'google chrome',
-      'firefox', 'edge', 'brave', 'terminal', 'cmd', 'powershell', 'wt', 'spotify',
-      'discord', 'slack', 'teams', 'steam', 'telegram', 'whatsapp',
-      'word', 'excel', 'powerpoint', 'youtube', 'google'];
-    // Sites conhecidos pra fast-path (nome → URL)
-    const SITES: Record<string, string> = {
-      'whatsapp web': 'https://web.whatsapp.com', 'whatsapp': 'https://web.whatsapp.com',
-      'youtube': 'https://youtube.com', 'gmail': 'https://mail.google.com',
-      'google': 'https://google.com', 'twitter': 'https://x.com', 'x': 'https://x.com',
-      'github': 'https://github.com', 'linkedin': 'https://linkedin.com',
-      'instagram': 'https://instagram.com', 'facebook': 'https://facebook.com',
-      'netflix': 'https://netflix.com', 'chatgpt': 'https://chatgpt.com',
-      'claude': 'https://claude.ai',
-    };
-    // Pular fast-path se o pedido requer contexto da conversa (link, resultado, site, desses, algum)
-    const needsContext = /\b(link|resultado|site|desses|algum|esse|essa|aquele|aquela|primeiro|segundo|terceiro)\b/i.test(lower);
-    if (/(?:abre|abra|abrir)/i.test(lower) && !needsContext) {
-      // Primeiro: detectar se quer abrir um SITE específico
-      const siteKey = Object.keys(SITES).find((s) => lower.includes(s));
-      const browser = KNOWN_APPS.filter((a) => ['chrome', 'google chrome', 'firefox', 'edge', 'brave'].includes(a)).find((a) => lower.includes(a));
-
-      if (siteKey) {
-        // Abrir site no navegador (especificado ou padrão)
-        const url = SITES[siteKey];
-        const app = browser || 'chrome';
-        const result = await this.capabilities.execute('open_application', { name: app, path: url });
-        return result.success ? `Abrindo ${siteKey}.` : result.message || `Não consegui abrir ${siteKey}.`;
-      }
-
-      // Só abrir app (sem site) — tenta conhecidos no fast-path
-      const found = KNOWN_APPS.find((app) => lower.includes(app));
-      if (found) {
-        const result = await this.capabilities.execute('open_application', { name: found });
-        if (result.success) return `Abrindo ${found}.`;
-        // Se falhou, deixa o LLM tentar (ele conhece PowerShell, caminhos, etc.)
-        return null;
-      }
-      // App não é conhecido → deixa o LLM resolver via tool calling
-      return null;
-    }
+    // --- Abrir app/site: LLM decide via tool calling (não hardcodar apps) ---
+    // (removido: KNOWN_APPS, SITES, lógica hardcoded — LLM resolve sozinho)
 
     // "toca" / "coloca" música
     const playMatch = lower.match(/^(?:toca|coloca|bota|play)\s+(.+?)[\s.!]*$/i);
@@ -475,24 +435,8 @@ export class ConversationService {
       } catch { /* não é expressão válida */ }
     }
 
-    // --- Lembretes rápidos ---
-    const reminderMatch = lower.match(/(?:cria|me lembra|lembra de|lembrete)\s*(?:de|que|pra)?\s+(.+?)(?:\s+(?:em|daqui|às?)\s+(.+?))?[\s.!]*$/i);
-    if (reminderMatch) {
-      const title = reminderMatch[1].trim();
-      const result = await this.capabilities.execute('create_reminder', { title });
-      return result.success ? `Lembrete criado: ${title}.` : `Não consegui criar o lembrete.`;
-    }
-
-    if (/^(?:quais|meus|lista)\s*(?:os\s+)?(?:meus\s+)?lembretes/i.test(lower) || /lembretes/i.test(lower)) {
-      const result = await this.capabilities.execute('list_reminders', {});
-      if (result.success && Array.isArray(result.data)) {
-        const items = result.data as any[];
-        if (items.length === 0) return 'Você não tem lembretes pendentes.';
-        const list = items.slice(0, 5).map((r: any) => r.title || r.name).join(', ');
-        return `Seus lembretes: ${list}.${items.length > 5 ? ` E mais ${items.length - 5}.` : ''}`;
-      }
-      return 'Não encontrei lembretes.';
-    }
+    // --- Lembretes e Timer: LLM resolve via tool calling ---
+    // (removido: regex de lembretes hardcoded — LLM já sabe chamar create_reminder/list_reminders)
 
     // --- Timer / Cronômetro ---
     const timerMatch = lower.match(/(?:timer|temporizador|cronometr[ao]|conta)\s*(?:de)?\s*(\d+)\s*(segundo|minuto|min|hora|seg|s|m|h)/i);
