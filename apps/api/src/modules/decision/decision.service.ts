@@ -32,8 +32,9 @@ export class DecisionService {
       return 'openai';
     }
 
-    // Rule 2: If message seems to need search/web, use cloud
-    if (await this.requiresSearch(message)) {
+    // Rule 2: If message seems to need search/web AND preferLocal is off, use cloud
+    // Quando preferLocal está ativo, o modelo local usa Tavily pra pesquisar
+    if (!preferLocal && await this.requiresSearch(message)) {
       this.log(message, 'openai', 'search-required');
       return 'openai';
     }
