@@ -387,22 +387,16 @@ export class ConversationService {
         return result.success ? `Abrindo ${siteKey}.` : result.message || `Não consegui abrir ${siteKey}.`;
       }
 
-      // Só abrir app (sem site) — tenta conhecidos primeiro, senão extrai da frase
+      // Só abrir app (sem site) — tenta conhecidos no fast-path
       const found = KNOWN_APPS.find((app) => lower.includes(app));
       if (found) {
         const result = await this.capabilities.execute('open_application', { name: found });
-        return result.success ? `Abrindo ${found}.` : result.message || `Não consegui abrir ${found}.`;
+        if (result.success) return `Abrindo ${found}.`;
+        // Se falhou, deixa o LLM tentar (ele conhece PowerShell, caminhos, etc.)
+        return null;
       }
-
-      // Fallback: extrair nome do app da frase e tentar abrir qualquer coisa
-      const appMatch = lower.match(/(?:abre|abra|abrir)\s+(?:o\s+|a\s+)?(.+?)(?:\s+pra\s+mim|\s+por\s+favor)?[\s.!?]*$/i);
-      if (appMatch) {
-        const appName = appMatch[1].trim();
-        if (appName.length > 1 && appName.length < 30) {
-          const result = await this.capabilities.execute('open_application', { name: appName });
-          return result.success ? `Abrindo ${appName}.` : result.message || `Não encontrei "${appName}".`;
-        }
-      }
+      // App não é conhecido → deixa o LLM resolver via tool calling
+      return null;
     }
 
     // "toca" / "coloca" música

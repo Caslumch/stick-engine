@@ -79,7 +79,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre qualquer aplicativo instalado no computador do usuario. Passe o nome do programa (ex: "chrome", "spotify", "steam", "photoshop"). NAO use esta tool para pesquisar na internet.',
+      description: 'Abre aplicativos no computador. Se falhar, use run_command com PowerShell para encontrar e abrir o app. Exemplo: run_command({ command: "powershell -Command \\"Start-Process steam:\\"" }) ou procure o executavel com Get-ChildItem.',
       parameters: {
         type: 'object',
         properties: {
