@@ -22,7 +22,7 @@ const DEFAULTS: Record<string, string> = {
   'llm.openai.model': 'gpt-4o',
   'llm.preferLocal': 'true',
   'decision.tokenThreshold': '2000',
-  'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente',
+  'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente,imagem,imagens,foto,fotos,mostra,mostrar,preço,preços,preco,precos,comprar,onde comprar,quanto custa,melhores,top,recomend,ranking',
 
   // User
   'user.city': 'Barueri',
@@ -33,7 +33,7 @@ const DEFAULTS: Record<string, string> = {
   'personality.verbosity': 'concise',   // concise | balanced | detailed
 
   // Search
-  'search.tavilyApiKey': '',
+  'search.tavilyApiKey': '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',
   'openai.webSearch': 'true',
 
   // Finance (LemonFin)
