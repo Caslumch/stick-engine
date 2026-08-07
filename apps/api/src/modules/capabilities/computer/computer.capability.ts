@@ -25,7 +25,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre um aplicativo pelo nome. Tenta "start <nome>" no Windows. Se falhar, use run_command com PowerShell. IMPORTANTE: sempre use "powershell -Command \\"...\\"" pois o terminal padrão é cmd.',
+      description: 'Abre um aplicativo pelo nome via "start <nome>". Se falhar, use run_command com comandos PowerShell (o shell já é PowerShell). Ex: Start-Process "steam://", ou buscar: Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*nome*"',
       parameters: {
         type: 'object',
         properties: {
@@ -37,7 +37,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
     },
     {
       name: 'run_command',
-      description: 'Executa um comando no terminal. PLATAFORMA: Windows. O shell padrão é cmd. Para usar PowerShell, prefixe com: powershell -Command "..." Exemplos: powershell -Command "Start-Process steam://" ou powershell -Command "Get-ChildItem \'$env:ProgramData\\Microsoft\\Windows\\Start Menu\' -Recurse -Filter \'*steam*\'"',
+      description: 'Executa um comando no terminal. PLATAFORMA: Windows, shell: PowerShell. Use cmdlets diretamente (Get-ChildItem, Start-Process, etc.) sem prefixar com "powershell -Command". Exemplos: Start-Process "steam://" | Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*steam*"',
       parameters: {
         type: 'object',
         properties: {
@@ -123,7 +123,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
       // Falhou — orientar o LLM a tentar via run_command
       return {
         success: false,
-        message: `"${name}" não encontrado via start. Use run_command com: powershell -Command "Start-Process '${normalized}://'" ou powershell -Command "Get-ChildItem '$env:ProgramData\\Microsoft\\Windows\\Start Menu' -Recurse -Filter '*${normalized}*' | Select -First 1 | ForEach { Start-Process $_.FullName }"`,
+        message: `"${name}" não encontrado via start. Use run_command com PowerShell direto: Start-Process "${normalized}://" ou Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*${normalized}*" | Select -First 1 | % { Start-Process $_.FullName }`,
         data: { command: cmd, failed: true },
       };
     }
@@ -164,7 +164,15 @@ export class ComputerCapability implements Capability, OnModuleInit {
     }
     try {
       const workDir = cwd ? this.resolvePath(cwd) : this.homeDir;
-      const { stdout, stderr } = await execAsync(command, { cwd: workDir, timeout: 30000, maxBuffer: 1024 * 1024 });
+
+      // No Windows, usar PowerShell como shell padrão (suporta cmdlets + cmd commands)
+      const isWindows = process.platform === 'win32';
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: workDir,
+        timeout: 30000,
+        maxBuffer: 1024 * 1024,
+        shell: isWindows ? 'powershell.exe' : undefined,
+      });
       const output = stdout.trim() || stderr.trim();
       this.logger.log(`[CMD] ${command}`);
       return { success: true, message: 'Comando executado.', data: { output: output.slice(0, 5000), command } };
