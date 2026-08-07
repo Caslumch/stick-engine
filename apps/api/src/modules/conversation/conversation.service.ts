@@ -95,8 +95,16 @@ function cleanToolArtifacts(text: string): string {
     .replace(/HeaderCode:\s*/gi, '')
     // Generic JSON tool call leak: {"name": "...", "arguments": ...}
     .replace(/\{"name":\s*"[^"]*",\s*"(arguments|parameters)":\s*\{[^}]*\}\}\s*/g, '')
+    // Tool names leaked inline by Qwen/local models
+    .replace(/ImageRelationTool:\s*/gi, '')
+    .replace(/\b(open_application|run_command|manage_files|web_search|create_reminder|list_reminders|spotify_\w+|home_\w+|finance_\w+|send_telegram|mcp_\w+)\b/g, '')
+    // "No, " prefix from tool rejection
+    .replace(/^No,\s*/i, '')
+    // Cyrillic leaked by Qwen
+    .replace(/[\u0400-\u04FF]+/g, '')
     // Clean up leftover whitespace
     .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
