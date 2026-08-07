@@ -76,20 +76,24 @@ export function useSpeechRecognition(callbacks: SpeechRecognitionCallbacks) {
     rec.lang = 'pt-BR'
 
     rec.onresult = (e: SpeechRecognitionEvent) => {
-      let interim = ''
-      let final = ''
+      // Acumular TODOS os resultados (finais + interim atual)
+      // pra não perder o início da fala em frases longas
+      let fullTranscript = ''
+      let hasNewFinal = false
 
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const transcript = e.results[i][0].transcript
-        if (e.results[i].isFinal) {
-          final += transcript
-        } else {
-          interim += transcript
+        fullTranscript += transcript
+        if (i >= e.resultIndex && e.results[i].isFinal) {
+          hasNewFinal = true
         }
       }
 
-      if (interim) cbRef.current.onInterim?.(interim)
-      if (final) cbRef.current.onResult?.(final)
+      if (hasNewFinal) {
+        cbRef.current.onResult?.(fullTranscript.trim())
+      } else {
+        cbRef.current.onInterim?.(fullTranscript.trim())
+      }
     }
 
     rec.onerror = (e: SpeechRecognitionErrorEvent) => {
