@@ -19,7 +19,7 @@ export class OpenAiProvider implements LlmProvider {
     config: ConfigService,
     private readonly settings: SettingsService,
   ) {
-    this.modelId = config.get<string>('jarvis.openai.model', 'gpt-4o-mini');
+    this.modelId = config.get<string>('jarvis.openai.model', 'gpt-4o');
     this.envApiKey = config.get<string>('jarvis.openai.apiKey', '');
   }
 
@@ -29,27 +29,33 @@ export class OpenAiProvider implements LlmProvider {
     return fromSettings || this.envApiKey;
   }
 
-  /** Modelos que suportam provider-executed tools (web search nativo) */
-  private supportsProviderTools(): boolean {
+  /** Modelos que suportam Responses API (web search nativo) */
+  private supportsResponses(): boolean {
     const model = this.modelId.toLowerCase();
-    // gpt-4o-mini NÃO suporta. gpt-4o, gpt-4.1, gpt-4o-search-preview suportam.
     if (model.includes('mini')) return false;
     if (model.includes('gpt-4o') || model.includes('gpt-4.1') || model.includes('o1') || model.includes('o3')) return true;
     return false;
   }
 
-  /** Mescla as tools do request com webSearch da OpenAI se habilitado e modelo suporta */
-  private async buildTools(openai: ReturnType<typeof createOpenAI>, requestTools?: LlmRequest['tools']) {
-    const webSearchEnabled = (await this.settings.get('openai.webSearch')) !== 'false';
+  /** Verifica se webSearch nativo está habilitado e o modelo suporta */
+  private async useNativeWebSearch(): Promise<boolean> {
+    const enabled = (await this.settings.get('openai.webSearch')) !== 'false';
+    return enabled && this.supportsResponses();
+  }
+
+  /** Mescla as tools, adicionando webSearch se usando Responses API */
+  private buildTools(
+    openai: ReturnType<typeof createOpenAI>,
+    requestTools: LlmRequest['tools'] | undefined,
+    nativeSearch: boolean,
+  ) {
     const tools: Record<string, any> = { ...requestTools };
 
-    if (webSearchEnabled && this.supportsProviderTools()) {
+    if (nativeSearch) {
       tools.web_search_openai = openai.tools.webSearch();
-      // Remover a tool web_search do Tavily pra evitar duplicata
+      // Remover Tavily pra evitar duplicata
       delete tools.web_search;
-      this.logger.log('OpenAI webSearch nativo ativo (modelo suporta)');
-    } else if (webSearchEnabled) {
-      this.logger.debug(`Modelo ${this.modelId} não suporta webSearch nativo — usando Tavily se configurado`);
+      this.logger.log('WebSearch nativo ativo (Responses API)');
     }
 
     return Object.keys(tools).length > 0 ? tools : undefined;
@@ -58,10 +64,16 @@ export class OpenAiProvider implements LlmProvider {
   async generate(request: LlmRequest): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const tools = await this.buildTools(openai, request.tools);
+    const nativeSearch = await this.useNativeWebSearch();
+    const tools = this.buildTools(openai, request.tools, nativeSearch);
+
+    // Responses API pra web search, Chat API pro resto
+    const model = nativeSearch
+      ? openai.responses(this.modelId)
+      : openai.chat(this.modelId);
 
     const result = await generateText({
-      model: openai.chat(this.modelId),
+      model,
       system,
       messages,
       ...(tools && {
@@ -90,10 +102,15 @@ export class OpenAiProvider implements LlmProvider {
   async generateStream(request: LlmRequest, onToken: LlmStreamCallback): Promise<LlmResponse> {
     const openai = createOpenAI({ apiKey: await this.getApiKey() });
     const { system, messages } = prepareMessages(request.messages);
-    const tools = await this.buildTools(openai, request.tools);
+    const nativeSearch = await this.useNativeWebSearch();
+    const tools = this.buildTools(openai, request.tools, nativeSearch);
+
+    const model = nativeSearch
+      ? openai.responses(this.modelId)
+      : openai.chat(this.modelId);
 
     const result = streamText({
-      model: openai.chat(this.modelId),
+      model,
       system,
       messages,
       ...(tools && {
