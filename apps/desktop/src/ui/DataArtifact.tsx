@@ -131,6 +131,7 @@ export function DataArtifact() {
   const lastRich = useJarvisStore((s) => s.lastRichResult)
   const clearLastRichResult = useJarvisStore((s) => s.clearLastRichResult)
   const productImages = useJarvisStore((s) => s.productImages)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const [expanded, setExpanded] = useState(false)
   const [wasInteracted, setWasInteracted] = useState(false)
@@ -176,6 +177,7 @@ export function DataArtifact() {
   const hasMore = rows.length > COMPACT_ROWS
 
   return (
+    <>
     <AnimatePresence>
       {visible ? (
         <motion.div
@@ -313,7 +315,8 @@ export function DataArtifact() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: dur.base, delay: i * 0.1 }}
-                      style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                      onClick={(e) => { e.stopPropagation(); setLightboxIndex(i) }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
                     >
                       <img
                         src={img.thumbnail || img.image}
@@ -325,7 +328,10 @@ export function DataArtifact() {
                           objectFit: 'cover',
                           borderRadius: 'var(--r-xs)',
                           background: 'var(--fill-1)',
+                          transition: 'transform .15s',
                         }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                       />
                       <span style={{
@@ -361,5 +367,124 @@ export function DataArtifact() {
         </motion.div>
       ) : null}
     </AnimatePresence>
+
+    {/* Lightbox — imagem expandida com navegação */}
+    <AnimatePresence>
+      {lightboxIndex !== null && productImages[lightboxIndex] ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={() => setLightboxIndex(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(0,0,0,.85)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* Imagem */}
+          <motion.img
+            key={lightboxIndex}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            src={productImages[lightboxIndex].image}
+            alt={productImages[lightboxIndex].title}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '80vw',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+              borderRadius: 'var(--r-sm)',
+              boxShadow: '0 20px 60px rgba(0,0,0,.5)',
+            }}
+          />
+
+          {/* Título */}
+          <p style={{
+            marginTop: 16,
+            fontSize: 14,
+            color: 'var(--t-hi)',
+            fontFamily: 'var(--f)',
+            textAlign: 'center',
+            maxWidth: '60vw',
+          }}>
+            {productImages[lightboxIndex].title}
+          </p>
+
+          {/* Contador */}
+          <span style={{
+            marginTop: 8,
+            fontSize: 12,
+            fontFamily: 'var(--f-mono)',
+            color: 'var(--t-ghost)',
+          }}>
+            {lightboxIndex + 1} / {productImages.length}
+          </span>
+
+          {/* Navegação */}
+          {productImages.length > 1 ? (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((lightboxIndex - 1 + productImages.length) % productImages.length)
+                }}
+                style={{
+                  position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)',
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: 'rgba(255,255,255,.1)', border: 'none',
+                  color: 'var(--t-hi)', fontSize: 20, cursor: 'pointer',
+                  display: 'grid', placeItems: 'center',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                ‹
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((lightboxIndex + 1) % productImages.length)
+                }}
+                style={{
+                  position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)',
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: 'rgba(255,255,255,.1)', border: 'none',
+                  color: 'var(--t-hi)', fontSize: 20, cursor: 'pointer',
+                  display: 'grid', placeItems: 'center',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                ›
+              </button>
+            </>
+          ) : null}
+
+          {/* Fechar */}
+          <button
+            onClick={() => setLightboxIndex(null)}
+            style={{
+              position: 'absolute', top: 20, right: 20,
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(255,255,255,.1)', border: 'none',
+              color: 'var(--t-hi)', fontSize: 18, cursor: 'pointer',
+              display: 'grid', placeItems: 'center',
+            }}
+          >
+            ✕
+          </button>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+    </>
   )
 }
