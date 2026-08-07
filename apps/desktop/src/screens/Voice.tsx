@@ -18,6 +18,7 @@ import { orbDragStart, orbDragMove, orbDragEnd } from '../orb/orbDrag'
 import { ttsLock } from '../hooks/ttsLock'
 import { preloadFillers, playFiller } from '../hooks/fillerCache'
 import { cleanForSpeech as cleanForSpeechInline } from '../hooks/cleanForSpeech'
+import { playSendSound, playListeningSound } from '../hooks/uiSounds'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
@@ -129,6 +130,7 @@ export function Voice() {
 
     if (text) {
       setState('thinking')
+      playSendSound()
       sendMessage(text)
     } else {
       setState('idle')
@@ -373,6 +375,7 @@ export function Voice() {
   const handleMicClick = () => {
     if (state === 'idle') {
       stopAllTTS()
+      playListeningSound()
       setError('')
       setTranscript('')
       transcriptRef.current = ''
