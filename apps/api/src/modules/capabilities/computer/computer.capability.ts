@@ -120,16 +120,77 @@ export class ComputerCapability implements Capability, OnModuleInit {
       this.logger.log(`[CMD] ${cmd}`);
       return { success: true, message: `"${name}" aberto.`, data: { command: cmd } };
     } catch {
-      // Falhou — orientar o LLM a tentar via run_command
-      return {
-        success: false,
-        message: `"${name}" não encontrado via start. Use run_command com PowerShell direto: Start-Process "${normalized}://" ou Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu" -Recurse -Filter "*${normalized}*" | Select -First 1 | % { Start-Process $_.FullName }`,
-        data: { command: cmd, failed: true },
-      };
+      // Fallback: descobrir automaticamente via PowerShell (sem hardcodar caminhos)
+      if (isWindows) {
+        return this.discoverAndLaunch(name, normalized);
+      }
+      return { success: false, message: `"${name}" não encontrado.` };
     }
   }
 
   // ── Helpers ──
+
+  /**
+   * Descobre e abre um app dinamicamente via PowerShell.
+   * Tenta 3 estratégias em sequência, sem hardcodar caminhos:
+   * 1. Get-StartApps (apps registrados no Windows)
+   * 2. Protocolo URI (steam://, discord://, etc.)
+   * 3. Busca no Menu Iniciar (atalhos .lnk)
+   */
+  private async discoverAndLaunch(displayName: string, search: string): Promise<CapabilityResult> {
+    const strategies = [
+      // 1. Get-StartApps — lista apps instalados do Windows
+      {
+        name: 'Get-StartApps',
+        cmd: `Get-StartApps | Where-Object { $_.Name -like '*${search}*' } | Select-Object -First 1 -ExpandProperty AppID`,
+        launch: (appId: string) => `Start-Process "shell:AppsFolder\\${appId}"`,
+      },
+      // 2. Protocolo URI — muitos apps registram protocolos
+      {
+        name: 'URI protocol',
+        cmd: `$null`, // não precisa descobrir
+        direct: `Start-Process "${search}://"`,
+      },
+      // 3. Menu Iniciar — busca atalhos .lnk
+      {
+        name: 'Start Menu',
+        cmd: [
+          `Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs" -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -like '*${search}*' } | Select-Object -First 1 -ExpandProperty FullName`,
+          `Get-ChildItem "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs" -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -like '*${search}*' } | Select-Object -First 1 -ExpandProperty FullName`,
+        ],
+        launch: (path: string) => `Start-Process '${path}'`,
+      },
+    ];
+
+    for (const strategy of strategies) {
+      try {
+        if ('direct' in strategy && strategy.direct) {
+          // Tentar execução direta (protocolo URI)
+          await execAsync(strategy.direct, { timeout: 8000, shell: 'powershell.exe' });
+          this.logger.log(`[${strategy.name}] ${strategy.direct}`);
+          return { success: true, message: `"${displayName}" aberto.`, data: { command: strategy.direct, method: strategy.name } };
+        }
+
+        // Descobrir e lançar
+        const cmds = Array.isArray(strategy.cmd) ? strategy.cmd : [strategy.cmd];
+        for (const cmd of cmds) {
+          if (cmd === '$null') continue;
+          try {
+            const { stdout } = await execAsync(cmd, { timeout: 8000, shell: 'powershell.exe' });
+            const result = stdout.trim();
+            if (result && strategy.launch) {
+              const launchCmd = strategy.launch(result);
+              await execAsync(launchCmd, { timeout: 8000, shell: 'powershell.exe' });
+              this.logger.log(`[${strategy.name}] ${launchCmd}`);
+              return { success: true, message: `"${displayName}" aberto.`, data: { command: launchCmd, discovered: result, method: strategy.name } };
+            }
+          } catch { /* próximo cmd */ }
+        }
+      } catch { /* próxima estratégia */ }
+    }
+
+    return { success: false, message: `"${displayName}" não encontrado no sistema. Verifique se está instalado.` };
+  }
 
   private get homeDir(): string {
     return process.env.USERPROFILE || process.env.HOME || '.';
