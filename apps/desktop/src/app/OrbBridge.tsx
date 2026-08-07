@@ -63,8 +63,8 @@ export function OrbBridge() {
       >
         <JarvisOrb
           state={state}
-          pointCount={50000}
-          pointSize={2.8}
+          pointCount={18000}
+          pointSize={4.5}
           primaryColor={colors.primary}
           secondaryColor={colors.secondary}
           lightMode={isLight}
