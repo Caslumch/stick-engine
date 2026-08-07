@@ -71,10 +71,10 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     @MessageBody() payload: MessageSendPayload,
     @ConnectedSocket() client: Socket,
   ) {
-    // Dedup: ignorar mensagem idêntica nos últimos 5 segundos
+    // Dedup: ignorar mensagem idêntica nos últimos 15 segundos
     const hash = payload.text + (payload.conversationId || '');
     const now = Date.now();
-    if (hash === this.lastMessageHash && now - this.lastMessageTime < 5000) {
+    if (hash === this.lastMessageHash && now - this.lastMessageTime < 15000) {
       this.logger.debug(`Mensagem duplicada ignorada: "${payload.text.slice(0, 30)}"`);
       return;
     }

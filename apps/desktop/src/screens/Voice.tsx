@@ -101,11 +101,7 @@ export function Voice() {
   // Checar se Qwen3-TTS está disponível (funciona em browser e Tauri)
   const [serverReady, setQwenReady] = useState(false)
   useEffect(() => {
-    checkServerTTS().then((ready) => {
-      setQwenReady(ready)
-      // Pré-cachear fillers assim que TTS estiver disponível
-      if (ready) preloadFillers()
-    })
+    checkServerTTS().then(setQwenReady)
   }, [])
 
   // Prioridade: Qwen3-TTS > Tauri/Piper > Web Speech API

@@ -156,7 +156,8 @@ async def speak(req: SpeakRequest):
             return Response(content=f"Engine desconhecido: {engine}", status_code=400)
 
         elapsed = time.time() - t0
-        print(f"[{engine}] '{req.text[:50]}...' -> {len(audio_bytes)} bytes, {elapsed:.2f}s")
+        preview = req.text[:50].encode('ascii', 'replace').decode('ascii')
+        print(f"[{engine}] '{preview}...' -> {len(audio_bytes)} bytes, {elapsed:.2f}s")
 
         return Response(
             content=audio_bytes,
