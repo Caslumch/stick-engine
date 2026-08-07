@@ -168,14 +168,25 @@ function GeneralTab() {
 
 function AppearanceGroup() {
   const { mode, setMode } = useTheme()
-  const [accent, setAccent] = useState(ACCENT_SWATCHES[0])
-  const [bgPreset, setBgPreset] = useState('none')
-  const [bgBlur, setBgBlur] = useState(18)
-  const [bgDim, setBgDim] = useState(55)
+  const { updateSetting } = useSocket()
+  const settings = useJarvisStore((s) => s.settings)
+
+  const accent = settings['ui.accent'] || ACCENT_SWATCHES[0]
+  const bgPreset = settings['ui.bgPreset'] || 'none'
+  const bgBlur = parseInt(settings['ui.bgBlur'] || '18', 10)
+  const bgDim = parseInt(settings['ui.bgDim'] || '55', 10)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const applyAccent = (color: string) => {
-    setAccent(color)
+  // Aplicar settings visuais ao montar (restaurar do banco)
+  useEffect(() => {
+    if (settings['ui.accent']) applyAccentCSS(settings['ui.accent'])
+    if (settings['ui.bgPreset'] && settings['ui.bgPreset'] !== 'none') applyBgCSS(settings['ui.bgPreset'])
+    if (settings['ui.bgBlur']) document.documentElement.style.setProperty('--bg-blur', settings['ui.bgBlur'] + 'px')
+    if (settings['ui.bgDim']) document.documentElement.style.setProperty('--bg-dim', String(parseInt(settings['ui.bgDim'], 10) / 100))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const applyAccentCSS = (color: string) => {
     const state = useJarvisStore.getState().state
     if (state === 'idle') {
       document.documentElement.style.setProperty('--accent', color)
@@ -185,9 +196,13 @@ function AppearanceGroup() {
     }
   }
 
-  const applyBg = (key: string) => {
-    setBgPreset(key)
-    const hasImg = key !== 'none'
+  const applyAccent = (color: string) => {
+    applyAccentCSS(color)
+    updateSetting('ui.accent', color)
+  }
+
+  const applyBgCSS = (key: string) => {
+    const hasImg = key !== 'none' && key !== 'custom'
     document.documentElement.style.setProperty('--bg-img', BG_PRESETS[key] ?? key)
     document.documentElement.style.setProperty('--blob-op', hasImg ? '.35' : '1')
     const photo = document.querySelector('.backdrop-photo') as HTMLElement | null
@@ -197,13 +212,19 @@ function AppearanceGroup() {
     }
   }
 
+  const applyBg = (key: string) => {
+    applyBgCSS(key)
+    updateSetting('ui.bgPreset', key)
+  }
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
     const reader = new FileReader()
     reader.onload = () => {
-      applyBg(`url("${reader.result}")`)
-      setBgPreset('custom')
+      const dataUrl = `url("${reader.result}")`
+      applyBgCSS(dataUrl)
+      updateSetting('ui.bgPreset', dataUrl)
     }
     reader.readAsDataURL(f)
   }
@@ -265,10 +286,10 @@ function AppearanceGroup() {
         </div>
       </Row>
       <Row label="Background blur" description="More blur keeps text legible over busy photos.">
-        <Slider value={bgBlur} min={0} max={60} suffix="px" onChange={(v) => { setBgBlur(v); document.documentElement.style.setProperty('--bg-blur', v + 'px') }} />
+        <Slider value={bgBlur} min={0} max={60} suffix="px" onChange={(v) => { updateSetting('ui.bgBlur', String(v)); document.documentElement.style.setProperty('--bg-blur', v + 'px') }} />
       </Row>
       <Row label="Background dim" description="How much of the base colour sits on top.">
-        <Slider value={bgDim} min={0} max={95} suffix="%" onChange={(v) => { setBgDim(v); document.documentElement.style.setProperty('--bg-dim', String(v / 100)) }} />
+        <Slider value={bgDim} min={0} max={95} suffix="%" onChange={(v) => { updateSetting('ui.bgDim', String(v)); document.documentElement.style.setProperty('--bg-dim', String(v / 100)) }} />
       </Row>
     </Group>
   )
