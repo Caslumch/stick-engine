@@ -56,11 +56,9 @@ export function Voice() {
   const webStt = useSpeechRecognition({
     onInterim: (text) => { setTranscript(text); transcriptRef.current = text },
     onResult: (text) => {
-      setTranscript((prev) => {
-        const full = prev ? prev + ' ' + text : text
-        transcriptRef.current = full
-        return full
-      })
+      // Substituir, não concatenar — o interim já mostrou o texto
+      setTranscript(text)
+      transcriptRef.current = text
     },
     onEnd: () => {},
     onError: (err) => { setError(`Microfone: ${err}`); console.warn('[STT/Web]', err) },
