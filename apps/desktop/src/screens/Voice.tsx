@@ -163,11 +163,17 @@ export function Voice() {
     onVoiceStart: () => {
       const current = useJarvisStore.getState().state
       if (current === 'speaking') {
-        // Interromper TTS e voltar a ouvir
+        // Interromper TUDO: TTS normal + streaming queue + áudio ativo
         ttsRef.current.cancel()
+        cancelledRef.current = true
+        streamQueueRef.current = []
+        streamTTSActiveRef.current = false
+        ttsLock.active = false
+        // Voltar a ouvir
         setState('listening')
         setTranscript('')
         transcriptRef.current = ''
+        sendingRef.current = false
         startAudio()
         stt.start()
         vad.start()
@@ -236,7 +242,10 @@ export function Voice() {
 
     let prefetchPromise: Promise<AudioBuffer | null> | null = null
 
+    cancelledRef.current = false
+
     while (streamQueueRef.current.length > 0) {
+      if (cancelledRef.current) break
       const sentence = streamQueueRef.current.shift()!
       if (!sentence.trim()) continue
 
@@ -347,7 +356,7 @@ export function Voice() {
   // --- Handlers ---
   const handleMicClick = () => {
     if (state === 'idle') {
-      ttsRef.current.cancel()
+      stopAllTTS()
       setError('')
       setTranscript('')
       transcriptRef.current = ''
@@ -371,15 +380,24 @@ export function Voice() {
 
   const handleSend = () => doSend()
 
-  const handleCancel = useCallback(() => {
+  /** Para TUDO: TTS normal + streaming queue + áudio */
+  const stopAllTTS = useCallback(() => {
     ttsRef.current.cancel()
+    cancelledRef.current = true
+    streamQueueRef.current = []
+    streamTTSActiveRef.current = false
+    ttsLock.active = false
+  }, [])
+
+  const handleCancel = useCallback(() => {
+    stopAllTTS()
     setState('idle')
-  }, [setState])
+  }, [setState, stopAllTTS])
 
   const handleInterrupt = useCallback(() => {
-    ttsRef.current.cancel()
+    stopAllTTS()
     setState('idle')
-  }, [setState])
+  }, [setState, stopAllTTS])
 
   // --- Espaço: iniciar/enviar gravação via evento do keyboard shortcut ---
   useEffect(() => {
@@ -387,7 +405,7 @@ export function Voice() {
       const s = useJarvisStore.getState().state
       if (s === 'idle') handleMicClick()
       else if (s === 'listening') doSend()
-      else if (s === 'speaking') { ttsRef.current.cancel(); setState('idle') }
+      else if (s === 'speaking') { stopAllTTS(); setState('idle') }
     }
     window.addEventListener('jarvis:space', handler)
     return () => window.removeEventListener('jarvis:space', handler)
