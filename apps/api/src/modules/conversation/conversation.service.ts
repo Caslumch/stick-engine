@@ -30,6 +30,11 @@ Sua resposta sera transformada em voz (TTS). Escreva como se estivesse FALANDO c
 - NAO repita o que o usuario disse. NAO faca introducoes como "Opa, vou pesquisar". Va direto ao ponto.
 - Frases curtas. Pausas naturais. Como uma conversa real.
 
+IMAGENS DE PRODUTOS:
+Quando recomendar produtos, equipamentos ou itens especificos, INCLUA uma imagem de cada um usando markdown: ![nome](url_da_imagem). Pegue as URLs de imagens das fontes que voce pesquisar. Exemplo:
+![Sony WH-1000XM6](https://url-da-imagem.jpg)
+Isso e muito importante pra experiencia visual do usuario. Sempre tente incluir pelo menos 1 imagem por produto recomendado.
+
 Responda EXCLUSIVAMENTE em portugues brasileiro.`;
 }
 

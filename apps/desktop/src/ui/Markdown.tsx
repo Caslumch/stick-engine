@@ -145,6 +145,24 @@ const components: Components = {
       {children}
     </td>
   ),
+  img: ({ src, alt }) => (
+    <img
+      src={src}
+      alt={alt || ''}
+      loading="lazy"
+      style={{
+        maxWidth: '100%',
+        height: 'auto',
+        borderRadius: 'var(--r-xs)',
+        margin: '6px 0',
+        display: 'block',
+        maxHeight: 200,
+        objectFit: 'cover',
+        background: 'var(--fill-1)',
+      }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+    />
+  ),
   a: ({ href, children }) => (
     <a
       href={href}
