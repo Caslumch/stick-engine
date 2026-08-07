@@ -16,6 +16,8 @@ import { TerminalFeed } from '../ui/TerminalFeed'
 import { DataArtifact } from '../ui/DataArtifact'
 import { orbDragStart, orbDragMove, orbDragEnd } from '../orb/orbDrag'
 import { ttsLock } from '../hooks/ttsLock'
+import { preloadFillers, playFiller } from '../hooks/fillerCache'
+import { cleanForSpeech as cleanForSpeechInline } from '../hooks/cleanForSpeech'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
@@ -87,7 +89,11 @@ export function Voice() {
   // Checar se Qwen3-TTS está disponível (funciona em browser e Tauri)
   const [serverReady, setQwenReady] = useState(false)
   useEffect(() => {
-    checkServerTTS().then(setQwenReady)
+    checkServerTTS().then((ready) => {
+      setQwenReady(ready)
+      // Pré-cachear fillers assim que TTS estiver disponível
+      if (ready) preloadFillers()
+    })
   }, [])
 
   // Prioridade: Qwen3-TTS > Tauri/Piper > Web Speech API
@@ -108,35 +114,11 @@ export function Voice() {
     vad.stop()
 
     if (IN_TAURI) {
-      // Feedback imediato: muda pra thinking e fala filler enquanto Whisper processa
+      // Feedback imediato: muda pra thinking e fala filler instantâneo do cache
       setState('thinking')
       setTranscript('Transcrevendo...')
       addToolExecution({ toolName: '_stt_transcribe', status: 'executing' })
-
-      // Filler imediato durante transcrição
-      const fillers = ['Hmm, deixa eu ouvir...', 'Um momento...', 'Já já...', 'Deixa eu ver...']
-      const filler = fillers[Math.floor(Math.random() * fillers.length)]
-      const settings = useJarvisStore.getState().settings
-      const engine = settings['tts.engine'] || 'edge'
-      const voice = settings['tts.voice'] || ''
-      fetch('http://localhost:5001/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: filler, engine, voice }),
-      }).then(async (resp) => {
-        if (!resp.ok || cancelledRef.current) return
-        const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
-        const bytes = await resp.arrayBuffer()
-        const bus = getTTSBus()
-        await resumeTTSBus()
-        // Só tocar se ainda estamos transcrevendo
-        if (useJarvisStore.getState().state !== 'thinking') return
-        const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
-        const source = bus.ctx.createBufferSource()
-        source.buffer = audioBuffer
-        source.connect(bus.input)
-        source.start()
-      }).catch(() => {})
+      playFiller() // Instantâneo (~5ms) — pré-cacheado na memória
 
       await stt.stop()
       updateToolExecution('_stt_transcribe', { success: true, message: transcriptRef.current.trim() || 'sem áudio' })
@@ -211,32 +193,12 @@ export function Voice() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
-  // --- Falar filler enquanto LLM processa ---
+  // --- Falar filler enquanto LLM processa (instantâneo do cache) ---
   const fillerSpokenRef = useRef('')
   useEffect(() => {
     if (state === 'thinking' && fillerText && fillerText !== fillerSpokenRef.current) {
       fillerSpokenRef.current = fillerText
-      // Fala o filler sem mudar o estado pra 'speaking' — continua 'thinking'
-      const settings = useJarvisStore.getState().settings
-      const engine = settings['tts.engine'] || 'edge'
-      const voice = settings['tts.voice'] || ''
-      fetch('http://localhost:5001/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: fillerText, engine, voice }),
-      }).then(async (resp) => {
-        if (!resp.ok || cancelledRef.current) return
-        const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
-        const bytes = await resp.arrayBuffer()
-        const bus = getTTSBus()
-        await resumeTTSBus()
-        const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
-        if (useJarvisStore.getState().state !== 'thinking') return
-        const source = bus.ctx.createBufferSource()
-        source.buffer = audioBuffer
-        source.connect(bus.input)
-        source.start()
-      }).catch(() => {})
+      playFiller() // Instantâneo do cache, sem fetch
     }
     if (state !== 'thinking') {
       fillerSpokenRef.current = ''
@@ -246,7 +208,77 @@ export function Voice() {
   // --- Ref pra cancelamento compartilhado ---
   const cancelledRef = useRef(false)
 
-  // --- Falar mensagens novas do assistente ---
+  // --- Streaming TTS: falar frases conforme o LLM gera ---
+  const streamSpokenLenRef = useRef(0)   // quanto do stream já foi enviado pro TTS
+  const streamTTSActiveRef = useRef(false) // se o TTS streaming está ativo
+  const streamQueueRef = useRef<string[]>([]) // fila de frases pra falar
+
+  /** Processa a fila de frases — fala uma por vez sequencialmente */
+  const processStreamQueue = useCallback(async () => {
+    if (streamTTSActiveRef.current) return // já processando
+    streamTTSActiveRef.current = true
+    ttsLock.active = true
+
+    while (streamQueueRef.current.length > 0) {
+      const sentence = streamQueueRef.current.shift()!
+      if (!sentence.trim()) continue
+
+      setState('speaking')
+      await new Promise<void>((resolve) => {
+        const settings = useJarvisStore.getState().settings
+        const engine = settings['tts.engine'] || 'edge'
+        const voice = settings['tts.voice'] || ''
+
+        fetch('http://localhost:5001/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanForSpeechInline(sentence), engine, voice }),
+        }).then(async (resp) => {
+          if (!resp.ok) { resolve(); return }
+          const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
+          const bytes = await resp.arrayBuffer()
+          const bus = getTTSBus()
+          await resumeTTSBus()
+          const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0))
+          const source = bus.ctx.createBufferSource()
+          source.buffer = audioBuffer
+          source.connect(bus.input)
+          source.onended = () => resolve()
+          source.start()
+        }).catch(() => resolve())
+      })
+    }
+
+    streamTTSActiveRef.current = false
+    ttsLock.active = false
+    // Se não tem mais stream, voltar pra idle
+    if (!useJarvisStore.getState().streamingText) {
+      if (useJarvisStore.getState().state === 'speaking') setState('idle')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setState])
+
+  // Detectar frases completas no stream e enfileirar pro TTS
+  useEffect(() => {
+    if (!streamingText) {
+      streamSpokenLenRef.current = 0
+      return
+    }
+
+    const unspoken = streamingText.slice(streamSpokenLenRef.current)
+    if (unspoken.length < 20) return // acumular um mínimo
+
+    // Detectar fim de frase: . ! ? ; seguido de espaço ou fim
+    const match = unspoken.match(/^([\s\S]*?[.!?;:])\s/)
+    if (match) {
+      const sentence = match[1].trim()
+      streamSpokenLenRef.current += match[0].length
+      streamQueueRef.current.push(sentence)
+      processStreamQueue()
+    }
+  }, [streamingText, processStreamQueue])
+
+  // --- Quando MessageComplete chega, falar o que sobrou ---
   const spokenIdsRef = useRef<Set<string>>(new Set())
   const messages = useJarvisStore((s) => s.messages)
   const prevMsgLenRef = useRef(messages.length)
@@ -259,13 +291,17 @@ export function Voice() {
     const last = messages[messages.length - 1]
     if (!last || last.role !== 'assistant' || !last.content) return
     if (spokenIdsRef.current.has(last.id)) return
-
     spokenIdsRef.current.add(last.id)
-    ttsRef.current.cancel()
-    // Setar 'speaking' imediatamente pra não piscar idle entre a mensagem chegar e o áudio tocar
-    setState('speaking')
-    ttsRef.current.speak(last.content)
-  }, [messages, setState])
+
+    // Pegar o que sobrou (não foi falado pelo streaming)
+    const remaining = last.content.slice(streamSpokenLenRef.current).trim()
+    streamSpokenLenRef.current = 0
+
+    if (remaining) {
+      streamQueueRef.current.push(remaining)
+      processStreamQueue()
+    }
+  }, [messages, processStreamQueue])
 
   // --- Limpar erro após 4s ---
   useEffect(() => {
