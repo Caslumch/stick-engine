@@ -64,7 +64,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
   readonly tools: Tool[] = [
     {
       name: 'open_application',
-      description: 'Abre um aplicativo ou URL no computador do usuario. Exemplos: "chrome", "youtube", "https://google.com". Para pesquisar na web, use open_application com name="chrome" e path="https://google.com/search?q=sua+pesquisa".',
+      description: 'Abre um aplicativo no computador do usuario. Exemplos: "chrome", "notepad", "explorer", "spotify". NAO use esta tool para pesquisar na internet — use web_search_openai para pesquisas.',
       parameters: {
         type: 'object',
         properties: {
@@ -174,7 +174,9 @@ export class ComputerCapability implements Capability, OnModuleInit {
     }
 
     try {
-      const resolvedPath = targetPath ? this.resolvePath(targetPath) : '';
+      // Se path é URL, não resolver como caminho local
+      const isUrl = targetPath && /^https?:\/\//i.test(targetPath);
+      const resolvedPath = targetPath ? (isUrl ? targetPath : this.resolvePath(targetPath)) : '';
       const pathArg = resolvedPath ? ` "${resolvedPath}"` : '';
       const isWindows = process.platform === 'win32';
 
