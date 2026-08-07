@@ -52,19 +52,19 @@ export function OrbBridge() {
       }}
     >
       <Canvas
-        dpr={[1, 1.75]}
+        dpr={[1.5, 2]}
         frameloop="always"
         resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
         camera={{ position: [0, 0, 4.2], fov: 45 }}
-        gl={{ antialias: false, alpha: true }}
+        gl={{ antialias: true, alpha: true }}
         onCreated={(s) => {
           s.gl.setClearColor(0x000000, 0)
         }}
       >
         <JarvisOrb
           state={state}
-          pointCount={30000}
-          pointSize={3.6}
+          pointCount={50000}
+          pointSize={2.8}
           primaryColor={colors.primary}
           secondaryColor={colors.secondary}
           lightMode={isLight}
@@ -72,9 +72,9 @@ export function OrbBridge() {
         />
         <EffectComposer>
           <Bloom
-            intensity={isLight ? 0.25 : 0.9}
-            luminanceThreshold={isLight ? 0.7 : 0.38}
-            luminanceSmoothing={0.65}
+            intensity={isLight ? 0.2 : 0.55}
+            luminanceThreshold={isLight ? 0.75 : 0.5}
+            luminanceSmoothing={0.4}
             mipmapBlur
           />
         </EffectComposer>
