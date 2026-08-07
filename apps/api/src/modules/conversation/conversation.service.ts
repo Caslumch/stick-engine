@@ -311,6 +311,90 @@ export class ConversationService {
     return { intent: 'information', confidence: 0.5 };
   }
 
+  /**
+   * Fast-path: resolve perguntas simples sem LLM (~10ms).
+   * Retorna string se resolveu, null se precisa do LLM.
+   */
+  async tryFastPath(text: string, intent: IntentClassification): Promise<string | null> {
+    const lower = text.toLowerCase().trim();
+
+    // --- Saudações: resposta instantânea ---
+    if (intent.intent === 'conversation' && intent.confidence >= 0.85) {
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+
+      if (/^(oi|ola|eai|fala|salve|opa)\b/i.test(lower)) {
+        return `${greeting}! No que posso ajudar?`;
+      }
+      if (/^(bom dia|boa tarde|boa noite)/i.test(lower)) {
+        return `${greeting}! Tudo tranquilo por aqui. Precisa de algo?`;
+      }
+      if (/^(tudo bem|como vai|como voce esta)/i.test(lower)) {
+        return 'Tudo certo! E você? Posso te ajudar com algo?';
+      }
+      if (/^(valeu|obrigad|brigad)/i.test(lower)) {
+        return 'De nada! Qualquer coisa, estou aqui.';
+      }
+      if (/^(tchau|ate mais|falou|fui)/i.test(lower)) {
+        return 'Até mais! Qualquer coisa é só chamar.';
+      }
+    }
+
+    // --- Hora / Data ---
+    if (/que horas|hora atual|que horas sao/i.test(lower)) {
+      const now = new Date();
+      const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+      return `São ${time}.`;
+    }
+    if (/que dia e hoje|qual.*(data|dia) de hoje|dia hoje/i.test(lower)) {
+      const now = new Date();
+      const date = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' });
+      return `Hoje é ${date}.`;
+    }
+
+    // --- Ações diretas por padrão ---
+    // "abre o chrome" / "abra o spotify"
+    const openMatch = lower.match(/^(?:abre|abra|abre o|abra o|abre a|abra a)\s+(.+?)[\s.!]*$/i);
+    if (openMatch) {
+      const appName = openMatch[1].trim();
+      const result = await this.capabilities.execute('open_application', { name: appName });
+      return result.success
+        ? `Abrindo ${appName}.`
+        : result.message || `Não consegui abrir ${appName}.`;
+    }
+
+    // "toca" / "coloca" música
+    const playMatch = lower.match(/^(?:toca|coloca|bota|play)\s+(.+?)[\s.!]*$/i);
+    if (playMatch) {
+      const query = playMatch[1].trim();
+      const searchResult = await this.capabilities.execute('spotify_search', { query });
+      if (searchResult.success) {
+        await this.capabilities.execute('spotify_play', { query });
+        return `Tocando ${query}.`;
+      }
+      return `Não encontrei "${query}" no Spotify.`;
+    }
+
+    // "para a musica" / "pausa"
+    if (/^(para|pausa|pause|stop)\s*(a musica|a música|o spotify)?[\s.!]*$/i.test(lower)) {
+      await this.capabilities.execute('spotify_control', { action: 'pause' });
+      return 'Pausado.';
+    }
+
+    // "acende a luz" / "apaga a luz" / "liga a luz" / "desliga a luz"
+    const lightMatch = lower.match(/^(acend|apag|liga|desliga)[ea]?\s+(a\s+)?(.+?)[\s.!]*$/i);
+    if (lightMatch) {
+      const action = /^(acend|liga)/i.test(lightMatch[1]) ? 'on' : 'off';
+      const device = lightMatch[3].trim();
+      const result = await this.capabilities.execute('home_control', { device, action });
+      return result.success
+        ? `${action === 'on' ? 'Ligando' : 'Desligando'} ${device}.`
+        : result.message || `Não consegui controlar ${device}.`;
+    }
+
+    return null; // Precisa do LLM
+  }
+
   async handleMessage(
     conversationId: string,
     text: string,

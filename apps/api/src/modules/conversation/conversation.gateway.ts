@@ -75,10 +75,44 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
       conversationId = conversation.id;
     }
 
-    // Classify intent first to pick a contextual filler
+    // Classify intent first
     const intent = this.conversationService.classifyIntent(payload.text);
-    const filler = pickFiller(intent.intent);
 
+    // --- FAST PATH: resolver sem LLM (~10ms) ---
+    const fastResponse = await this.conversationService.tryFastPath(payload.text, intent);
+    if (fastResponse) {
+      this.logger.log(`Fast-path: "${payload.text.slice(0, 40)}" → "${fastResponse.slice(0, 40)}"`);
+      this.emitStateChange('speaking');
+
+      // Persistir mensagens
+      const repo = this.conversationService;
+      const msg = await (repo as any).repository.addMessage(conversationId, { role: 'user', content: payload.text });
+      const assistantMsg = await (repo as any).repository.addMessage(conversationId, { role: 'assistant', content: fastResponse });
+
+      // Stream a resposta token por token (pra manter consistência)
+      for (const word of fastResponse.split(' ')) {
+        client.emit(WsEvent.MessageStream, { token: word + ' ', conversationId });
+      }
+
+      client.emit(WsEvent.MessageComplete, {
+        message: {
+          id: assistantMsg.id,
+          conversationId,
+          role: 'assistant',
+          content: fastResponse,
+          provider: 'fast-path',
+          model: 'heuristic',
+          createdAt: assistantMsg.createdAt.toISOString(),
+        },
+        conversationId,
+      });
+
+      this.emitStateChange('idle');
+      return;
+    }
+
+    // --- SLOW PATH: LLM ---
+    const filler = pickFiller(intent.intent);
     this.emitStateChange('thinking', filler || undefined);
 
     if (filler) {
