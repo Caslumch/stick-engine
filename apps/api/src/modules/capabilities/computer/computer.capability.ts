@@ -136,9 +136,14 @@ export class ComputerCapability implements Capability, OnModuleInit {
   async execute(toolName: string, params: Record<string, unknown>): Promise<CapabilityResult> {
     switch (toolName) {
       case 'open_application': {
-        // LLMs sometimes use alternate param names
-        const name = (params.name ?? params.application ?? params.app_name ?? params.app) as string;
-        if (!name) return { success: false, message: 'Nome do aplicativo nao fornecido.' };
+        // LLMs sometimes use alternate param names or send empty args
+        let name = (params.name ?? params.application ?? params.app_name ?? params.app) as string;
+        // Fallback: tentar extrair app name de qualquer valor string nos params
+        if (!name) {
+          const strValues = Object.values(params).filter((v) => typeof v === 'string' && v.trim()) as string[];
+          if (strValues.length > 0) name = strValues[0];
+        }
+        if (!name) return { success: false, message: `Nome do aplicativo nao fornecido. Diga qual app abrir: ${APP_WHITELIST.join(', ')}` };
         const filePath = (params.path ?? params.file_path ?? params.folder) as string | undefined;
         return this.openApplication(name, filePath);
       }
