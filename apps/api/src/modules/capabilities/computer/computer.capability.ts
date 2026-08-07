@@ -138,58 +138,32 @@ export class ComputerCapability implements Capability, OnModuleInit {
    * 3. Busca no Menu Iniciar (atalhos .lnk)
    */
   private async discoverAndLaunch(displayName: string, search: string): Promise<CapabilityResult> {
-    const strategies = [
-      // 1. Get-StartApps — lista apps instalados do Windows
-      {
-        name: 'Get-StartApps',
-        cmd: `Get-StartApps | Where-Object { $_.Name -like '*${search}*' } | Select-Object -First 1 -ExpandProperty AppID`,
-        launch: (appId: string) => `Start-Process "shell:AppsFolder\\${appId}"`,
-      },
-      // 2. Protocolo URI — muitos apps registram protocolos
-      {
-        name: 'URI protocol',
-        cmd: `$null`, // não precisa descobrir
-        direct: `Start-Process "${search}://"`,
-      },
-      // 3. Menu Iniciar — busca atalhos .lnk
-      {
-        name: 'Start Menu',
-        cmd: [
-          `Get-ChildItem "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs" -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -like '*${search}*' } | Select-Object -First 1 -ExpandProperty FullName`,
-          `Get-ChildItem "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs" -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -like '*${search}*' } | Select-Object -First 1 -ExpandProperty FullName`,
-        ],
-        launch: (path: string) => `Start-Process '${path}'`,
-      },
-    ];
-
-    for (const strategy of strategies) {
+    // Estratégia 1: Menu Iniciar (mais rápido e confiável)
+    for (const folder of ['$env:ProgramData', '$env:APPDATA']) {
       try {
-        if ('direct' in strategy && strategy.direct) {
-          // Tentar execução direta (protocolo URI)
-          await execAsync(strategy.direct, { timeout: 8000, shell: 'powershell.exe' });
-          this.logger.log(`[${strategy.name}] ${strategy.direct}`);
-          return { success: true, message: `"${displayName}" aberto.`, data: { command: strategy.direct, method: strategy.name } };
+        const findCmd = `Get-ChildItem "${folder}\\Microsoft\\Windows\\Start Menu\\Programs" -Recurse -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -like '*${search}*' } | Select-Object -First 1 -ExpandProperty FullName`;
+        const { stdout } = await execAsync(findCmd, { timeout: 5000, shell: 'powershell.exe' });
+        const lnk = stdout.trim();
+        if (lnk) {
+          // Abrir o atalho sem esperar o processo (& Start-Process retorna imediato)
+          const launchCmd = `Start-Process '${lnk}'`;
+          execAsync(launchCmd, { timeout: 5000, shell: 'powershell.exe' }).catch(() => {});
+          this.logger.log(`[Start Menu] ${lnk}`);
+          return { success: true, message: `"${displayName}" aberto.`, data: { command: launchCmd, method: 'Start Menu' } };
         }
-
-        // Descobrir e lançar
-        const cmds = Array.isArray(strategy.cmd) ? strategy.cmd : [strategy.cmd];
-        for (const cmd of cmds) {
-          if (cmd === '$null') continue;
-          try {
-            const { stdout } = await execAsync(cmd, { timeout: 8000, shell: 'powershell.exe' });
-            const result = stdout.trim();
-            if (result && strategy.launch) {
-              const launchCmd = strategy.launch(result);
-              await execAsync(launchCmd, { timeout: 8000, shell: 'powershell.exe' });
-              this.logger.log(`[${strategy.name}] ${launchCmd}`);
-              return { success: true, message: `"${displayName}" aberto.`, data: { command: launchCmd, discovered: result, method: strategy.name } };
-            }
-          } catch { /* próximo cmd */ }
-        }
-      } catch { /* próxima estratégia */ }
+      } catch { /* próximo */ }
     }
 
-    return { success: false, message: `"${displayName}" não encontrado no sistema. Verifique se está instalado.` };
+    // Estratégia 2: Protocolo URI (steam://, discord://, etc.)
+    try {
+      const uriCmd = `Start-Process "${search}://"`;
+      execAsync(uriCmd, { timeout: 3000, shell: 'powershell.exe' }).catch(() => {});
+      // Não esperar — URI pode abrir mas o processo não termina
+      this.logger.log(`[URI] ${uriCmd}`);
+      return { success: true, message: `"${displayName}" aberto.`, data: { command: uriCmd, method: 'URI' } };
+    } catch { /* próximo */ }
+
+    return { success: false, message: `"${displayName}" não encontrado. Verifique se está instalado.` };
   }
 
   private get homeDir(): string {
