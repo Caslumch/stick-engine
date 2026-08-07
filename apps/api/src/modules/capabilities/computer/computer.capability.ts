@@ -229,16 +229,60 @@ export class ComputerCapability implements Capability, OnModuleInit {
         cmd = `${normalized}${pathArg}`;
       }
 
-      await execAsync(cmd, { timeout: 10000 });
-
-      const msg = targetPath
-        ? `Aplicativo "${name}" aberto com "${targetPath}".`
-        : `Aplicativo "${name}" aberto com sucesso.`;
-      this.logger.log(msg);
-      return { success: true, message: msg };
+      try {
+        await execAsync(cmd, { timeout: 10000 });
+        const msg = targetPath
+          ? `Aplicativo "${name}" aberto com "${targetPath}".`
+          : `Aplicativo "${name}" aberto com sucesso.`;
+        this.logger.log(msg);
+        return { success: true, message: msg };
+      } catch {
+        // Fallback Windows: buscar no Menu Iniciar via PowerShell
+        if (isWindows) {
+          return this.openViaStartMenu(name, normalized);
+        }
+        throw new Error(`Não encontrei "${name}" no sistema.`);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      return { success: false, message: `Erro ao abrir "${name}": ${msg}` };
+      return { success: false, message: `Não consegui abrir "${name}". ${msg}` };
+    }
+  }
+
+  /**
+   * Fallback: busca o app no Menu Iniciar do Windows via PowerShell.
+   * Funciona pra Steam, jogos, apps instalados que não estão no PATH.
+   */
+  private async openViaStartMenu(displayName: string, search: string): Promise<CapabilityResult> {
+    try {
+      // Buscar atalho no Menu Iniciar (ProgramData + user AppData)
+      const psCmd = `
+        $search = '*${search.replace(/'/g, "''")}*'
+        $paths = @(
+          "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
+          "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs"
+        )
+        $found = $paths | ForEach-Object {
+          Get-ChildItem $_ -Recurse -Filter '*.lnk' -ErrorAction SilentlyContinue
+        } | Where-Object { $_.BaseName -like $search } | Select-Object -First 1
+        if ($found) { Write-Output $found.FullName } else { Write-Output 'NOT_FOUND' }
+      `.trim();
+
+      const { stdout } = await execAsync(`powershell -NoProfile -Command "${psCmd.replace(/"/g, '\\"')}"`, {
+        timeout: 8000,
+      });
+
+      const shortcutPath = stdout.trim();
+      if (!shortcutPath || shortcutPath === 'NOT_FOUND') {
+        return { success: false, message: `Não encontrei "${displayName}" no Menu Iniciar.` };
+      }
+
+      await execAsync(`start "" "${shortcutPath}"`, { timeout: 5000 });
+      this.logger.log(`Aberto via Menu Iniciar: ${shortcutPath}`);
+      return { success: true, message: `Abrindo ${displayName}.` };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `Não encontrei "${displayName}": ${msg}` };
     }
   }
 
