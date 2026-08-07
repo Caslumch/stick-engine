@@ -33,6 +33,9 @@ interface JarvisStore {
   /** Último resultado de tool com dados ricos — persiste após clear pra DataArtifact */
   lastRichResult: { toolName: string; result: ToolExecution['result']; capturedAt: number } | null;
 
+  /** Imagens de produtos da última resposta */
+  productImages: Array<{ title: string; image: string; thumbnail: string }>;
+
   // Filler
   fillerText: string;
 
@@ -57,6 +60,7 @@ interface JarvisStore {
   updateToolExecution: (toolName: string, result: ToolExecution['result']) => void;
   clearToolExecutions: () => void;
   clearLastRichResult: () => void;
+  setProductImages: (images: Array<{ title: string; image: string; thumbnail: string }>) => void;
   setFillerText: (text: string) => void;
   setSettings: (settings: Record<string, string>) => void;
   updateSetting: (key: string, value: string) => void;
@@ -78,6 +82,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
 
   toolExecutions: [],
   lastRichResult: null,
+  productImages: [],
 
   fillerText: '',
 
@@ -113,7 +118,8 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
       return update;
     }),
   clearToolExecutions: () => set({ toolExecutions: [] }),
-  clearLastRichResult: () => set({ lastRichResult: null }),
+  clearLastRichResult: () => set({ lastRichResult: null, productImages: [] }),
+  setProductImages: (productImages) => set({ productImages }),
   setFillerText: (fillerText) => set({ fillerText }),
   setSettings: (settings) => set({ settings }),
   updateSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),

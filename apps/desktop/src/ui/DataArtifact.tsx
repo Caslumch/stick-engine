@@ -130,6 +130,7 @@ function fmtValue(val: unknown): string {
 export function DataArtifact() {
   const lastRich = useJarvisStore((s) => s.lastRichResult)
   const clearLastRichResult = useJarvisStore((s) => s.clearLastRichResult)
+  const productImages = useJarvisStore((s) => s.productImages)
 
   const [expanded, setExpanded] = useState(false)
   const [wasInteracted, setWasInteracted] = useState(false)
@@ -296,6 +297,51 @@ export function DataArtifact() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+
+              {/* Imagens de produtos */}
+              {productImages.length > 0 && (expanded || !isTextContent) ? (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: productImages.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: 8,
+                  padding: '8px 14px',
+                  borderTop: '1px solid var(--hair)',
+                }}>
+                  {productImages.map((img, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: dur.base, delay: i * 0.1 }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                    >
+                      <img
+                        src={img.thumbnail || img.image}
+                        alt={img.title}
+                        loading="lazy"
+                        style={{
+                          width: '100%',
+                          height: 90,
+                          objectFit: 'cover',
+                          borderRadius: 'var(--r-xs)',
+                          background: 'var(--fill-1)',
+                        }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      />
+                      <span style={{
+                        fontSize: 9.5,
+                        color: 'var(--t-low)',
+                        lineHeight: 1.3,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {img.title}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : null}
 
               {!expanded && (hasMore || isTextContent) ? (
                 <div

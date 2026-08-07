@@ -8,6 +8,7 @@ import { CapabilityRegistryService } from '../capabilities/capability-registry.s
 import { SettingsService } from '../settings/settings.service';
 import type { LlmStreamCallback } from '../../common/interfaces';
 import type { DecisionMadePayload, IntentClassification, IntentType } from '@jarvis/shared';
+import { searchImages, extractProductNames } from './image-search';
 
 // ── System Prompt Modules ───────────────────────────────────────────
 
@@ -29,11 +30,6 @@ Sua resposta sera transformada em voz (TTS). Escreva como se estivesse FALANDO c
 - Fale como um amigo que sabe das coisas: natural, objetivo, sem enrolacao.
 - NAO repita o que o usuario disse. NAO faca introducoes como "Opa, vou pesquisar". Va direto ao ponto.
 - Frases curtas. Pausas naturais. Como uma conversa real.
-
-IMAGENS DE PRODUTOS:
-Quando recomendar produtos, equipamentos ou itens especificos, INCLUA uma imagem de cada um usando markdown: ![nome](url_da_imagem). Pegue as URLs de imagens das fontes que voce pesquisar. Exemplo:
-![Sony WH-1000XM6](https://url-da-imagem.jpg)
-Isso e muito importante pra experiencia visual do usuario. Sempre tente incluir pelo menos 1 imagem por produto recomendado.
 
 Responda EXCLUSIVAMENTE em portugues brasileiro.`;
 }
@@ -512,6 +508,7 @@ export class ConversationService {
     onDecision?: (decision: DecisionMadePayload) => void,
     onToolExecution?: (event: ToolExecutionEvent) => void,
     onIntent?: (intent: IntentClassification) => void,
+    onProductImages?: (images: Array<{ title: string; image: string; thumbnail: string }>) => void,
   ) {
     // 0. Classify intent (zero-latency heuristic)
     const intent = this.classifyIntent(text);
@@ -582,7 +579,22 @@ export class ConversationService {
       this.generateTitle(conversationId, text);
     }
 
-    // 9. Try to extract implicit memories from the conversation (async, non-blocking)
+    // 9. Buscar imagens de produtos mencionados (async, non-blocking)
+    if (onProductImages) {
+      const products = extractProductNames(cleanedContent);
+      if (products.length > 0) {
+        this.logger.log(`Buscando imagens pra: ${products.join(', ')}`);
+        // Buscar em paralelo, não bloquear
+        Promise.all(products.map((p) => searchImages(p, 1)))
+          .then((results) => {
+            const images = results.flat().filter((r) => r.image);
+            if (images.length > 0) onProductImages(images);
+          })
+          .catch(() => {});
+      }
+    }
+
+    // 10. Try to extract implicit memories from the conversation (async, non-blocking)
     this.extractImplicitMemories(text, response.content);
 
     return saved;

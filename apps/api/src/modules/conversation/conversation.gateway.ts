@@ -164,6 +164,9 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
         (classifiedIntent) => {
           client.emit(WsEvent.IntentClassified, classifiedIntent);
         },
+        (images) => {
+          client.emit(WsEvent.ProductImages, { images, conversationId });
+        },
       );
 
       client.emit(WsEvent.MessageComplete, {

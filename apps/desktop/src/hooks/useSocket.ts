@@ -127,6 +127,10 @@ export function useSocket() {
       }
     });
 
+    socket.on(WsEvent.ProductImages, (payload: { images: Array<{ title: string; image: string; thumbnail: string }> }) => {
+      store.setProductImages(payload.images);
+    });
+
     return () => {
       socket.disconnect();
     };
