@@ -435,6 +435,13 @@ export class ConversationService {
     const hasTools = Object.keys(tools).length > 0;
 
     // 6. Generate response via LLM (streamed, with tool calling)
+    // Emitir web_search_openai como artifact se o provider suporta
+    const searchKeywords = await this.settings.get('decision.searchKeywords');
+    const looksLikeSearch = searchKeywords.split(',').some((kw) => text.toLowerCase().includes(kw.trim()));
+    if (looksLikeSearch) {
+      onToolExecution?.({ toolName: 'web_search_openai', args: { query: text } });
+    }
+
     const response = await this.llm.generate({
       messages: history,
       tools: hasTools ? tools : undefined,
@@ -442,6 +449,14 @@ export class ConversationService {
       onToken,
       onDecision,
     });
+
+    // Emitir resultado da web search se foi usada (provider-executed tools)
+    if (looksLikeSearch && response.toolResults?.some((tr) => tr.toolName === 'web_search_openai')) {
+      onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
+    } else if (looksLikeSearch) {
+      // Se emitiu executing mas não teve resultado, fechar o artifact
+      onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
+    }
 
     // 7. Persist assistant message (clean tool-call artifacts from local models)
     const cleanedContent = cleanToolArtifacts(response.content);
