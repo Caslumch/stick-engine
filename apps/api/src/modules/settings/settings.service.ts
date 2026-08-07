@@ -33,7 +33,7 @@ const DEFAULTS: Record<string, string> = {
   'personality.verbosity': 'concise',   // concise | balanced | detailed
 
   // Search
-  'search.tavilyApiKey': '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',
+  'search.tavilyApiKey': process.env.TAVILY_API_KEY || '',
   'openai.webSearch': 'true',
 
   // Finance (LemonFin)
