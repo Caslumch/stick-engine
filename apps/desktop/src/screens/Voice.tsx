@@ -332,7 +332,8 @@ export function Voice() {
 
     // Pegar o que sobrou (não foi falado pelo streaming)
     const spokenSoFar = streamFinalSpokenRef.current || streamSpokenLenRef.current
-    const remaining = spokenSoFar > 0 ? last.content.slice(spokenSoFar).trim() : ''
+    // Se streaming falou parte, pega só o resto. Se não falou nada, fala tudo.
+    const remaining = spokenSoFar > 0 ? last.content.slice(spokenSoFar).trim() : last.content.trim()
     streamFinalSpokenRef.current = 0
     streamSpokenLenRef.current = 0
 
