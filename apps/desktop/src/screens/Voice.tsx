@@ -216,6 +216,8 @@ export function Voice() {
 
   /** Busca TTS pra uma frase e retorna o AudioBuffer decodificado */
   const fetchTTSBuffer = async (sentence: string): Promise<AudioBuffer | null> => {
+    const cleaned = cleanForSpeechInline(sentence).trim()
+    if (cleaned.length < 3) return null // ignorar strings vazias/curtas
     const settings = useJarvisStore.getState().settings
     const engine = settings['tts.engine'] || 'edge'
     const voice = settings['tts.voice'] || ''
@@ -223,11 +225,12 @@ export function Voice() {
       const resp = await fetch('http://localhost:5001/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanForSpeechInline(sentence), engine, voice }),
+        body: JSON.stringify({ text: cleaned, engine, voice }),
       })
       if (!resp.ok) return null
       const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
       const bytes = await resp.arrayBuffer()
+      if (bytes.byteLength < 100) return null // TTS retornou vazio
       const bus = getTTSBus()
       await resumeTTSBus()
       return bus.ctx.decodeAudioData(bytes.slice(0))

@@ -62,11 +62,25 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
+  // Deduplicação: evitar processar a mesma mensagem 2x (WebSocket reconecta)
+  private lastMessageHash = '';
+  private lastMessageTime = 0;
+
   @SubscribeMessage(WsEvent.MessageSend)
   async handleMessage(
     @MessageBody() payload: MessageSendPayload,
     @ConnectedSocket() client: Socket,
   ) {
+    // Dedup: ignorar mensagem idêntica nos últimos 5 segundos
+    const hash = payload.text + (payload.conversationId || '');
+    const now = Date.now();
+    if (hash === this.lastMessageHash && now - this.lastMessageTime < 5000) {
+      this.logger.debug(`Mensagem duplicada ignorada: "${payload.text.slice(0, 30)}"`);
+      return;
+    }
+    this.lastMessageHash = hash;
+    this.lastMessageTime = now;
+
     let conversationId: string;
     if (payload.conversationId) {
       conversationId = payload.conversationId;
