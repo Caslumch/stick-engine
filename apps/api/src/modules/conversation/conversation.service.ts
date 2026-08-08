@@ -97,14 +97,23 @@ function cleanToolArtifacts(text: string): string {
     .replace(/\{"name":\s*"[^"]*",\s*"(arguments|parameters)":\s*\{[^}]*\}\}\s*/g, '')
     // Tool names leaked inline by Qwen/local models
     .replace(/ImageRelationTool:\s*/gi, '')
-    .replace(/\b(open_application|run_command|manage_files|web_search|create_reminder|list_reminders|spotify_\w+|home_\w+|finance_\w+|send_telegram|mcp_\w+)\b/g, '')
+    .replace(/\b(open_application|run_command|manage_files|web_search|create_reminder|list_reminders|complete_reminder|delete_reminder|spotify_\w+|home_\w+|finance_\w+|send_telegram|mcp_\w+)\b/g, '')
+    // Inline code backticks com comandos internos
+    .replace(/`[^`]*(?:start|Start-Process|Get-ChildItem|powershell|cmd)[^`]*`/g, '')
     // "No, " prefix from tool rejection
     .replace(/^No,\s*/i, '')
+    // Reasoning leaked: "? Windows, , Desktop Windows ( )." patterns
+    .replace(/\?\s*\w+\s*Windows\s*,[\s,().\w]*/g, '')
     // Cyrillic leaked by Qwen
     .replace(/[\u0400-\u04FF]+/g, '')
+    // Parênteses vazios, pontuação solta
+    .replace(/\(\s*\)/g, '')
+    .replace(/,\s*,/g, ',')
+    .replace(/\.\s*\./g, '.')
+    .replace(/^\s*[,.\-:]+\s*/gm, '')
     // Clean up leftover whitespace
     .replace(/\n{3,}/g, '\n\n')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/\s{3,}/g, ' ')
     .trim();
 }
 
