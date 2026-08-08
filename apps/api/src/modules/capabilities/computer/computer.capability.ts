@@ -103,7 +103,7 @@ export class ComputerCapability implements Capability, OnModuleInit {
     }
 
     // Blocklist
-    if (APP_BLOCKLIST.some((b) => normalized.includes(b))) {
+    if (APP_BLOCKLIST.some((b) => normalized === b || normalized.startsWith(b + ' '))) {
       return { success: false, message: `"${name}" bloqueado por segurança.` };
     }
 
