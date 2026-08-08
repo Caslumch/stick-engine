@@ -48,13 +48,12 @@ const TOOLS = [
 ]
 
 const LLM_MODELS = [
-  { value: 'llama3.1', label: 'Llama 3.1', desc: 'Meta. Melhor em seguir instruções e PT-BR. 8B params.' },
+  { value: 'qwen3:8b', label: 'Qwen3 8B', desc: 'Recomendado. Tool calling excelente, PT-BR natural. 8B params.' },
+  { value: 'qwen3:14b', label: 'Qwen3 14B', desc: 'Mais inteligente, tool calling top. Precisa de mais RAM. 14B params.' },
+  { value: 'llama3.1', label: 'Llama 3.1', desc: 'Meta. Bom em seguir instruções e PT-BR. 8B params.' },
   { value: 'llama3.2', label: 'Llama 3.2', desc: 'Meta. Versão compacta, rápida. 3B params.' },
-  { value: 'qwen2.5:14b', label: 'Qwen 2.5 14B', desc: 'Alibaba. Tool calling robusto, raciocínio forte. 14B params.' },
-  { value: 'qwen2.5', label: 'Qwen 2.5 7B', desc: 'Alibaba. Compacto, bom em código. 7B params.' },
   { value: 'mistral', label: 'Mistral', desc: 'Mistral AI. Rápido e eficiente. 7B params.' },
   { value: 'gemma2', label: 'Gemma 2', desc: 'Google. Compacto e preciso. 9B params.' },
-  { value: 'phi3', label: 'Phi-3', desc: 'Microsoft. Otimizado pra tarefas curtas. 3.8B params.' },
   { value: 'deepseek-r1', label: 'DeepSeek R1', desc: 'DeepSeek. Forte em raciocínio lógico. 7B params.' },
 ]
 
@@ -298,7 +297,7 @@ function AppearanceGroup() {
 function AgentGroup() {
   const { updateSetting } = useSocket()
   const settings = useJarvisStore((s) => s.settings)
-  const currentModel = settings['llm.ollama.model'] || 'llama3.1'
+  const currentModel = settings['llm.ollama.model'] || 'qwen3:8b'
   const [installedModels, setInstalledModels] = useState<string[]>([])
 
   useEffect(() => {

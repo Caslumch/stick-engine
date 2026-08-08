@@ -17,7 +17,7 @@ export interface JarvisSettings {
 }
 
 const DEFAULTS: Record<string, string> = {
-  'llm.ollama.model': 'llama3.1',
+  'llm.ollama.model': 'qwen3:8b',
   'llm.ollama.url': 'http://localhost:11434',
   'llm.openai.model': 'gpt-4o',
   'llm.preferLocal': 'true',
