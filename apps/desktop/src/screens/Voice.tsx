@@ -322,9 +322,12 @@ export function Voice() {
   const prevMsgLenRef = useRef(messages.length)
 
   useEffect(() => {
-    if (messages.length === prevMsgLenRef.current) return
+    const diff = messages.length - prevMsgLenRef.current
+    if (diff <= 0) { prevMsgLenRef.current = messages.length; return }
     prevMsgLenRef.current = messages.length
 
+    // Batch load (restauração de conversa): não falar — só falar mensagem nova individual
+    if (diff > 2) return
     if (messages.length === 0) return
     const last = messages[messages.length - 1]
     if (!last || last.role !== 'assistant' || !last.content) return
