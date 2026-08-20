@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useJarvisStore } from '../stores/jarvis.store'
 
@@ -8,6 +9,22 @@ export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () 
   const { toggle: toggleTheme } = useTheme()
   const lastDecision = useJarvisStore((s) => s.lastDecision)
   const settings = useJarvisStore((s) => s.settings)
+  const connected = useJarvisStore((s) => s.connected)
+  const [reminderCount, setReminderCount] = useState(0)
+
+  // Buscar contagem de lembretes pendentes
+  useEffect(() => {
+    if (!connected) return
+    const fetchCount = () => {
+      fetch('http://localhost:3000/api/reminders')
+        .then((r) => r.json())
+        .then((data) => setReminderCount(Array.isArray(data) ? data.filter((r: any) => !r.completed).length : 0))
+        .catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 30000) // atualizar a cada 30s
+    return () => clearInterval(interval)
+  }, [connected])
 
   const modelLabel = lastDecision
     ? `${lastDecision.model} · ${lastDecision.provider}`
@@ -48,12 +65,24 @@ export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () 
       <button
         onClick={onOpenReminders}
         title="Lembretes"
-        style={qbStyle}
+        style={{ ...qbStyle, position: 'relative' }}
       >
         <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
+        {reminderCount > 0 && (
+          <span style={{
+            position: 'absolute', top: -3, right: -3,
+            minWidth: 15, height: 15, borderRadius: 8,
+            background: 'var(--accent)', color: '#000',
+            fontSize: 9, fontWeight: 700, fontFamily: 'var(--f-mono)',
+            display: 'grid', placeItems: 'center',
+            padding: '0 3px',
+          }}>
+            {reminderCount}
+          </span>
+        )}
       </button>
 
       {/* Theme toggle */}
