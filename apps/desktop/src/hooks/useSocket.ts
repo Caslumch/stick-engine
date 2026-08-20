@@ -180,17 +180,19 @@ export function useSocket() {
         });
       }
 
-      // Falar o lembrete via TTS
+      // Falar o lembrete via TTS (com controle de estado)
       const text = `Lucas, lembrete: ${payload.title}.`;
       const settings = useJarvisStore.getState().settings;
       const engine = settings['tts.engine'] || 'edge';
       const voice = settings['tts.voice'] || '';
+      store.setState('speaking');
+      ttsLock.active = true;
       fetch('http://localhost:5001/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, engine, voice }),
       }).then(async (resp) => {
-        if (!resp.ok) return;
+        if (!resp.ok) { ttsLock.active = false; store.setState('idle'); return; }
         const { getTTSBus, resumeTTSBus } = await import('./ttsAudioBus');
         const bytes = await resp.arrayBuffer();
         const bus = getTTSBus();
@@ -199,8 +201,9 @@ export function useSocket() {
         const source = bus.ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(bus.input);
+        source.onended = () => { ttsLock.active = false; store.setState('idle'); };
         source.start();
-      }).catch(() => {});
+      }).catch(() => { ttsLock.active = false; store.setState('idle'); });
 
       // Adicionar como mensagem na conversa
       store.addMessage({
