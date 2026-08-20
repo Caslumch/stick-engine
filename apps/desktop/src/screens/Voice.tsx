@@ -86,13 +86,18 @@ export function Voice() {
     ttsLock.active = false
     if (useJarvisStore.getState().state !== 'speaking') return
     // Conversação contínua: volta a ouvir automaticamente após falar
-    setState('listening')
-    transcriptRef.current = ''
-    setTranscript('')
-    sendingRef.current = false
-    startAudio()
-    stt.start()
-    vad.start()
+    // Delay pra garantir que AudioContext/WebSpeech reiniciam corretamente
+    setTimeout(() => {
+      if (useJarvisStore.getState().state !== 'idle' && useJarvisStore.getState().state !== 'speaking') return
+      console.log('[Voice] Conversação contínua: reiniciando mic/STT')
+      setState('listening')
+      transcriptRef.current = ''
+      setTranscript('')
+      sendingRef.current = false
+      startAudio()
+      stt.start()
+      vad.start()
+    }, 300)
   }
   const ttsErrCb = (err: string) => { ttsLock.active = false; setError(`Voz: ${err}`); setState('idle') }
 
@@ -283,13 +288,17 @@ export function Voice() {
     if (!useJarvisStore.getState().streamingText) {
       if (useJarvisStore.getState().state === 'speaking') {
         // Conversação contínua: volta a ouvir após terminar de falar
-        setState('listening')
-        transcriptRef.current = ''
-        setTranscript('')
-        sendingRef.current = false
-        startAudio()
-        stt.start()
-        vad.start()
+        setTimeout(() => {
+          if (useJarvisStore.getState().state !== 'idle' && useJarvisStore.getState().state !== 'speaking') return
+          console.log('[Voice] Stream TTS terminado: reiniciando mic/STT')
+          setState('listening')
+          transcriptRef.current = ''
+          setTranscript('')
+          sendingRef.current = false
+          startAudio()
+          stt.start()
+          vad.start()
+        }, 300)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
