@@ -15,6 +15,7 @@ export function ChatScreen() {
   const messages = useJarvisStore((s) => s.messages)
   const streamingText = useJarvisStore((s) => s.streamingText)
   const toolExecutions = useJarvisStore((s) => s.toolExecutions)
+  const productImages = useJarvisStore((s) => s.productImages)
   const { sendMessage } = useSocket()
   const endRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -131,6 +132,46 @@ export function ChatScreen() {
             {toolExecutions.map((te, i) => (
               <ToolCard key={`${te.toolName}-${i}`} exec={te} />
             ))}
+
+            {/* Imagens de produtos */}
+            {productImages.length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${Math.min(productImages.length, 3)}, 1fr)`,
+                gap: 10,
+                maxWidth: '88%',
+                marginLeft: 38,
+                marginBottom: 8,
+              }}>
+                {productImages.map((img, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <img
+                      src={img.thumbnail || img.image}
+                      alt={img.title}
+                      loading="lazy"
+                      style={{
+                        width: '100%',
+                        height: 120,
+                        objectFit: 'cover',
+                        borderRadius: 'var(--r-xs)',
+                        background: 'var(--fill-1)',
+                      }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
+                    <span style={{
+                      fontSize: 11,
+                      color: 'var(--t-low)',
+                      lineHeight: 1.3,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {img.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Streaming */}
             {streamingText && (

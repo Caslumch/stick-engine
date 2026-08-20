@@ -1,6 +1,6 @@
 /**
  * Busca de imagens via DuckDuckGo (grátis, sem API key).
- * Usado pra enriquecer respostas com imagens de produtos.
+ * Extração de nomes: sem hardcode — pega itens em bold ou lista numerada.
  */
 
 interface ImageResult {
@@ -12,11 +12,9 @@ interface ImageResult {
 
 /**
  * Busca imagens pro query usando DuckDuckGo.
- * Retorna até `limit` resultados.
  */
 export async function searchImages(query: string, limit = 3): Promise<ImageResult[]> {
   try {
-    // Passo 1: pegar o vqd token (necessário pra busca de imagens do DDG)
     const tokenResp = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&iar=images&iax=images&ia=images`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     });
@@ -24,7 +22,6 @@ export async function searchImages(query: string, limit = 3): Promise<ImageResul
     const vqdMatch = html.match(/vqd=["']([^"']+)/);
     if (!vqdMatch) return [];
 
-    // Passo 2: buscar imagens
     const vqd = vqdMatch[1];
     const imgResp = await fetch(
       `https://duckduckgo.com/i.js?l=br-pt&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,,,&p=1`,
@@ -51,47 +48,24 @@ export async function searchImages(query: string, limit = 3): Promise<ImageResul
 }
 
 /**
- * Extrai nomes de produtos/itens de uma resposta do LLM.
- * Só extrai nomes que parecem ser produtos reais (com marca/modelo).
+ * Extrai nomes de itens listados na resposta do LLM.
+ * Sem hardcode de marcas — pega qualquer item em bold numa lista.
  */
 export function extractProductNames(text: string): string[] {
   const names: string[] = [];
 
-  // Palavras genéricas que NÃO são nomes de produto
-  const GENERIC = /^(resumo|dica|nota|obs|fonte|aten[çc][aã]o|importante|detalhe|pre[çc]o|custo|melhor|momento|mercado|brasil|completo|beneficio|exemplo|op[çc][aã]o|categoria|destaque|qualidade|principal|sexta|segunda|ter[çc]a|quarta|quinta|s[áa]bado|domingo|janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|\d{1,2}\s+de\s+)/i;
-
-  // Marcas conhecidas — se o texto bold contém uma dessas, é produto
-  const BRANDS = /sony|samsung|apple|iphone|galaxy|motorola|xiaomi|bose|jbl|sennheiser|akg|nvidia|amd|intel|logitech|razer|corsair|hyperx|asus|dell|lenovo|hp|lg|philips|braun|dyson|nikon|canon|gopro|dji|marshall|beats|airpods|macbook|ipad|pixel|oneplus|oppo|realme|redmi|poco|edifier|audio.technica|shure|beyerdynamic|harman|bang.*olufsen/i;
-
-  // Padrão 1: "1. **Nome do Produto**" ou "- **Nome**" — preferido
-  const numberedBold = /(?:^|\n)\s*(?:\d+[.)]\s*|[-•]\s*)\*\*([^*]+)\*\*/g;
+  // Padrão 1: "1. **Nome**" ou "- **Nome**" (lista numerada/bullet com bold)
+  const listBold = /(?:^|\n)\s*(?:\d+[.)]\s*|[-•]\s*)\*\*([^*]{3,50})\*\*/g;
   let match;
-  while ((match = numberedBold.exec(text)) !== null) {
-    const name = match[1].trim();
-    if (name.length > 3 && name.length < 60 && !GENERIC.test(name)) {
-      names.push(name);
-    }
+  while ((match = listBold.exec(text)) !== null) {
+    names.push(match[1].trim());
   }
 
-  // Padrão 2: qualquer **bold** que contenha uma marca conhecida
+  // Padrão 2: "**Nome** —" ou "**Nome** -" (bold seguido de descrição)
   if (names.length === 0) {
-    const boldPattern = /\*\*([^*]+)\*\*/g;
-    while ((match = boldPattern.exec(text)) !== null) {
-      const name = match[1].trim();
-      if (BRANDS.test(name) && name.length < 60) {
-        names.push(name);
-      }
-    }
-  }
-
-  // Padrão 3: "1. Nome com Marca" sem bold
-  if (names.length === 0) {
-    const listPattern = /(?:^|\n)\s*\d+[.)]\s*([A-Z][^\n]{5,50})/g;
-    while ((match = listPattern.exec(text)) !== null) {
-      const name = match[1].trim().split(/\s*[-–—:]/, 1)[0].trim();
-      if (BRANDS.test(name)) {
-        names.push(name);
-      }
+    const boldDash = /\*\*([^*]{3,50})\*\*\s*[-–—:]/g;
+    while ((match = boldDash.exec(text)) !== null) {
+      names.push(match[1].trim());
     }
   }
 
