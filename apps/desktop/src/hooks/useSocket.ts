@@ -162,7 +162,7 @@ export function useSocket() {
     });
 
     socket.on(WsEvent.ReminderDue, (payload: { id: string; title: string; description?: string }) => {
-      // Browser/Tauri notification
+      // Notificação do sistema
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Jarvis — Lembrete', {
           body: payload.title + (payload.description ? `\n${payload.description}` : ''),
@@ -174,6 +174,37 @@ export function useSocket() {
           }
         });
       }
+
+      // Falar o lembrete via TTS
+      const text = `Lucas, lembrete: ${payload.title}.`;
+      const settings = useJarvisStore.getState().settings;
+      const engine = settings['tts.engine'] || 'edge';
+      const voice = settings['tts.voice'] || '';
+      fetch('http://localhost:5001/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, engine, voice }),
+      }).then(async (resp) => {
+        if (!resp.ok) return;
+        const { getTTSBus, resumeTTSBus } = await import('./ttsAudioBus');
+        const bytes = await resp.arrayBuffer();
+        const bus = getTTSBus();
+        await resumeTTSBus();
+        const audioBuffer = await bus.ctx.decodeAudioData(bytes.slice(0));
+        const source = bus.ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(bus.input);
+        source.start();
+      }).catch(() => {});
+
+      // Adicionar como mensagem na conversa
+      store.addMessage({
+        id: 'reminder-' + payload.id,
+        conversationId: useJarvisStore.getState().conversationId || 'reminder',
+        role: 'assistant',
+        content: `🔔 **Lembrete:** ${payload.title}${payload.description ? `\n${payload.description}` : ''}`,
+        createdAt: new Date().toISOString(),
+      });
     });
 
     socket.on(WsEvent.ProductImages, (payload: { images: Array<{ title: string; image: string; thumbnail: string }> }) => {
