@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useSyncExternalStore } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /* ----------------------------------------------------------------
@@ -99,5 +99,13 @@ export function DragTrashZone() {
         ) : null}
       </AnimatePresence>
     </div>
+  )
+}
+
+/** Hook pra saber se algo está sendo arrastado */
+export function useIsDragging(): boolean {
+  return useSyncExternalStore(
+    (cb) => { dragTrash._listeners.add(cb as any); return () => { dragTrash._listeners.delete(cb as any) } },
+    () => dragTrash._state.active,
   )
 }

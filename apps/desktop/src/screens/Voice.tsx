@@ -18,6 +18,7 @@ import { orbDragStart, orbDragMove, orbDragEnd } from '../orb/orbDrag'
 import { ttsLock } from '../hooks/ttsLock'
 import { preloadFillers, playFiller } from '../hooks/fillerCache'
 import { cleanForSpeech as cleanForSpeechInline } from '../hooks/cleanForSpeech'
+import { useIsDragging } from '../ui/DragTrash'
 import { playSendSound, playListeningSound } from '../hooks/uiSounds'
 import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
@@ -473,6 +474,7 @@ export function Voice() {
     onWake: wakeWordCallback,
   })
 
+  const isDragging = useIsDragging()
   const leftAction = getLeftAction(state, handleCancel)
   const rightAction = getRightAction(state, handleInterrupt)
 
@@ -533,8 +535,8 @@ export function Voice() {
       {/* Artifact: dados estruturados na direita (lê do store) */}
       <DataArtifact />
 
-      {/* Estado + frase */}
-      <div style={{ marginTop: 26, textAlign: 'center', maxWidth: 620, padding: '0 20px' }}>
+      {/* Estado + frase — esconde durante drag */}
+      <div style={{ marginTop: 26, textAlign: 'center', maxWidth: 620, padding: '0 20px', opacity: isDragging ? 0.3 : 1, transition: 'opacity .2s' }}>
         <div style={{
           fontSize: 12.5,
           fontWeight: 500,
@@ -602,10 +604,13 @@ export function Voice() {
         )}
       </div>
 
-      {/* Dock */}
+      {/* Dock — esconde durante drag */}
       <div style={{
         position: 'fixed',
         bottom: 96,
+        opacity: isDragging ? 0 : 1,
+        pointerEvents: isDragging ? 'none' : 'auto',
+        transition: 'opacity .2s',
         left: '50%',
         translate: '-50% 0',
         zIndex: 35,
