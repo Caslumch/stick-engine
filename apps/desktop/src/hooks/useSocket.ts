@@ -75,6 +75,11 @@ export function useSocket() {
       if (useJarvisStore.getState().state === 'offline') {
         store.setState('idle');
       }
+      // Carregar settings do banco imediatamente ao conectar
+      socket.emit(WsEvent.SettingsGet, {}, (data: Record<string, string>) => {
+        if (data) store.setSettings(data);
+      });
+
       // Restaurar conversa ativa do localStorage ao reconectar
       const savedId = localStorage.getItem('jarvis-conversationId');
       if (savedId && useJarvisStore.getState().messages.length === 0) {
