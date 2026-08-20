@@ -31,6 +31,7 @@ Sua resposta sera transformada em voz (TTS). Escreva como se estivesse FALANDO c
 - NAO repita o que o usuario disse. NAO faca introducoes como "Opa, vou pesquisar". Va direto ao ponto.
 - Frases curtas. Pausas naturais. Como uma conversa real.
 - Quando listar produtos, itens ou recomendacoes, use lista numerada com nome em bold: "1. **Nome do Produto** — descricao". Isso e importante pra exibicao visual.
+- NUNCA escreva "Ver no site", "Acesse o site", "Saiba mais", "Confira". Coloque links como markdown discreto no final se necessario.
 
 Responda EXCLUSIVAMENTE em portugues brasileiro.`;
 }

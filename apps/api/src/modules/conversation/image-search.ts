@@ -15,7 +15,9 @@ interface ImageResult {
  */
 export async function searchImages(query: string, limit = 3): Promise<ImageResult[]> {
   try {
-    const tokenResp = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&iar=images&iax=images&ia=images`, {
+    // Adicionar "produto" pra resultados mais relevantes
+    const searchQuery = `${query} produto foto`;
+    const tokenResp = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&iar=images&iax=images&ia=images`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     });
     const html = await tokenResp.text();
@@ -24,7 +26,7 @@ export async function searchImages(query: string, limit = 3): Promise<ImageResul
 
     const vqd = vqdMatch[1];
     const imgResp = await fetch(
-      `https://duckduckgo.com/i.js?l=br-pt&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,,,&p=1`,
+      `https://duckduckgo.com/i.js?l=br-pt&o=json&q=${encodeURIComponent(searchQuery)}&vqd=${vqd}&f=,,,,,&p=1`,
       {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',

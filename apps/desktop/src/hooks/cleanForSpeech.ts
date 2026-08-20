@@ -19,8 +19,13 @@ export function cleanForSpeech(text: string): string {
     .replace(/https?:\/\/[^\s)]+/g, '')
     // Parênteses com domínios — remover (ex: "(silescore.com.br)")
     .replace(/\([a-z0-9.-]+\.[a-z]{2,}\)/gi, '')
-    // "Fonte:", "Referência:", "Source:" — remover linha inteira
+    // "Fonte:", "Referência:", "Ver no site", "Source:" — remover linha inteira
     .replace(/^.*(fonte|referencia|source|via|link):?\s*.*$/gim, '')
+    .replace(/ver no site/gi, '')
+    .replace(/veja no site/gi, '')
+    .replace(/confira no site/gi, '')
+    .replace(/acesse o site/gi, '')
+    .replace(/saiba mais/gi, '')
     // Images
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
     // Emojis
