@@ -6,6 +6,7 @@
     "tts": "python services/tts/server.py",
     "wakeword": "python services/wakeword/server.py",
     "dev:all": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm wakeword\" \"pnpm dev\"",
+    "dev:tauri": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm wakeword\" \"turbo dev --filter=@jarvis/api\" \"cd apps/desktop && pnpm tauri:dev\"",
     "build": "turbo build",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
