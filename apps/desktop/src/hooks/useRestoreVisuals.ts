@@ -1,17 +1,20 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useJarvisStore } from '../stores/jarvis.store'
 
 /**
  * Restaura configurações visuais (accent, background, blur, dim)
  * salvas no banco quando o app inicia.
+ * Tenta até encontrar o elemento .backdrop-photo no DOM.
  */
 export function useRestoreVisuals() {
   const settings = useJarvisStore((s) => s.settings)
+  const appliedRef = useRef(false)
 
   useEffect(() => {
-    // Só rodar quando settings estiverem carregadas do backend
+    if (appliedRef.current) return
     if (!settings || Object.keys(settings).length === 0) return
 
+    // Accent
     const accent = settings['ui.accent']
     if (accent) {
       document.documentElement.style.setProperty('--accent', accent)
@@ -22,20 +25,37 @@ export function useRestoreVisuals() {
       }
     }
 
+    // Blur & Dim
     const blur = settings['ui.bgBlur']
     if (blur) document.documentElement.style.setProperty('--bg-blur', blur + 'px')
 
     const dim = settings['ui.bgDim']
     if (dim) document.documentElement.style.setProperty('--bg-dim', String(parseInt(dim, 10) / 100))
 
+    // Background — tentar aplicar, se o DOM não estiver pronto, retry
     const bgPreset = settings['ui.bgPreset']
     if (bgPreset && bgPreset !== 'none') {
-      document.documentElement.style.setProperty('--bg-img', bgPreset)
-      document.documentElement.style.setProperty('--blob-op', '.35')
-      const photo = document.querySelector('.backdrop-photo') as HTMLElement | null
-      if (photo) photo.setAttribute('data-active', '')
+      const applyBg = () => {
+        document.documentElement.style.setProperty('--bg-img', bgPreset)
+        document.documentElement.style.setProperty('--blob-op', '.35')
+        const photo = document.querySelector('.backdrop-photo') as HTMLElement | null
+        if (photo) {
+          photo.setAttribute('data-active', '')
+          return true
+        }
+        return false
+      }
+
+      if (!applyBg()) {
+        // Retry a cada 200ms até encontrar o elemento (max 3s)
+        let attempts = 0
+        const interval = setInterval(() => {
+          attempts++
+          if (applyBg() || attempts > 15) clearInterval(interval)
+        }, 200)
+      }
     }
-  // Rodar uma vez quando settings carregam
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Object.keys(settings).length > 0])
+
+    appliedRef.current = true
+  }, [settings])
 }
