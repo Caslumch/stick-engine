@@ -13,6 +13,7 @@ import { useMinimizeToTray } from './hooks/useMinimizeToTray';
 import { useRestoreVisuals } from './hooks/useRestoreVisuals';
 import { useWelcome } from './hooks/useWelcome';
 import { ToastContainer } from './ui/Toast';
+import { RemindersPanel } from './ui/RemindersPanel';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -24,6 +25,7 @@ export function App() {
   const setView = useJarvisStore((s) => s.setView);
   const isAmbient = useJarvisStore((s) => s.isAmbient);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
 
   useKeyboardShortcuts();
   useGlobalShortcut();
@@ -43,7 +45,7 @@ export function App() {
         transition: 'opacity .36s linear',
       }}>
         <StatusPill />
-        <MetaBar onOpenPalette={() => setPaletteOpen(true)} />
+        <MetaBar onOpenPalette={() => setPaletteOpen(true)} onOpenReminders={() => setRemindersOpen(!remindersOpen)} />
         <div style={{ position: 'relative', zIndex: 3, minHeight: '100vh' }}>
           {view === 'voice' ? <Voice /> :
            view === 'settings' ? <SettingsScreen /> :
@@ -54,6 +56,7 @@ export function App() {
       <Ambient />
       <CommandPalette externalOpen={paletteOpen} onExternalOpenChange={setPaletteOpen} />
       <ToastContainer />
+      <RemindersPanel open={remindersOpen} onClose={() => setRemindersOpen(false)} />
     </>
   );
 }

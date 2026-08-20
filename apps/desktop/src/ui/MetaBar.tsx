@@ -4,7 +4,7 @@ import { useJarvisStore } from '../stores/jarvis.store'
 /**
  * Barra meta — canto superior direito, com context, provider, botão de tema e commands.
  */
-export function MetaBar({ onOpenPalette }: { onOpenPalette: () => void }) {
+export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () => void; onOpenReminders: () => void }) {
   const { toggle: toggleTheme } = useTheme()
   const lastDecision = useJarvisStore((s) => s.lastDecision)
   const settings = useJarvisStore((s) => s.settings)
@@ -43,6 +43,18 @@ export function MetaBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         }} />
         {modelLabel}
       </span>
+
+      {/* Reminders */}
+      <button
+        onClick={onOpenReminders}
+        title="Lembretes"
+        style={qbStyle}
+      >
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+      </button>
 
       {/* Theme toggle */}
       <button
