@@ -93,7 +93,7 @@ export class ConversationGateway implements OnGatewayConnection, OnGatewayDiscon
     const intent = this.conversationService.classifyIntent(payload.text);
 
     // --- FAST PATH: resolver sem LLM (~10ms) ---
-    const fastResponse = await this.conversationService.tryFastPath(payload.text, intent);
+    const fastResponse = await this.conversationService.tryFastPath(payload.text, intent, conversationId);
     if (fastResponse) {
       this.logger.log(`Fast-path: "${payload.text.slice(0, 40)}" → "${fastResponse.slice(0, 40)}"`);
       this.emitStateChange('speaking');

@@ -72,8 +72,8 @@ export function OrbBridge() {
         />
         <EffectComposer>
           <Bloom
-            intensity={isLight ? 0.2 : 0.55}
-            luminanceThreshold={isLight ? 0.75 : 0.5}
+            intensity={isLight ? 0.45 : 0.55}
+            luminanceThreshold={isLight ? 0.5 : 0.5}
             luminanceSmoothing={0.4}
             mipmapBlur
           />

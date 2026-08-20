@@ -108,10 +108,10 @@ function setUniforms(mat: THREE.ShaderMaterial | null, p: OrbParams, dt: number,
   u.uPrimary.value.set(opts.primaryColor)
   u.uSecondary.value.set(opts.secondaryColor)
 
-  // Tema claro: escurece a cor ~0.42x para compensar o NormalBlending (DS seção 4)
+  // Tema claro: escurece levemente pra manter contraste no fundo claro
   if (opts.lightMode) {
-    u.uPrimary.value.multiplyScalar(0.42)
-    u.uSecondary.value.multiplyScalar(0.42)
+    u.uPrimary.value.multiplyScalar(0.7)
+    u.uSecondary.value.multiplyScalar(0.7)
   }
 
   // Trocar blending em runtime requer setar direto no material

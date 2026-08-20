@@ -343,11 +343,16 @@ export class ConversationService {
    * Fast-path: resolve perguntas simples sem LLM (~10ms).
    * Retorna string se resolveu, null se precisa do LLM.
    */
-  async tryFastPath(text: string, intent: IntentClassification): Promise<string | null> {
+  async tryFastPath(text: string, intent: IntentClassification, conversationId?: string): Promise<string | null> {
     const lower = text.toLowerCase().trim();
 
-    // --- Saudações: resposta instantânea ---
-    if (intent.intent === 'conversation' && intent.confidence >= 0.85) {
+    // Checar se já tem mensagens na conversa (não é início)
+    const hasHistory = conversationId
+      ? (await this.repository.getMessages(conversationId)).length > 0
+      : false;
+
+    // --- Saudações: só no INÍCIO da conversa (sem histórico) ---
+    if (intent.intent === 'conversation' && intent.confidence >= 0.85 && !hasHistory) {
       const hour = new Date().getHours();
       const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
