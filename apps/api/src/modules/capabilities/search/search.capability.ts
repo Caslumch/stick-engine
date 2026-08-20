@@ -73,6 +73,8 @@ export class SearchCapability implements Capability, OnModuleInit {
           max_results: Math.min(maxResults, 10),
           search_depth: 'basic',
           include_answer: true,
+          include_images: true,
+          include_image_descriptions: true,
         }),
       });
 
@@ -94,10 +96,16 @@ export class SearchCapability implements Capability, OnModuleInit {
 
       this.logger.log(`Search: "${query}" → ${results.length} results`);
 
+      // Extrair imagens do Tavily
+      const images = (data.images || []).map((img: any) => ({
+        url: typeof img === 'string' ? img : img.url,
+        description: typeof img === 'string' ? '' : img.description || '',
+      }));
+
       return {
         success: true,
         message: summary,
-        data: { results, answer: data.answer },
+        data: { results, answer: data.answer, images },
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

@@ -567,8 +567,8 @@ export class ConversationService {
       const products = extractProductNames(cleanedContent);
       if (products.length > 0) {
         this.logger.log(`Buscando imagens pra: ${products.join(', ')}`);
-        // Buscar em paralelo, não bloquear
-        Promise.all(products.map((p) => searchImages(p, 1)))
+        const tavilyKey = await this.settings.get('search.tavilyApiKey');
+        Promise.all(products.map((p) => searchImages(p, 1, tavilyKey || undefined)))
           .then((results) => {
             const images = results.flat().filter((r) => r.image);
             if (images.length > 0) onProductImages(images);
