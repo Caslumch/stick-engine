@@ -96,7 +96,7 @@ export class RemindersCapability implements Capability, OnModuleInit {
       case 'create_reminder':
         return this.create(
           (params.title ?? params.task ?? params.name ?? params.text ?? params.note ?? params.reminder) as string,
-          (params.due_at ?? params.dueAt ?? params.time ?? params.date ?? params.datetime) as string,
+          (params.due_at ?? params.dueAt ?? params.time ?? params.date ?? params.datetime ?? params.date_time ?? params.when ?? params.scheduled_at) as string,
           (params.description ?? params.desc ?? params.details) as string | undefined,
         );
       case 'list_reminders':
