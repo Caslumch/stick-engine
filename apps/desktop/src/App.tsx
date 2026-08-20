@@ -12,6 +12,7 @@ import { useGlobalShortcut } from './hooks/useGlobalShortcut';
 import { useMinimizeToTray } from './hooks/useMinimizeToTray';
 import { useRestoreVisuals } from './hooks/useRestoreVisuals';
 import { useWelcome } from './hooks/useWelcome';
+import { ToastContainer } from './ui/Toast';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -52,6 +53,7 @@ export function App() {
       </div>
       <Ambient />
       <CommandPalette externalOpen={paletteOpen} onExternalOpenChange={setPaletteOpen} />
+      <ToastContainer />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText, streamText, isStepCount } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -7,9 +7,10 @@ import { prepareMessages } from './prepare-messages';
 import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
-export class OllamaProvider implements LlmProvider {
+export class OllamaProvider implements LlmProvider, OnModuleInit {
   readonly name = 'ollama';
   readonly type = 'local' as const;
+  private readonly logger = new Logger(OllamaProvider.name);
 
   private readonly defaultModel: string;
   private readonly baseUrl: string;
@@ -20,6 +21,22 @@ export class OllamaProvider implements LlmProvider {
   ) {
     this.defaultModel = config.get<string>('jarvis.ollama.model', 'llama3.1');
     this.baseUrl = config.get<string>('jarvis.ollama.url', 'http://localhost:11434');
+  }
+
+  /** Pré-aquecer o modelo no startup — carrega na memória do Ollama */
+  async onModuleInit() {
+    try {
+      const modelId = await this.getModelId();
+      this.logger.log(`Pré-aquecendo modelo ${modelId}...`);
+      await fetch(`${this.baseUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId, prompt: '', keep_alive: '30m' }),
+      });
+      this.logger.log(`Modelo ${modelId} carregado na memória.`);
+    } catch {
+      this.logger.warn('Ollama não disponível — modelo não pré-aquecido.');
+    }
   }
 
   private async getModelId(): Promise<string> {

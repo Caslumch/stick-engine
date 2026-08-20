@@ -13,6 +13,7 @@ import type {
 } from '@jarvis/shared';
 import { useJarvisStore } from '../stores/jarvis.store';
 import { ttsLock } from './ttsLock';
+import { showToast } from '../ui/Toast';
 
 const API_URL = 'http://localhost:3000';
 
@@ -189,7 +190,10 @@ export function useSocket() {
     if (!socket) return;
 
     store.updateSetting(key, value);
-    socket.emit(WsEvent.SettingsUpdate, { key, value });
+    socket.emit(WsEvent.SettingsUpdate, { key, value }, (ack: any) => {
+      if (ack?.error) showToast('Erro ao salvar', 'error');
+      else showToast('Salvo', 'success');
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
