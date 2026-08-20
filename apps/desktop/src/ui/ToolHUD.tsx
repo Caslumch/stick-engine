@@ -117,32 +117,93 @@ export function ToolHUD({ executions }: { executions: ToolExecution[] }) {
     return () => clearTimeout(t)
   }, [entries])
 
+  const [dragging, setDragging] = useState(false)
+  const [overTrash, setOverTrash] = useState(false)
+  const draggingIdRef = useRef<string | null>(null)
+
+  const dismissEntry = (id: string) => {
+    entriesRef.current = entriesRef.current.filter((e) => e.id !== id)
+    setEntries([...entriesRef.current])
+  }
+
   if (entries.length === 0) return null
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 'calc(50% - 65px)',
-      left: '50%',
-      width: 0, height: 0,
-      zIndex: 20,
-      pointerEvents: 'none',
-    }}>
+    <>
+      <div style={{
+        position: 'fixed',
+        top: 'calc(50% - 65px)',
+        left: '50%',
+        width: 0, height: 0,
+        zIndex: 20,
+        pointerEvents: 'none',
+      }}>
+        <AnimatePresence>
+          {entries.map((entry, i) => (
+            <HUDPanel key={entry.id} entry={entry} index={i}
+              onDismiss={() => dismissEntry(entry.id)}
+              onDragStart={() => { setDragging(true); draggingIdRef.current = entry.id }}
+              onDragEnd={(_, info) => {
+                setDragging(false)
+                // Checar se soltou na zona da lixeira (bottom center)
+                const y = info.point.y
+                if (y > window.innerHeight - 100) {
+                  dismissEntry(entry.id)
+                }
+                draggingIdRef.current = null
+                setOverTrash(false)
+              }}
+              onDrag={(_, info) => {
+                setOverTrash(info.point.y > window.innerHeight - 100)
+              }}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Lixeira — aparece quando arrasta */}
       <AnimatePresence>
-        {entries.map((entry, i) => (
-          <HUDPanel key={entry.id} entry={entry} index={i} onDismiss={() => {
-            entriesRef.current = entriesRef.current.filter((e) => e.id !== entry.id)
-            setEntries([...entriesRef.current])
-          }} />
-        ))}
+        {dragging ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'fixed',
+              bottom: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 25,
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{
+              width: 56, height: 56,
+              borderRadius: '50%',
+              background: overTrash ? 'rgba(255, 107, 107, .3)' : 'rgba(255, 255, 255, .08)',
+              border: `2px solid ${overTrash ? 'var(--st-error)' : 'rgba(255, 255, 255, .15)'}`,
+              display: 'grid', placeItems: 'center',
+              transition: 'all .15s',
+              transform: overTrash ? 'scale(1.15)' : 'none',
+            }}>
+              <span style={{ fontSize: 22, filter: overTrash ? 'none' : 'grayscale(1) opacity(.5)' }}>🗑</span>
+            </div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
-    </div>
+    </>
   )
 }
 
 // -- Painel individual ---------------------------------------------
 
-function HUDPanel({ entry, index, onDismiss }: { entry: HUDEntry; index: number; onDismiss: () => void }) {
+function HUDPanel({ entry, index, onDismiss, onDragStart, onDragEnd, onDrag }: {
+  entry: HUDEntry; index: number; onDismiss: () => void
+  onDragStart?: () => void
+  onDragEnd?: (event: any, info: any) => void
+  onDrag?: (event: any, info: any) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const exec = entry.exec
   const isExecuting = exec.status === 'executing'
@@ -170,6 +231,9 @@ function HUDPanel({ entry, index, onDismiss }: { entry: HUDEntry; index: number;
       drag
       dragMomentum={false}
       dragElastic={0.1}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDrag={onDrag}
       layout
       initial={{ opacity: 0, x: x + slideX, y, scale: 0.88 }}
       animate={{ opacity: 1, x, y, scale: 1 }}
