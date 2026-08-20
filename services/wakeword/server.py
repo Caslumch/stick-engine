@@ -48,11 +48,22 @@ def load_model():
     if oww_model is not None:
         return
 
-    print("[WakeWord] Loading OpenWakeWord model...")
-    oww_model = OWWModel(
-        wakeword_models=["hey_jarvis"],
-        inference_framework="onnx",
-    )
+    # Carregar modelo customizado se existir, senão usa hey_jarvis
+    import glob
+    custom_models = glob.glob(os.path.join(os.path.dirname(__file__), "*.onnx"))
+
+    if custom_models:
+        print(f"[WakeWord] Loading custom model(s): {[os.path.basename(m) for m in custom_models]}")
+        oww_model = OWWModel(
+            wakeword_models=custom_models,
+            inference_framework="onnx",
+        )
+    else:
+        print("[WakeWord] No custom model found, using default 'hey_jarvis'")
+        oww_model = OWWModel(
+            wakeword_models=["hey_jarvis"],
+            inference_framework="onnx",
+        )
     print(f"[WakeWord] Model loaded. Wake words: {list(oww_model.models.keys())}")
 
 
