@@ -93,12 +93,15 @@ export class RemindersCapability implements Capability, OnModuleInit {
 
   async execute(toolName: string, params: Record<string, unknown>): Promise<CapabilityResult> {
     switch (toolName) {
-      case 'create_reminder':
-        return this.create(
-          (params.title ?? params.task ?? params.name ?? params.text ?? params.note ?? params.reminder) as string,
-          (params.due_at ?? params.dueAt ?? params.time ?? params.date ?? params.datetime ?? params.date_time ?? params.when ?? params.scheduled_at) as string,
-          (params.description ?? params.desc ?? params.details) as string | undefined,
-        );
+      case 'create_reminder': {
+        // Aceitar qualquer nome de param que o LLM inventar
+        const allValues = Object.values(params).filter((v) => typeof v === 'string' && v.trim()) as string[];
+        const title = (params.title ?? params.task ?? params.name ?? params.text ?? params.note ?? params.reminder) as string
+          || allValues.find((v) => v.length > 2 && !/^\d{4}-/.test(v)) || 'Lembrete';
+        const dueAtRaw = (params.due_at ?? params.dueAt ?? params.time ?? params.date ?? params.datetime ?? params.date_time ?? params.when ?? params.scheduled_at) as string
+          || allValues.find((v) => /^\d{4}-/.test(v)); // qualquer string ISO
+        return this.create(title, dueAtRaw, (params.description ?? params.desc ?? params.details ?? params.note) as string | undefined);
+      }
       case 'list_reminders':
         return this.list(params.include_completed as boolean);
       case 'complete_reminder':
@@ -110,10 +113,18 @@ export class RemindersCapability implements Capability, OnModuleInit {
     }
   }
 
-  private async create(title: string, dueAt: string, description?: string): Promise<CapabilityResult> {
-    const date = new Date(dueAt);
-    if (isNaN(date.getTime())) {
-      return { success: false, message: `Data invalida: "${dueAt}". Use formato ISO 8601.` };
+  private async create(title: string, dueAt?: string, description?: string): Promise<CapabilityResult> {
+    let date: Date;
+    if (dueAt) {
+      date = new Date(dueAt);
+      if (isNaN(date.getTime())) {
+        // Tentar interpretar "daqui X minutos" se não é ISO
+        date = new Date(Date.now() + 5 * 60000); // fallback: 5 min
+        this.logger.warn(`Data "${dueAt}" inválida, usando +5min como fallback`);
+      }
+    } else {
+      // Sem data → daqui 5 minutos como padrão
+      date = new Date(Date.now() + 5 * 60000);
     }
 
     const reminder = await this.prisma.reminder.create({
