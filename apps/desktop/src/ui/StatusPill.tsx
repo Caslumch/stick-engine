@@ -1,13 +1,13 @@
 import { useJarvisStore } from '../stores/jarvis.store'
-import { STATE_LABELS, AGENT_NAME } from '../app/strings'
+import { STATE_LABELS } from '../app/strings'
 
 /**
  * Pill de status — canto superior esquerdo, sempre visível.
  * Ponto na cor do estado, nome do agente, separador, nome do estado.
- * Seção 10 do DESIGN_SYSTEM.md.
  */
 export function StatusPill() {
   const state = useJarvisStore((s) => s.state)
+  const agentName = useJarvisStore((s) => s.settings['agent.name']) || 'Jarvis'
 
   return (
     <div className="glass" style={{
@@ -32,7 +32,7 @@ export function StatusPill() {
         boxShadow: '0 0 0 4px rgba(var(--accent-rgb), .16)',
         transition: 'background .7s, box-shadow .7s',
       }} />
-      <b style={{ fontWeight: 500, color: 'var(--t-hi)' }}>{AGENT_NAME}</b>
+      <b style={{ fontWeight: 500, color: 'var(--t-hi)' }}>{agentName.toUpperCase()}</b>
       <span style={{ width: 1, height: 14, background: 'var(--g-edge)' }} />
       <span>{STATE_LABELS[state]}</span>
     </div>

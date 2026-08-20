@@ -12,13 +12,13 @@ import { searchImages, extractProductNames } from './image-search';
 
 // ── System Prompt Modules ───────────────────────────────────────────
 
-function buildIdentityPrompt(): string {
+function buildIdentityPrompt(agentName: string): string {
   const now = new Date();
   const date = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Sao_Paulo' });
   const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
-  return `Voce e o Jarvis, um assistente pessoal inteligente e privado.
-Seu nome e Jarvis. Voce roda no computador do usuario.
+  return `Voce e o ${agentName}, um assistente pessoal inteligente e privado.
+Seu nome e ${agentName}. Voce roda no computador do usuario.
 Data e hora atual: ${date}, ${time}.
 
 IMPORTANTE — VOCE SERA OUVIDO, NAO LIDO:
@@ -215,16 +215,17 @@ export class ConversationService {
    * identity + personality (tone/verbosity/proactivity) + rules + capabilities + memories
    */
   private async buildSystemPrompt(userMessage: string, intent?: IntentClassification): Promise<string> {
-    const [tone, proactivity, verbosity, memoryContext, customPrompt] = await Promise.all([
+    const [tone, proactivity, verbosity, memoryContext, customPrompt, agentName] = await Promise.all([
       this.settings.get('personality.tone'),
       this.settings.get('personality.proactivity'),
       this.settings.get('personality.verbosity'),
       this.memory.getRelevantContext(userMessage),
       this.settings.get('agent.systemPrompt'),
+      this.settings.get('agent.name'),
     ]);
 
     const sections: string[] = [
-      buildIdentityPrompt(),
+      buildIdentityPrompt(agentName || 'Jarvis'),
       '',
       TONE_PROMPTS[tone] ?? TONE_PROMPTS.friendly,
       VERBOSITY_PROMPTS[verbosity] ?? VERBOSITY_PROMPTS.concise,

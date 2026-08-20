@@ -315,6 +315,26 @@ function AgentGroup() {
 
   return (
     <Group title="Agent">
+      <Row label="Nome do agente" description="Como o assistente se apresenta e responde.">
+        <input
+          value={settings['agent.name'] ?? 'Jarvis'}
+          onChange={(e) => updateSetting('agent.name', e.target.value)}
+          placeholder="Jarvis"
+          style={{
+            width: 160,
+            height: 32,
+            padding: '0 12px',
+            borderRadius: 'var(--r-xs)',
+            background: 'var(--fill-1)',
+            border: '1px solid var(--hair)',
+            color: 'var(--t-hi)',
+            fontSize: 14,
+            fontFamily: 'var(--f)',
+            fontWeight: 500,
+            outline: 'none',
+          }}
+        />
+      </Row>
       <Row label="LLM model" description={
         modelInfo?.desc
           ? `${modelInfo.desc}${!isInstalled ? ' — rode: ollama pull ' + currentModel : ''}`

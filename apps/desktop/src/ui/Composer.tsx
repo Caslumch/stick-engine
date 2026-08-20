@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useJarvisStore } from '../stores/jarvis.store'
 import { CreateMenu } from './CreateMenu'
 
 /**
@@ -9,6 +10,7 @@ import { CreateMenu } from './CreateMenu'
 export function Composer({ onSend }: { onSend: (text: string) => void }) {
   const [input, setInput] = useState('')
   const createRef = useRef<HTMLButtonElement>(null)
+  const agentName = useJarvisStore((s) => s.settings['agent.name']) || 'Jarvis'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +44,7 @@ export function Composer({ onSend }: { onSend: (text: string) => void }) {
       <input
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Message STICK…"
+        placeholder={`Message ${agentName.toUpperCase()}...`}
         style={{
           flex: 1,
           fontSize: 15,

@@ -24,6 +24,9 @@ const DEFAULTS: Record<string, string> = {
   'decision.tokenThreshold': '2000',
   'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente,imagem,imagens,foto,fotos,mostra,mostrar,preço,preços,preco,precos,comprar,onde comprar,quanto custa,melhores,top,recomend,ranking',
 
+  // Agent
+  'agent.name': 'Jarvis',
+
   // User
   'user.city': 'Barueri',
 

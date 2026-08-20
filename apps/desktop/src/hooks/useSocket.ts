@@ -28,6 +28,7 @@ const SETTING_LABELS: Record<string, string> = {
   'tts.engine': 'Engine TTS',
   'tts.voice': 'Voz',
   'tts.speed': 'Velocidade',
+  'agent.name': 'Nome do agente',
   'agent.systemPrompt': 'System prompt',
   'openai.apiKey': 'OpenAI API Key',
   'ui.accent': 'Cor de destaque',
