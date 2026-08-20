@@ -69,10 +69,10 @@ export function DragTrashZone() {
             transition={{ duration: 0.15 }}
             style={{
               position: 'fixed',
-              bottom: 24,
+              bottom: 170,
               left: '50%',
               transform: 'translateX(-50%)',
-              zIndex: 300,
+              zIndex: 25,
               pointerEvents: 'none',
             }}
           >
