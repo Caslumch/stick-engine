@@ -143,18 +143,18 @@ export function ToolHUD({ executions }: { executions: ToolExecution[] }) {
             <HUDPanel key={entry.id} entry={entry} index={i}
               onDismiss={() => dismissEntry(entry.id)}
               onDragStart={() => { setDragging(true); draggingIdRef.current = entry.id }}
-              onDragEnd={(_, info) => {
-                setDragging(false)
-                // Checar se soltou na zona da lixeira (bottom center)
-                const y = info.point.y
-                if (y > window.innerHeight - 100) {
-                  dismissEntry(entry.id)
+              onDragEnd={() => {
+                // Checar posição do mouse via último evento
+                if (overTrash && draggingIdRef.current) {
+                  dismissEntry(draggingIdRef.current)
                 }
+                setDragging(false)
                 draggingIdRef.current = null
                 setOverTrash(false)
               }}
-              onDrag={(_, info) => {
-                setOverTrash(info.point.y > window.innerHeight - 100)
+              onDrag={(e) => {
+                const evt = e as unknown as PointerEvent
+                if (evt.clientY) setOverTrash(evt.clientY > window.innerHeight - 120)
               }}
             />
           ))}
@@ -231,9 +231,10 @@ function HUDPanel({ entry, index, onDismiss, onDragStart, onDragEnd, onDrag }: {
       drag
       dragMomentum={false}
       dragElastic={0.1}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDrag={onDrag}
+      onDragStart={() => onDragStart?.()}
+      onDrag={(e, info) => onDrag?.(e, info)}
+      onDragEnd={(e, info) => onDragEnd?.(e, info)}
+      whileDrag={{ scale: 1.05, zIndex: 50 }}
       layout
       initial={{ opacity: 0, x: x + slideX, y, scale: 0.88 }}
       animate={{ opacity: 1, x, y, scale: 1 }}
