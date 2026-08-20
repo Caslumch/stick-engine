@@ -4,6 +4,7 @@ import { spring, dur } from '../motion/tokens'
 import { TOOL_LABELS } from '../app/strings'
 import { useJarvisStore } from '../stores/jarvis.store'
 import { Markdown } from './Markdown'
+import { dragTrash } from './DragTrash'
 
 /* ----------------------------------------------------------------
    DataArtifact — card expandível de dados estruturados.
@@ -185,6 +186,10 @@ export function DataArtifact() {
           drag
           dragMomentum={false}
           dragElastic={0}
+          onDragStart={() => dragTrash.start(clearLastRichResult)}
+          onDrag={(e) => { const evt = e as unknown as PointerEvent; if (evt.clientY) dragTrash.move(evt.clientY) }}
+          onDragEnd={() => dragTrash.end()}
+          whileDrag={{ scale: 1.02, zIndex: 50 }}
           layout
           initial={{ opacity: 0, x: 30, scale: 0.92 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}

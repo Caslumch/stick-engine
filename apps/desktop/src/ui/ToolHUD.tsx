@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { spring, dur, stagger } from '../motion/tokens'
 import { TOOL_LABELS } from '../app/strings'
 import type { ToolExecution } from '../stores/jarvis.store'
+import { dragTrash } from './DragTrash'
 
 /* ----------------------------------------------------------------
    ToolHUD — painéis operacionais nos LADOS do orb (nunca em cima).
@@ -117,8 +118,6 @@ export function ToolHUD({ executions }: { executions: ToolExecution[] }) {
     return () => clearTimeout(t)
   }, [entries])
 
-  const [dragging, setDragging] = useState(false)
-  const [overTrash, setOverTrash] = useState(false)
   const draggingIdRef = useRef<string | null>(null)
 
   const dismissEntry = (id: string) => {
@@ -142,56 +141,21 @@ export function ToolHUD({ executions }: { executions: ToolExecution[] }) {
           {entries.map((entry, i) => (
             <HUDPanel key={entry.id} entry={entry} index={i}
               onDismiss={() => dismissEntry(entry.id)}
-              onDragStart={() => { setDragging(true); draggingIdRef.current = entry.id }}
-              onDragEnd={() => {
-                // Checar posição do mouse via último evento
-                if (overTrash && draggingIdRef.current) {
-                  dismissEntry(draggingIdRef.current)
-                }
-                setDragging(false)
-                draggingIdRef.current = null
-                setOverTrash(false)
+              onDragStart={() => {
+                draggingIdRef.current = entry.id
+                dragTrash.start(() => { if (draggingIdRef.current) dismissEntry(draggingIdRef.current) })
               }}
+              onDragEnd={() => { dragTrash.end(); draggingIdRef.current = null }}
               onDrag={(e) => {
                 const evt = e as unknown as PointerEvent
-                if (evt.clientY) setOverTrash(evt.clientY > window.innerHeight - 120)
+                if (evt.clientY) dragTrash.move(evt.clientY)
               }}
             />
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Lixeira — aparece quando arrasta */}
-      <AnimatePresence>
-        {dragging ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              position: 'fixed',
-              bottom: 24,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 25,
-              pointerEvents: 'none',
-            }}
-          >
-            <div style={{
-              width: 56, height: 56,
-              borderRadius: '50%',
-              background: overTrash ? 'rgba(255, 107, 107, .3)' : 'rgba(255, 255, 255, .08)',
-              border: `2px solid ${overTrash ? 'var(--st-error)' : 'rgba(255, 255, 255, .15)'}`,
-              display: 'grid', placeItems: 'center',
-              transition: 'all .15s',
-              transform: overTrash ? 'scale(1.15)' : 'none',
-            }}>
-              <span style={{ fontSize: 22, filter: overTrash ? 'none' : 'grayscale(1) opacity(.5)' }}>🗑</span>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/* Lixeira global via DragTrash */}
     </>
   )
 }

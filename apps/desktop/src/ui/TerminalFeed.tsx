@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { spring, dur } from '../motion/tokens'
 import { TOOL_LABELS } from '../app/strings'
 import type { ToolExecution } from '../stores/jarvis.store'
+import { dragTrash } from './DragTrash'
 
 /* ----------------------------------------------------------------
    TerminalFeed — terminal estilo Linux com glassmorphism.
@@ -107,6 +108,10 @@ export function TerminalFeed({ executions }: { executions: ToolExecution[] }) {
       drag
       dragMomentum={false}
       dragElastic={0}
+      onDragStart={() => dragTrash.start(() => { setLog([]); seenToolsRef.current.clear() })}
+      onDrag={(e) => { const evt = e as unknown as PointerEvent; if (evt.clientY) dragTrash.move(evt.clientY) }}
+      onDragEnd={() => dragTrash.end()}
+      whileDrag={{ scale: 1.02, zIndex: 50 }}
       layout
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}

@@ -332,6 +332,8 @@ export function Voice() {
     const last = messages[messages.length - 1]
     if (!last || last.role !== 'assistant' || !last.content) return
     if (spokenIdsRef.current.has(last.id)) return
+    // Pular mensagens de lembrete/welcome (já faladas pelo próprio handler)
+    if (last.id.startsWith('reminder-') || last.id.startsWith('welcome-')) return
     spokenIdsRef.current.add(last.id)
 
     // Pegar o que sobrou (não foi falado pelo streaming)

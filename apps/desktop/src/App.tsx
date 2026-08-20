@@ -14,6 +14,7 @@ import { useRestoreVisuals } from './hooks/useRestoreVisuals';
 import { useWelcome } from './hooks/useWelcome';
 import { ToastContainer } from './ui/Toast';
 import { RemindersPanel } from './ui/RemindersPanel';
+import { DragTrashZone } from './ui/DragTrash';
 import { Voice } from './screens/Voice';
 import { ChatScreen } from './screens/ChatScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -57,6 +58,7 @@ export function App() {
       <CommandPalette externalOpen={paletteOpen} onExternalOpenChange={setPaletteOpen} />
       <ToastContainer />
       <RemindersPanel open={remindersOpen} onClose={() => setRemindersOpen(false)} />
+      <DragTrashZone />
     </>
   );
 }
