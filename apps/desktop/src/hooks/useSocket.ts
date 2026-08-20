@@ -15,6 +15,45 @@ import { useJarvisStore } from '../stores/jarvis.store';
 import { ttsLock } from './ttsLock';
 import { showToast } from '../ui/Toast';
 
+const SETTING_LABELS: Record<string, string> = {
+  'llm.preferLocal': 'Preferir local',
+  'openai.webSearch': 'Web Search (cloud)',
+  'voice.wakeWord': 'Wake word',
+  'voice.bargeIn': 'Barge-in',
+  'tts.dynamicSpeed': 'Velocidade dinâmica',
+  'personality.tone': 'Tom',
+  'personality.proactivity': 'Proatividade',
+  'personality.verbosity': 'Verbosidade',
+  'llm.ollama.model': 'Modelo',
+  'tts.engine': 'Engine TTS',
+  'tts.voice': 'Voz',
+  'tts.speed': 'Velocidade',
+  'agent.systemPrompt': 'System prompt',
+  'openai.apiKey': 'OpenAI API Key',
+  'ui.accent': 'Cor de destaque',
+  'ui.bgPreset': 'Fundo',
+  'ui.bgBlur': 'Blur do fundo',
+  'ui.bgDim': 'Escurecimento do fundo',
+};
+
+function settingToastMessage(key: string, value: string): string {
+  const label = SETTING_LABELS[key];
+
+  // Toggle (true/false)
+  if (value === 'true' || value === 'false') {
+    const state = value === 'true' ? 'ativado' : 'desativado';
+    return label ? `${label} ${state}` : `Configuração ${state}`;
+  }
+
+  // Valores longos (API keys, prompts)
+  if (value.length > 30) return label ? `${label} salvo` : 'Salvo';
+
+  // Valores curtos com label
+  if (label) return `${label}: ${value}`;
+
+  return 'Salvo';
+}
+
 const API_URL = 'http://localhost:3000';
 
 export function useSocket() {
@@ -191,8 +230,8 @@ export function useSocket() {
 
     store.updateSetting(key, value);
     socket.emit(WsEvent.SettingsUpdate, { key, value }, (ack: any) => {
-      if (ack?.error) showToast('Erro ao salvar', 'error');
-      else showToast('Salvo', 'success');
+      if (ack?.error) { showToast('Erro ao salvar', 'error'); return; }
+      showToast(settingToastMessage(key, value), 'success');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
