@@ -139,9 +139,10 @@ export function ChatScreen() {
                 display: 'grid',
                 gridTemplateColumns: `repeat(${Math.min(productImages.length, 3)}, 1fr)`,
                 gap: 10,
-                maxWidth: '88%',
+                maxWidth: 'min(88%, 620px)',
                 marginLeft: 38,
                 marginBottom: 8,
+                overflow: 'hidden',
               }}>
                 {productImages.map((img, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

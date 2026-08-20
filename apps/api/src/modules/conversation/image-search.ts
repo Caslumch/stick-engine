@@ -15,8 +15,8 @@ interface ImageResult {
  */
 export async function searchImages(query: string, limit = 3): Promise<ImageResult[]> {
   try {
-    // Adicionar "produto" pra resultados mais relevantes
-    const searchQuery = `${query} produto foto`;
+    // Query otimizada: nome do produto direto, sem palavras genéricas
+    const searchQuery = query;
     const tokenResp = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&iar=images&iax=images&ia=images`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     });
