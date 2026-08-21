@@ -2,124 +2,108 @@
 # ============================================================
 # Treina modelo OpenWakeWord customizado para "nilo"
 # Rodar dentro do WSL (Ubuntu)
-# Uso: bash train-wakeword.sh
-# Resultado: models/nilo.onnx
 # ============================================================
 
 set -e
 
 WAKE_WORD="nilo"
-OUTPUT_DIR="$HOME/wakeword-training"
-MODEL_OUTPUT="$OUTPUT_DIR/models"
+WORK_DIR="$HOME/wakeword-training"
+VENV_DIR="$WORK_DIR/venv"
 
 echo "=========================================="
 echo "  Treinando wake word: $WAKE_WORD"
 echo "=========================================="
 echo ""
 
-# 1. Instalar dependências
-echo "[1/5] Instalando dependências..."
-pip install --quiet openwakeword torch torchaudio piper-tts optuna onnx onnxruntime 2>/dev/null || {
-    pip3 install --quiet openwakeword torch torchaudio piper-tts optuna onnx onnxruntime
+# 1. Criar venv
+echo "[1/5] Criando ambiente virtual..."
+mkdir -p "$WORK_DIR"
+python3 -m venv "$VENV_DIR" 2>/dev/null || {
+    sudo apt install -y python3-venv python3-full
+    python3 -m venv "$VENV_DIR"
 }
+source "$VENV_DIR/bin/activate"
 
-# 2. Criar diretórios
-echo "[2/5] Preparando diretórios..."
-mkdir -p "$OUTPUT_DIR"
-mkdir -p "$MODEL_OUTPUT"
+# 2. Instalar dependências
+echo "[2/5] Instalando dependências (pode demorar)..."
+pip install --quiet --upgrade pip
+pip install --quiet openwakeword
 
-# 3. Script Python de treino
-echo "[3/5] Gerando dados sintéticos e treinando..."
+# 3. Clonar repo pra usar notebooks de treino
+echo "[3/5] Preparando dados de treino..."
+OWW_DIR="$WORK_DIR/openWakeWord"
+if [ ! -d "$OWW_DIR" ]; then
+    git clone --depth 1 https://github.com/dscripka/openWakeWord.git "$OWW_DIR"
+fi
 
-cat > "$OUTPUT_DIR/train.py" << 'PYTHON_SCRIPT'
-import os
+# 4. Treinar
+echo "[4/5] Treinando modelo '$WAKE_WORD'..."
+
+cat > "$WORK_DIR/train.py" << 'PYTHON_SCRIPT'
 import sys
-import json
-import numpy as np
+import os
 
 WAKE_WORD = "nilo"
-OUTPUT_DIR = os.path.expanduser("~/wakeword-training")
-MODEL_DIR = os.path.join(OUTPUT_DIR, "models")
+WORK_DIR = os.path.expanduser("~/wakeword-training")
+MODEL_DIR = os.path.join(WORK_DIR, "models")
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-def main():
+# Tentar treino automático via openwakeword
+try:
+    # Verificar se o módulo de treino está disponível
+    from openwakeword.utils import download_models
+    print("OpenWakeWord instalado com sucesso.")
+
+    # O treino automático precisa de ferramentas adicionais
+    # Vamos tentar instalar e usar
+    import subprocess
+    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
+                    "torch", "torchaudio", "speechbrain", "mutagen"], check=False)
+
+    # Tentar usar a API de treino se disponível
     try:
-        from openwakeword.train import train_custom_model
-        print(f"Treinando modelo para '{WAKE_WORD}' via API...")
-
-        model_path = train_custom_model(
-            wake_word=WAKE_WORD,
+        sys.path.insert(0, os.path.join(WORK_DIR, "openWakeWord"))
+        from openwakeword import train
+        print(f"Treinando '{WAKE_WORD}'...")
+        # Usar treino automático
+        train.train(
+            target_phrase=WAKE_WORD,
             output_dir=MODEL_DIR,
-            n_samples=1500,
-            n_epochs=100,
-            target_accuracy=0.5,
-            target_recall=0.3,
         )
-        print(f"\n✅ Modelo salvo em: {model_path}")
-        return model_path
+        print(f"✅ Modelo salvo em: {MODEL_DIR}/{WAKE_WORD}.onnx")
+    except (ImportError, AttributeError) as e:
+        print(f"API de treino não disponível: {e}")
+        raise
 
-    except ImportError:
-        print("API de treino não disponível. Usando notebook approach...")
-    except Exception as e:
-        print(f"Erro na API de treino: {e}")
-        print("Tentando abordagem alternativa...")
+except Exception as e:
+    print(f"\n⚠️  Treino automático falhou: {e}")
+    print(f"\n{'='*50}")
+    print(f"  ALTERNATIVA: Google Colab (mais fácil)")
+    print(f"{'='*50}")
+    print(f"")
+    print(f"1. Abra este link no navegador:")
+    print(f"   https://colab.research.google.com/github/dscripka/openWakeWord/blob/main/notebooks/automatic_model_training.ipynb")
+    print(f"")
+    print(f"2. No notebook, mude o wake word para: {WAKE_WORD}")
+    print(f"   (Procure por 'my_wake_word' e troque)")
+    print(f"")
+    print(f"3. Execute todas as células (Runtime → Run all)")
+    print(f"   Demora ~30-60 min")
+    print(f"")
+    print(f"4. Baixe o arquivo .onnx gerado")
+    print(f"")
+    print(f"5. Coloque em:")
+    print(f"   C:\\Users\\caslu\\Documents\\projects\\stick-demo\\services\\wakeword\\{WAKE_WORD}.onnx")
+    print(f"")
+    print(f"6. Reinicie o serviço de wakeword")
+    print(f"")
+    print(f"O servidor já detecta o .onnx automaticamente!")
 
-    # Alternativa: usar o notebook de treino automático
-    try:
-        import subprocess
-
-        # Clonar o repo se necessário
-        oww_dir = os.path.join(OUTPUT_DIR, "openWakeWord")
-        if not os.path.exists(oww_dir):
-            print("Clonando openWakeWord...")
-            subprocess.run(["git", "clone", "https://github.com/dscripka/openWakeWord.git", oww_dir], check=True)
-
-        # Usar o script de treino do repo
-        train_script = os.path.join(oww_dir, "openwakeword", "train.py")
-        if os.path.exists(train_script):
-            print(f"Executando treino via script do repo...")
-            subprocess.run([
-                sys.executable, train_script,
-                "--wake_word", WAKE_WORD,
-                "--output_dir", MODEL_DIR,
-            ], check=True)
-        else:
-            print("Script de treino não encontrado no repo.")
-            print("\n📋 Alternativa manual:")
-            print(f"1. Acesse: https://colab.research.google.com/github/dscripka/openWakeWord/blob/main/notebooks/automatic_model_training.ipynb")
-            print(f"2. Mude o wake word para: {WAKE_WORD}")
-            print(f"3. Execute o notebook")
-            print(f"4. Baixe o modelo .onnx gerado")
-            print(f"5. Coloque em: {MODEL_DIR}/{WAKE_WORD}.onnx")
-
-    except Exception as e:
-        print(f"Erro: {e}")
-        print("\n📋 Use o Google Colab como alternativa:")
-        print(f"https://colab.research.google.com/github/dscripka/openWakeWord/blob/main/notebooks/automatic_model_training.ipynb")
-
-if __name__ == "__main__":
-    main()
 PYTHON_SCRIPT
 
-python3 "$OUTPUT_DIR/train.py"
-
-# 4. Copiar modelo pro projeto
-echo ""
-echo "[4/5] Verificando modelo..."
-ONNX_FILE="$MODEL_DIR/${WAKE_WORD}.onnx"
-if [ -f "$ONNX_FILE" ]; then
-    # Converter path WSL → Windows
-    WIN_PATH=$(wslpath -w "$ONNX_FILE" 2>/dev/null || echo "$ONNX_FILE")
-    echo "✅ Modelo treinado: $ONNX_FILE"
-    echo "   Windows path: $WIN_PATH"
-    echo ""
-    echo "[5/5] Copie o modelo para o projeto:"
-    echo "   cp $ONNX_FILE /mnt/c/Users/caslu/Documents/projects/stick-demo/services/wakeword/${WAKE_WORD}.onnx"
-else
-    echo "⚠️  Modelo não encontrado em $ONNX_FILE"
-    echo "   Siga as instruções acima para treinar via Colab."
-fi
+python3 "$WORK_DIR/train.py"
 
 echo ""
 echo "=========================================="
-echo "  Treino finalizado!"
+echo "  Processo finalizado!"
 echo "=========================================="

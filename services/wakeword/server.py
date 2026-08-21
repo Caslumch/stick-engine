@@ -12,7 +12,9 @@ Uso:
 """
 
 import asyncio
+import glob
 import json
+import os
 import time
 import threading
 import queue
@@ -27,7 +29,7 @@ from openwakeword.model import Model as OWWModel
 
 SAMPLE_RATE = 16000
 CHUNK_SAMPLES = 1280  # 80ms chunks (OpenWakeWord expects 80ms)
-THRESHOLD = 0.5       # Detection confidence threshold
+THRESHOLD = 0.3       # Detection confidence threshold
 COOLDOWN_SECS = 3.0   # Ignore detections for N seconds after a trigger
 
 # ─── State ───────────────────────────────────────────────────
@@ -196,7 +198,7 @@ async def health():
     return {
         "status": "ok",
         "listening": is_listening,
-        "model": "hey_jarvis",
+        "model": list(oww_model.models.keys()) if oww_model else "not_loaded",
         "threshold": THRESHOLD,
         "clients": len(connected_clients),
     }
@@ -224,7 +226,7 @@ async def websocket_endpoint(ws: WebSocket):
         await ws.send_text(json.dumps({
             "event": "connected",
             "listening": is_listening,
-            "model": "hey_jarvis",
+            "model": list(oww_model.models.keys()) if oww_model else "not_loaded",
         }))
 
         # Keep connection alive
