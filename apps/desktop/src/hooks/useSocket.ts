@@ -264,15 +264,31 @@ export function useSocket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const updateSetting = useCallback((key: string, value: string) => {
     const socket = socketRef.current;
     if (!socket) return;
 
+    // Update local state immediately (for instant UI feedback)
     store.updateSetting(key, value);
-    socket.emit(WsEvent.SettingsUpdate, { key, value }, (ack: any) => {
-      if (ack?.error) { showToast('Erro ao salvar', 'error'); return; }
-      showToast(settingToastMessage(key, value), 'success');
-    });
+
+    // Debounce the socket emit + toast for slider-type settings
+    const isSlider = key === 'ui.bgBlur' || key === 'ui.bgDim';
+    if (isSlider) {
+      if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current);
+      pendingSaveRef.current = setTimeout(() => {
+        socket.emit(WsEvent.SettingsUpdate, { key, value }, (ack: any) => {
+          if (ack?.error) { showToast('Erro ao salvar', 'error'); return; }
+          showToast(settingToastMessage(key, value), 'success');
+        });
+      }, 500);
+    } else {
+      socket.emit(WsEvent.SettingsUpdate, { key, value }, (ack: any) => {
+        if (ack?.error) { showToast('Erro ao salvar', 'error'); return; }
+        showToast(settingToastMessage(key, value), 'success');
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
