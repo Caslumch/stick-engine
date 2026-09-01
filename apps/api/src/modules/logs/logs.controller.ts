@@ -17,10 +17,10 @@ export class LogsController {
     const message = (body?.message ?? '').slice(0, 2000);
     if (!message) return { ok: false };
 
-    const line = `[${scope}] ${message}`;
-    if (body?.level === 'error') this.logger.error(line);
-    else if (body?.level === 'warn') this.logger.warn(line);
-    else this.logger.log(line);
+    // scope vira o contexto do Nest (ex: "[Voz]"), sem repetir no texto
+    if (body?.level === 'error') this.logger.error(message, scope);
+    else if (body?.level === 'warn') this.logger.warn(message, scope);
+    else this.logger.log(message, scope);
 
     return { ok: true };
   }

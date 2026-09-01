@@ -246,7 +246,16 @@ export class SpotifyCapability implements Capability, OnModuleInit {
         return { success: false, message: `Spotify: ${resp.status} - ${err}` };
       }
 
-      return { success: true, message: '', data: await resp.json() };
+      // Comandos de player (pause/next/volume) respondem sem corpo JSON.
+      // Chamar resp.json() aqui quebrava com "is not valid JSON" mesmo
+      // quando a acao tinha funcionado.
+      const texto = await resp.text();
+      if (!texto.trim()) return { success: true, message: 'OK' };
+      try {
+        return { success: true, message: '', data: JSON.parse(texto) };
+      } catch {
+        return { success: true, message: 'OK' };
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return { success: false, message: `Erro Spotify: ${msg}` };

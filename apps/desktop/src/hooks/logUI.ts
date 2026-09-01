@@ -34,9 +34,18 @@ function enfileirar(scope: string, message: string, level: Nivel) {
   if (!agendado) agendado = setTimeout(enviar, 250)
 }
 
+// Marca as mensagens que o logUI ja enfileirou, pro interceptador de
+// console nao mandar a mesma linha duas vezes.
+let emitindoPeloLogUI = false
+
 /** Loga no console do WebView e espelha no terminal. */
 export function logUI(message: string, scope = 'UI', level: Nivel = 'log') {
-  console[level](`[${scope}]`, message)
+  emitindoPeloLogUI = true
+  try {
+    console[level](`[${scope}]`, message)
+  } finally {
+    emitindoPeloLogUI = false
+  }
   enfileirar(scope, message, level)
 }
 
@@ -71,9 +80,9 @@ export function instalarPonteDeLogs() {
     const original = console[nivel].bind(console)
     console[nivel] = (...args: unknown[]) => {
       original(...args)
-      const texto = formatar(args)
-      // evita eco: mensagens que o proprio logUI ja enfileirou
-      if (!texto.startsWith('[UI]')) enfileirar('UI', texto, nivel)
+      // o logUI ja enfileira a propria mensagem — sem isto ela sairia dobrada
+      if (emitindoPeloLogUI) return
+      enfileirar('UI', formatar(args), nivel)
     }
   }
 
