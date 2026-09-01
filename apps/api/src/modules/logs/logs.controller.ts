@@ -9,7 +9,16 @@ import { Body, Controller, Logger, Post } from '@nestjs/common';
  */
 @Controller('api/logs')
 export class LogsController {
-  private readonly logger = new Logger('UI');
+  private readonly loggers = new Map<string, Logger>();
+
+  private loggerFor(scope: string): Logger {
+    let l = this.loggers.get(scope);
+    if (!l) {
+      l = new Logger(scope);
+      this.loggers.set(scope, l);
+    }
+    return l;
+  }
 
   @Post()
   write(@Body() body: { scope?: string; message?: string; level?: string }) {
@@ -17,10 +26,12 @@ export class LogsController {
     const message = (body?.message ?? '').slice(0, 2000);
     if (!message) return { ok: false };
 
-    // scope vira o contexto do Nest (ex: "[Voz]"), sem repetir no texto
-    if (body?.level === 'error') this.logger.error(message, scope);
-    else if (body?.level === 'warn') this.logger.warn(message, scope);
-    else this.logger.log(message, scope);
+    // Um Logger por scope: passar o contexto como 2o argumento de error()
+    // seria interpretado como stack trace e sairia numa linha solta.
+    const logger = this.loggerFor(scope);
+    if (body?.level === 'error') logger.error(message);
+    else if (body?.level === 'warn') logger.warn(message);
+    else logger.log(message);
 
     return { ok: true };
   }
