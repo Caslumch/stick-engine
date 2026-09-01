@@ -23,7 +23,39 @@ O desktop conecta no backend via WebSocket (`localhost:3000`). Voz (STT/TTS) rod
 - **Rust** (para o Tauri)
 - **MSVC Build Tools** (Windows — compilacao do Rust)
 
-## Setup
+## Setup rapido (Windows)
+
+Um comando faz tudo: Python + venvs dos servicos de voz, `pnpm install`, `.env`, banco e schema.
+
+```powershell
+git clone https://github.com/Caslumch/stick-engine.git
+cd stick-engine
+powershell -ExecutionPolicy Bypass -File scripts/setup.ps1
+```
+
+Com a chave da OpenAI ja no `.env`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -OpenAiKey "sk-proj-..."
+```
+
+Incluindo Tauri (Rust + MSVC Build Tools, ~6GB, 20-40min):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -WithTauri
+```
+
+O script e idempotente — rodar de novo nao quebra nada e nao sobrescreve o `.env`.
+Ao final:
+
+```bash
+pnpm dev:all   # API + front + TTS + wake word
+pnpm dev       # so API + front (voz cai no Web Speech do Chrome)
+```
+
+O setup manual, passo a passo, esta abaixo.
+
+## Setup manual
 
 ### 1. Clonar e instalar dependencias
 

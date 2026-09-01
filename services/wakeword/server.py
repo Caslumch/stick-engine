@@ -11,6 +11,7 @@ Uso:
   python server.py
 """
 
+import os
 import asyncio
 import glob
 import json
@@ -29,7 +30,34 @@ from openwakeword.model import Model as OWWModel
 
 SAMPLE_RATE = 16000
 CHUNK_SAMPLES = 1280  # 80ms chunks (OpenWakeWord expects 80ms)
-THRESHOLD = 0.3       # Detection confidence threshold
+THRESHOLD = 0.5       # Detection confidence threshold
+
+
+def _load_input_device():
+    """
+    Indice do microfone. None = padrao do Windows, que nem sempre e o que capta voz.
+    Ordem: env WAKEWORD_DEVICE > arquivo services/wakeword/device.txt > padrao.
+    Liste os indices com:
+      services/wakeword/.venv/Scripts/python.exe -m sounddevice
+    """
+    raw = os.environ.get("WAKEWORD_DEVICE")
+    if not raw:
+        path = os.path.join(os.path.dirname(__file__), "device.txt")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                # ignora comentarios e linhas vazias
+                raw = next(
+                    (l.strip() for l in fh if l.strip() and not l.strip().startswith("#")),
+                    None,
+                )
+    try:
+        return int(raw) if raw else None
+    except ValueError:
+        print(f"[WakeWord] WAKEWORD_DEVICE invalido: {raw!r} — usando o padrao")
+        return None
+
+
+INPUT_DEVICE = _load_input_device()
 COOLDOWN_SECS = 3.0   # Ignore detections for N seconds after a trigger
 
 # ─── State ───────────────────────────────────────────────────
@@ -115,12 +143,21 @@ def detection_loop():
                 })
 
     try:
+        # WAKEWORD_DEVICE: indice do dispositivo de entrada (ver `python -m sounddevice`).
+        # Sem isso o Windows entrega o padrao do sistema, que pode ser um mic mudo.
+        try:
+            dev_name = sd.query_devices(INPUT_DEVICE if INPUT_DEVICE is not None else sd.default.device[0])["name"]
+        except Exception:
+            dev_name = "?"
+        print(f"[WakeWord] Entrada de audio: [{INPUT_DEVICE if INPUT_DEVICE is not None else 'padrao'}] {dev_name}")
+
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=1,
             dtype="float32",
             blocksize=CHUNK_SAMPLES,
             callback=audio_callback,
+            device=INPUT_DEVICE,
         ):
             while not stop_event.is_set():
                 stop_event.wait(0.1)

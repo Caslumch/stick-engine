@@ -1,0 +1,11 @@
+# Indice do microfone usado pelo wake word.
+#
+# Copie este arquivo para device.txt e descomente a linha com o indice certo.
+# O padrao do Windows nem sempre e o microfone que capta sua voz — vale medir.
+#
+# Liste os dispositivos disponiveis com:
+#   services/wakeword/.venv/Scripts/python.exe -m sounddevice
+#
+# Alternativa: definir a variavel de ambiente WAKEWORD_DEVICE.
+#
+# 2

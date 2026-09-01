@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
-    "tts": "python services/tts/server.py",
-    "wakeword": "python services/wakeword/server.py",
+    "tts": "services\\tts\\.venv\\Scripts\\python.exe services/tts/server.py",
+    "wakeword": "services\\wakeword\\.venv\\Scripts\\python.exe services/wakeword/server.py",
     "dev:all": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm wakeword\" \"pnpm dev\"",
     "dev:tauri": "docker compose up -d && concurrently \"pnpm tts\" \"pnpm wakeword\" \"turbo dev --filter=@jarvis/api\" \"cd apps/desktop && pnpm tauri:dev\"",
     "build": "turbo build",

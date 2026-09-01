@@ -18,3 +18,13 @@ src-tauri/target/
 
 # Prisma
 apps/api/prisma/*.db
+
+# Python
+.venv/
+__pycache__/
+
+# Artefato de build do TypeScript
+*.tsbuildinfo
+
+# Indice do microfone: especifico de cada maquina
+services/wakeword/device.txt

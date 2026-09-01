@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Bloom, EffectComposer } from '@react-three/postprocessing'
 import { useJarvisStore } from '../stores/jarvis.store'
@@ -25,8 +25,18 @@ export function OrbBridge() {
   const isAmbient = useJarvisStore((s) => s.isAmbient)
   const { resolved } = useTheme()
   const colors = STATE_COLORS[state]
-  const visible = view === 'voice' || isAmbient
   const isLight = resolved === 'light'
+
+  // Janela minimizada/em segundo plano: parar de renderizar.
+  // Sem isso o orb continua queimando GPU com a janela escondida.
+  const [pageVisible, setPageVisible] = useState(!document.hidden)
+  useEffect(() => {
+    const onChange = () => setPageVisible(!document.hidden)
+    document.addEventListener('visibilitychange', onChange)
+    return () => document.removeEventListener('visibilitychange', onChange)
+  }, [])
+
+  const visible = (view === 'voice' || isAmbient) && pageVisible
 
   // Áudio: listening usa mic, speaking usa o stream real do TTS
   const source = useMemo<AudioSource>(() => {
@@ -52,18 +62,18 @@ export function OrbBridge() {
       }}
     >
       <Canvas
-        dpr={[1.5, 2]}
-        frameloop="always"
+        dpr={[1, 1.5]}
+        frameloop={visible ? 'always' : 'never'}
         resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
         camera={{ position: [0, 0, 4.2], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
         onCreated={(s) => {
           s.gl.setClearColor(0x000000, 0)
         }}
       >
         <JarvisOrb
           state={state}
-          pointCount={18000}
+          pointCount={9000}
           pointSize={4.5}
           primaryColor={colors.primary}
           secondaryColor={colors.secondary}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useJarvisStore } from './stores/jarvis.store';
 import { Backdrop } from './theme/Backdrop';
 import { OrbBridge } from './app/OrbBridge';
+import { SpotifyProvider } from './app/SpotifyProvider';
 import { StatusPill } from './ui/StatusPill';
 import { MetaBar } from './ui/MetaBar';
 import { Nav } from './ui/Nav';
@@ -37,7 +38,7 @@ export function App() {
   const hideUI = isAmbient;
 
   return (
-    <>
+    <SpotifyProvider>
       <Backdrop />
       <OrbBridge />
       <div style={{
@@ -59,6 +60,6 @@ export function App() {
       <ToastContainer />
       <RemindersPanel open={remindersOpen} onClose={() => setRemindersOpen(false)} />
       <DragTrashZone />
-    </>
+    </SpotifyProvider>
   );
 }

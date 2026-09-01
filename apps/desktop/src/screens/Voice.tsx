@@ -19,8 +19,12 @@ import { ttsLock } from '../hooks/ttsLock'
 import { preloadFillers, playFiller } from '../hooks/fillerCache'
 import { cleanForSpeech as cleanForSpeechInline } from '../hooks/cleanForSpeech'
 import { useIsDragging } from '../ui/DragTrash'
+import { SpotifyCard } from '../ui/SpotifyCard'
+import { SpotifyModal } from '../ui/SpotifyModal'
+import { logUI } from '../hooks/logUI'
+import { useSpotify } from '../app/SpotifyProvider'
 import { playSendSound, playListeningSound } from '../hooks/uiSounds'
-import { STATE_LABELS, VOICE_PROMPTS, DOCK, TOOL_LABELS } from '../app/strings'
+import { STATE_LABELS, VOICE_PROMPTS, VOICE_NOTICES, DOCK, TOOL_LABELS } from '../app/strings'
 import type { JarvisState } from '@jarvis/shared'
 
 /**
@@ -47,6 +51,15 @@ export function Voice() {
   const isListening = state === 'listening'
 
   const { amplitude, start: startAudio, stop: stopAudio } = useAudioAmplitude(isListening)
+
+  // --- Player do Spotify (Web Playback SDK) ---
+  const settings = useJarvisStore((s) => s.settings)
+  const spotifyEnabled = settings['spotify.player.enabled'] === 'true'
+  // Player compartilhado (montado no App) — não desmonta ao trocar de tela
+  const spotify = useSpotify()
+  const spotifyCardHidden = useJarvisStore((s) => s.spotifyCardHidden)
+  const setSpotifyCardHidden = useJarvisStore((s) => s.setSpotifyCardHidden)
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
   const { sendMessage } = useSocket()
 
   const [transcript, setTranscript] = useState('')
@@ -64,17 +77,21 @@ export function Voice() {
       transcriptRef.current = text
     },
     onEnd: () => {},
-    onError: (err) => { setError(`Microfone: ${err}`); console.warn('[STT/Web]', err) },
+    onError: (err) => { setError(`Microfone: ${err}`); logUI(String(err), 'STT/Web', 'warn') },
   })
 
   const tauriStt = useTauriSTT({
     onResult: (text) => { setTranscript(text); transcriptRef.current = text },
-    onError: (err) => { setError(`Transcrição: ${err}`); console.warn('[STT/Whisper]', err) },
+    onError: (err) => { setError(`Transcrição: ${err}`); logUI(String(err), 'STT/Whisper', 'error') },
   })
 
   // Web Speech primeiro (transcrição em tempo real, ~200ms)
   // Whisper como fallback (batch, ~5-15s) — só se Web Speech indisponível
-  const stt = webStt.isSupported ? webStt : tauriStt
+  //
+  // No Tauri o WebView2 EXPÕE webkitSpeechRecognition, mas ele não funciona:
+  // não há o serviço de fala do Chrome por trás. Sem esta checagem o app
+  // escolhia o caminho quebrado e nunca transcrevia nada.
+  const stt = !IN_TAURI && webStt.isSupported ? webStt : tauriStt
 
   // --- TTS (via ref estável) ---
   const ttsRef = useRef<{ speak: (t: string) => void; cancel: () => void; isSpeaking: () => boolean }>({
@@ -85,19 +102,11 @@ export function Voice() {
   const ttsEndCb = () => {
     ttsLock.active = false
     if (useJarvisStore.getState().state !== 'speaking') return
-    // Conversação contínua: volta a ouvir automaticamente após falar
-    // Delay pra garantir que AudioContext/WebSpeech reiniciam corretamente
-    setTimeout(() => {
-      if (useJarvisStore.getState().state !== 'idle' && useJarvisStore.getState().state !== 'speaking') return
-      console.log('[Voice] Conversação contínua: reiniciando mic/STT')
-      setState('listening')
-      transcriptRef.current = ''
-      setTranscript('')
-      sendingRef.current = false
-      startAudio()
-      stt.start()
-      vad.start()
-    }, 300)
+    // Terminou de falar: volta pro idle com o mic FECHADO.
+    // Antes reabria sozinho ("conversacao continua"), mas isso deixava o
+    // microfone ligado apos o fim da conversa — qualquer voz ou som por perto
+    // virava mensagem enviada. Pra falar de novo: botao do mic ou espaco.
+    setState('idle')
   }
   const ttsErrCb = (err: string) => { ttsLock.active = false; setError(`Voz: ${err}`); setState('idle') }
 
@@ -127,9 +136,18 @@ export function Voice() {
 
     stopAudio()
     vad.stop()
-    stt.stop()
+
+    // O Whisper (Tauri) so transcreve DEPOIS do stop, e leva segundos.
+    // Sem aguardar, transcriptRef ainda estaria vazio e a fala se perdia.
+    if (IN_TAURI) setState('thinking')
+    await stt.stop()
 
     const text = transcriptRef.current.trim()
+    logUI(
+      text ? `transcrito (${text.length} chars): "${text.slice(0, 80)}"` : 'nada transcrito',
+      'Voz',
+      text ? 'log' : 'warn',
+    )
     setTranscript('')
     transcriptRef.current = ''
     sendingRef.current = false
@@ -139,6 +157,8 @@ export function Voice() {
       playSendSound()
       sendMessage(text)
     } else {
+      // Nada transcrito: avisa em vez de voltar pro idle em silencio
+      setError(VOICE_NOTICES.notUnderstood)
       setState('idle')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,6 +171,7 @@ export function Voice() {
     onSilence: () => {
       // Só auto-enviar se estamos em listening
       if (useJarvisStore.getState().state === 'listening') {
+        logUI('silêncio detectado — encerrando gravação', 'Voz')
         doSend()
       }
     },
@@ -163,7 +184,7 @@ export function Voice() {
     threshold: 0.06,
     voiceConfirmMs: 400,
     silenceDuration: 500,
-    onVoiceStart: () => {
+    onVoiceStart: async () => {
       const current = useJarvisStore.getState().state
       if (current === 'speaking') {
         // Interromper TUDO: TTS normal + streaming queue + áudio ativo
@@ -178,7 +199,7 @@ export function Voice() {
         transcriptRef.current = ''
         sendingRef.current = false
         startAudio()
-        stt.start()
+        await stt.start()
         vad.start()
         bargeInVad.stop()
       }
@@ -211,6 +232,8 @@ export function Voice() {
 
   // --- Ref pra cancelamento compartilhado ---
   const cancelledRef = useRef(false)
+  /** Áudio TTS tocando agora — permite cortar no meio da frase. */
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
 
   // --- Streaming TTS: falar frases conforme o LLM gera ---
   const streamSpokenLenRef = useRef(0)       // quanto do stream já foi enviado pro TTS
@@ -218,8 +241,36 @@ export function Voice() {
   const streamTTSActiveRef = useRef(false)   // se o TTS streaming está ativo
   const streamQueueRef = useRef<string[]>([]) // fila de frases pra falar
 
-  /** Busca TTS pra uma frase e retorna o AudioBuffer decodificado */
-  const fetchTTSBuffer = async (sentence: string): Promise<AudioBuffer | null> => {
+  /**
+   * Fala uma frase pelo Web Speech API e resolve quando termina.
+   * Fallback pro servidor TTS — sem isso a frase seria pulada em silêncio.
+   */
+  const speakViaWebSpeech = (sentence: string): Promise<void> =>
+    new Promise<void>((resolve) => {
+      const cleaned = cleanForSpeechInline(sentence).trim()
+      if (!cleaned || !('speechSynthesis' in window)) return resolve()
+
+      const utterance = new SpeechSynthesisUtterance(cleaned)
+      utterance.lang = 'pt-BR'
+      utterance.rate = 1.1
+      const ptVoice = speechSynthesis.getVoices().find((v) => v.lang.startsWith('pt'))
+      if (ptVoice) utterance.voice = ptVoice
+
+      let settled = false
+      const finish = () => { if (!settled) { settled = true; resolve() } }
+      utterance.onend = finish
+      utterance.onerror = finish
+
+      // Barge-in/stop chamam speechSynthesis.cancel() — dispara onend e resolve
+      speechSynthesis.speak(utterance)
+    })
+
+  /**
+   * Busca TTS pra uma frase e retorna o AudioBuffer decodificado.
+   * Retorna 'unavailable' quando o servidor TTS não respondeu — o chamador
+   * usa isso pra cair no Web Speech em vez de pular a frase.
+   */
+  const fetchTTSBuffer = async (sentence: string): Promise<AudioBuffer | null | 'unavailable'> => {
     const cleaned = cleanForSpeechInline(sentence).trim()
     if (cleaned.length < 3) return null // ignorar strings vazias/curtas
     const settings = useJarvisStore.getState().settings
@@ -231,14 +282,22 @@ export function Voice() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleaned, engine, voice }),
       })
-      if (!resp.ok) return null
+      if (!resp.ok) {
+        console.warn(`[TTS] Servidor respondeu ${resp.status} — usando Web Speech`)
+        return 'unavailable'
+      }
       const { getTTSBus, resumeTTSBus } = await import('../hooks/ttsAudioBus')
       const bytes = await resp.arrayBuffer()
       if (bytes.byteLength < 100) return null // TTS retornou vazio
       const bus = getTTSBus()
       await resumeTTSBus()
       return bus.ctx.decodeAudioData(bytes.slice(0))
-    } catch { return null }
+    } catch (err) {
+      // Servidor TTS fora do ar (localhost:5001) ou falha ao decodificar.
+      // Antes isso retornava null e a frase era pulada em silêncio.
+      console.warn('[TTS] Servidor indisponível — usando Web Speech:', err)
+      return 'unavailable'
+    }
   }
 
   /** Processa a fila de frases — com prefetch da próxima enquanto toca a atual */
@@ -247,7 +306,7 @@ export function Voice() {
     streamTTSActiveRef.current = true
     ttsLock.active = true
 
-    let prefetchPromise: Promise<AudioBuffer | null> | null = null
+    let prefetchPromise: Promise<AudioBuffer | null | 'unavailable'> | null = null
 
     cancelledRef.current = false
 
@@ -262,6 +321,12 @@ export function Voice() {
       // Usar buffer prefetched se disponível, senão buscar agora
       const buffer = prefetchPromise ? await prefetchPromise : await fetchTTSBuffer(sentence)
       prefetchPromise = null
+
+      // Servidor TTS fora: falar pelo Web Speech em vez de pular a frase
+      if (buffer === 'unavailable') {
+        await speakViaWebSpeech(sentence)
+        continue
+      }
 
       if (!buffer) continue
 
@@ -278,7 +343,10 @@ export function Voice() {
         const source = bus.ctx.createBufferSource()
         source.buffer = buffer
         source.connect(bus.input)
-        source.onended = () => resolve()
+        source.onended = () => { currentSourceRef.current = null; resolve() }
+        // guardado pro stopAllTTS conseguir cortar a frase EM andamento —
+        // sem isto, interromper só limpava a fila e o áudio atual seguia até o fim
+        currentSourceRef.current = source
         source.start()
       })
     }
@@ -286,19 +354,12 @@ export function Voice() {
     streamTTSActiveRef.current = false
     ttsLock.active = false
     if (!useJarvisStore.getState().streamingText) {
-      if (useJarvisStore.getState().state === 'speaking') {
-        // Conversação contínua: volta a ouvir após terminar de falar
-        setTimeout(() => {
-          if (useJarvisStore.getState().state !== 'idle' && useJarvisStore.getState().state !== 'speaking') return
-          console.log('[Voice] Stream TTS terminado: reiniciando mic/STT')
-          setState('listening')
-          transcriptRef.current = ''
-          setTranscript('')
-          sendingRef.current = false
-          startAudio()
-          stt.start()
-          vad.start()
-        }, 300)
+      const s = useJarvisStore.getState().state
+      // 'thinking' entra aqui porque travamos o estado antes de sintetizar:
+      // se nenhuma frase chegou a ser falada, o orb ficaria preso em "Processando".
+      if (s === 'speaking' || s === 'thinking') {
+        // Fim da fala: idle com o mic fechado (ver comentario no ttsEndCb).
+        setState('idle')
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,8 +403,9 @@ export function Voice() {
     const last = messages[messages.length - 1]
     if (!last || last.role !== 'assistant' || !last.content) return
     if (spokenIdsRef.current.has(last.id)) return
-    // Pular mensagens de lembrete/welcome (já faladas pelo próprio handler)
-    if (last.id.startsWith('reminder-') || last.id.startsWith('welcome-')) return
+    // Lembretes ja sao falados pelo proprio handler. A saudacao NAO e —
+    // deixamos passar pro TTS pra o agente receber voce falando.
+    if (last.id.startsWith('reminder-')) return
     spokenIdsRef.current.add(last.id)
 
     // Pegar o que sobrou (não foi falado pelo streaming)
@@ -354,6 +416,11 @@ export function Voice() {
     streamSpokenLenRef.current = 0
 
     if (remaining) {
+      // Trava o estado ANTES de buscar o audio: o backend ja emitiu 'idle' ao
+      // terminar o texto, e sem isso o orb piscava "Disponivel" durante os
+      // 1-3s de sintese, antes de virar "Falando".
+      ttsLock.active = true
+      setState('thinking')
       streamQueueRef.current.push(remaining)
       processStreamQueue()
     }
@@ -370,10 +437,10 @@ export function Voice() {
     }
   }, [messages, processStreamQueue])
 
-  // --- Limpar erro após 4s ---
+  // --- Limpar erro após 10s (4s era curto demais pra ler) ---
   useEffect(() => {
     if (!error) return
-    const t = setTimeout(() => setError(''), 4000)
+    const t = setTimeout(() => setError(''), 10000)
     return () => clearTimeout(t)
   }, [error])
 
@@ -386,17 +453,90 @@ export function Voice() {
     return () => clearInterval(id)
   }, [state])
 
+  // --- Spotify: abaixar volume enquanto o agente fala ou ouve ---
+  useEffect(() => {
+    if (!spotifyEnabled || !spotify.ready) return
+    if (settings['spotify.player.duckOnSpeech'] === 'false') return
+    // ouvir tambem entra: a musica alta atrapalha o reconhecimento de voz
+    spotify.duck(state === 'speaking' || state === 'listening')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, spotifyEnabled, spotify.ready])
+
+  // O autoplay vive no SpotifyProvider: aqui ele redispararia toda vez
+  // que a tela de Voz remontasse.
+
+  // --- Timeout de escuta: só desliga o mic se você não falou NADA ---
+  //
+  // Antes a contagem reiniciava com a transcrição parcial, o que só existe
+  // no Web Speech. No Tauri o Whisper transcreve depois do stop, entao o
+  // timeout cortava a gravacao aos 12s mesmo com voce falando.
+  // Agora usamos o nivel de audio, que funciona nos dois modos.
+  // amplitude é um ref (não re-renderiza), então amostramos por intervalo
+  const ouviuAlgoRef = useRef(false)
+  useEffect(() => {
+    if (state !== 'listening') { ouviuAlgoRef.current = false; return }
+    const id = setInterval(() => {
+      if (amplitude.current.raw > 0.02) ouviuAlgoRef.current = true
+    }, 200)
+    return () => clearInterval(id)
+  }, [state, amplitude])
+
+  useEffect(() => {
+    if (state !== 'listening') return
+    const t = setTimeout(() => {
+      if (useJarvisStore.getState().state !== 'listening') return
+      // falou algo? o VAD decide quando encerrar, nao este timeout
+      if (ouviuAlgoRef.current || transcriptRef.current.trim()) return
+      logUI('12s sem captar áudio — desligando o mic', 'Voz', 'warn')
+      stt.abort()
+      stopAudio()
+      vad.stop()
+      sendingRef.current = false
+      setError(VOICE_NOTICES.listenTimeout)
+      setState('idle')
+    }, 12000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  // --- Teto de gravação: 90s. Envia o que tem, em vez de descartar ---
+  useEffect(() => {
+    if (state !== 'listening') return
+    const t = setTimeout(() => {
+      if (useJarvisStore.getState().state !== 'listening') return
+      logUI('90s de gravação — enviando o que foi captado', 'Voz', 'warn')
+      doSend()
+    }, 90000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
   // --- Handlers ---
-  const handleMicClick = () => {
-    if (state === 'idle') {
+  const handleMicClick = async () => {
+    // Estado do store, nao da closure: este handler tambem roda a partir
+    // do evento de teclado, onde `state` pode estar defasado.
+    const atual = useJarvisStore.getState().state
+
+    // Falando ou processando: interrompe na hora e ja abre o mic.
+    // Antes o botao so respondia no idle — clicar durante a fala nao fazia nada.
+    if (atual === 'speaking' || atual === 'thinking') {
+      logUI('interrompido pelo usuário — abrindo o mic', 'Voz')
+      bargeInVad.stop()
+    }
+
+    if (atual === 'idle' || atual === 'speaking' || atual === 'thinking') {
       stopAllTTS()
       playListeningSound()
       setError('')
       setTranscript('')
       transcriptRef.current = ''
       sendingRef.current = false
+      logUI(`mic aberto — motor: ${IN_TAURI ? 'Whisper (Tauri)' : 'Web Speech'}`, 'Voz')
       startAudio()
-      stt.start()
+      // await: no Tauri o start() abre o MediaRecorder de forma assincrona.
+      // Sem esperar, o VAD podia mandar parar antes da gravacao existir e a
+      // fala se perdia (stop() retornava sem nada pra transcrever).
+      await stt.start()
       vad.start()
       setState('listening')
     }
@@ -421,6 +561,12 @@ export function Voice() {
     streamQueueRef.current = []
     streamTTSActiveRef.current = false
     ttsLock.active = false
+    // corta a frase que já está tocando (o cancel() acima só cobre o
+    // Web Speech / Piper; o áudio do servidor toca por este source)
+    try { currentSourceRef.current?.stop() } catch { /* já parou */ }
+    currentSourceRef.current = null
+    // e o Web Speech, caso o fallback tenha assumido
+    try { window.speechSynthesis?.cancel() } catch { /* sem suporte */ }
   }, [])
 
   const handleCancel = useCallback(() => {
@@ -437,9 +583,11 @@ export function Voice() {
   useEffect(() => {
     const handler = () => {
       const s = useJarvisStore.getState().state
-      if (s === 'idle') handleMicClick()
-      else if (s === 'listening') doSend()
-      else if (s === 'speaking') { stopAllTTS(); setState('idle') }
+      if (s === 'listening') doSend()
+      // idle, speaking e thinking caem no mesmo caminho: o handleMicClick
+      // interrompe a fala (se houver) e abre o mic — antes o espaço durante
+      // a fala só parava o áudio e voltava pro idle.
+      else handleMicClick()
     }
     window.addEventListener('jarvis:space', handler)
     return () => window.removeEventListener('jarvis:space', handler)
@@ -543,6 +691,32 @@ export function Voice() {
       <TerminalFeed executions={toolExecutions} />
       {/* Artifact: dados estruturados na direita (lê do store) */}
       <DataArtifact />
+
+      <SpotifyCard
+        visible={spotifyEnabled && !spotifyCardHidden}
+        ready={spotify.ready}
+        error={spotify.error}
+        paused={spotify.paused}
+        track={spotify.track}
+        needsSource={spotify.needsSource}
+        onToggle={spotify.togglePlay}
+        onNext={spotify.next}
+        onPrevious={spotify.previous}
+        onDismiss={() => setSpotifyCardHidden(true)}
+        onOpenLibrary={() => setSpotifyModalOpen(true)}
+      />
+
+      <SpotifyModal
+        open={spotifyModalOpen}
+        onClose={() => setSpotifyModalOpen(false)}
+        onPlay={(uri) => spotify.playUri(uri)}
+        track={spotify.track}
+        paused={spotify.paused}
+        onToggle={spotify.togglePlay}
+        onSeek={spotify.seek}
+        volume={spotify.volume}
+        onVolume={spotify.setVolume}
+      />
 
       {/* Estado + frase — esconde durante drag */}
       <div style={{ marginTop: 26, textAlign: 'center', maxWidth: 620, padding: '0 20px', opacity: isDragging ? 0.3 : 1, transition: 'opacity .2s' }}>

@@ -6,12 +6,27 @@ import { SettingsService } from '../settings/settings.service';
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
   private readonly ollamaUrl: string;
+  private readonly envApiKey: string;
 
   constructor(
     config: ConfigService,
     private readonly settings: SettingsService,
   ) {
     this.ollamaUrl = config.get<string>('jarvis.ollama.url', 'http://localhost:11434');
+    this.envApiKey = config.get<string>('jarvis.openai.apiKey', '');
+  }
+
+  /**
+   * Mesma fonte de chave do OpenAiProvider: settings da UI > env.
+   * Aceita as duas chaves porque a tela de Ajustes grava em 'openai.apiKey'
+   * e a tela antiga usava 'llm.openai.apiKey'.
+   */
+  private async getOpenAiKey(): Promise<string> {
+    return (
+      (await this.settings.get('openai.apiKey')) ||
+      (await this.settings.get('llm.openai.apiKey')) ||
+      this.envApiKey
+    );
   }
 
   async embed(text: string): Promise<number[] | null> {
@@ -51,7 +66,7 @@ export class EmbeddingService {
   }
 
   private async embedViaOpenAI(text: string): Promise<number[]> {
-    const apiKey = await this.settings.get('llm.openai.apiKey');
+    const apiKey = await this.getOpenAiKey();
     if (!apiKey) throw new Error('No OpenAI API key configured');
 
     const model = await this.settings.get('embedding.openai.model') || 'text-embedding-3-small';

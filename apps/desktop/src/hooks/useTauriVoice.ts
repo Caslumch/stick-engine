@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import { getTTSBus, resumeTTSBus } from './ttsAudioBus'
 import { cleanForSpeech } from './cleanForSpeech'
+import { logUI } from './logUI'
 
 /**
  * Hook que usa Whisper (STT) e Piper (TTS) via Tauri sidecars.
@@ -66,7 +67,10 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
 
   const stop = useCallback(async () => {
     const recorder = recorderRef.current
-    if (!recorder || recorder.state === 'inactive') return
+    if (!recorder || recorder.state === 'inactive') {
+      logUI(`stop() sem gravacao ativa (recorder=${!!recorder}, estado=${recorder?.state})`, 'STT/Whisper', 'warn')
+      return
+    }
 
     return new Promise<void>((resolve) => {
       recorder.onstop = async () => {
@@ -76,21 +80,28 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
         if (abortedRef.current) { resolve(); return }
 
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        logUI(`audio gravado: ${blob.size} bytes, ${chunksRef.current.length} chunks, ${recorder.mimeType}`, 'STT/Whisper')
         chunksRef.current = []
 
         try {
           const arrayBuffer = await blob.arrayBuffer()
-          const audioCtx = new AudioContext({ sampleRate: 16000 })
+          // Decodifica na taxa NATIVA do arquivo: forçar 16kHz aqui fazia o
+          // WebView2 recusar o WebM/Opus com "Unable to decode audio data".
+          // A conversão pra 16k mono (que o Whisper exige) acontece no encodeWav.
+          const audioCtx = new AudioContext()
           const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
           const wavBuffer = encodeWav(audioBuffer)
           const base64 = arrayBufferToBase64(wavBuffer)
           await audioCtx.close()
 
+          logUI(`enviando ao Whisper: ${wavBuffer.byteLength} bytes WAV`, 'STT/Whisper')
           const text = await tauriInvoke<string>('transcribe', { audioB64: base64 })
+          logUI('transcricao: ' + JSON.stringify(text), 'STT/Whisper')
           if (text.trim()) {
             cbRef.current.onResult?.(text.trim())
           }
         } catch (err) {
+          logUI(`falhou ao decodificar/transcrever: ${err}`, 'STT/Whisper', 'error')
           cbRef.current.onError?.(`Erro na transcrição: ${err}`)
         }
 
@@ -256,10 +267,25 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer
 }
 
+/** Reamostra por interpolação linear — o Whisper espera 16kHz mono. */
+function resample(input: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return input
+  const ratio = from / to
+  const out = new Float32Array(Math.floor(input.length / ratio))
+  for (let i = 0; i < out.length; i++) {
+    const pos = i * ratio
+    const i0 = Math.floor(pos)
+    const i1 = Math.min(i0 + 1, input.length - 1)
+    const frac = pos - i0
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac
+  }
+  return out
+}
+
 function encodeWav(audioBuffer: AudioBuffer): ArrayBuffer {
   const numChannels = 1
-  const sampleRate = audioBuffer.sampleRate
-  const samples = audioBuffer.getChannelData(0)
+  const sampleRate = 16000
+  const samples = resample(audioBuffer.getChannelData(0), audioBuffer.sampleRate, sampleRate)
   const numSamples = samples.length
 
   const buffer = new ArrayBuffer(44 + numSamples * 2)

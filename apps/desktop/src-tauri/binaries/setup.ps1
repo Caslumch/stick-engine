@@ -45,11 +45,13 @@ if (-not (Test-Path $whisperExe)) {
     Write-Host "Whisper ja existe, pulando."
 }
 
-# --- Modelo Whisper (small — melhor pra pt-BR, 466MB) ---
-$whisperModel = Join-Path $modelsDir "ggml-small.bin"
+# --- Modelo Whisper (base — 148MB) ---
+# base em vez de small: ~2.7s contra ~10s na mesma frase, com precisao
+# equivalente em pt-BR. Pra usar o small: WHISPER_MODEL=ggml-small.bin
+$whisperModel = Join-Path $modelsDir "ggml-base.bin"
 if (-not (Test-Path $whisperModel)) {
-    Write-Host "Baixando modelo Whisper small (~466MB)..."
-    $modelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+    Write-Host "Baixando modelo Whisper base (~148MB)..."
+    $modelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
     Invoke-WebRequest -Uri $modelUrl -OutFile $whisperModel
     Write-Host "  Modelo Whisper OK"
 } else {
