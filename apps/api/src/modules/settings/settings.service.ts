@@ -22,7 +22,7 @@ const DEFAULTS: Record<string, string> = {
   'llm.openai.model': 'gpt-4o',
   'llm.preferLocal': 'true',
   'decision.tokenThreshold': '2000',
-  'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente,imagem,imagens,foto,fotos,mostra,mostrar,preço,preços,preco,precos,comprar,onde comprar,quanto custa,melhores,top,recomend,ranking',
+  'decision.searchKeywords': 'pesquisa,pesquise,busca,busque,procura,procure,google,search,o que aconteceu,noticia,noticias,hoje,agora,atual,atualmente,imagem,imagens,foto,fotos,mostra,mostrar,preço,preços,preco,precos,comprar,onde comprar,quanto custa,melhores,top,recomend,ranking,tempo,clima,previsao,previsão,temperatura,chuva,amanha,amanhã,cotacao,cotação,dolar,dólar,euro,bitcoin,jogo,placar,resultado,quando,onde fica,horario,horário',
 
   // Agent
   'agent.name': 'Jarvis',

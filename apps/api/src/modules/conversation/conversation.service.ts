@@ -572,6 +572,13 @@ export class ConversationService {
 
     // 5. Build tools from capability registry
     const tools = this.buildTools(onToolExecution);
+
+    // Sem chave do Tavily, o web_search sempre falha. Removendo a ferramenta,
+    // o modelo usa o web search nativo da OpenAI em vez de tentar e desistir.
+    if (tools.web_search && !(await this.settings.get('search.tavilyApiKey'))) {
+      delete tools.web_search;
+    }
+
     const hasTools = Object.keys(tools).length > 0;
 
     // 6. Detectar se precisa de web search (keywords na mensagem)
