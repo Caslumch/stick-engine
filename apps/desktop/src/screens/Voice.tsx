@@ -232,6 +232,8 @@ export function Voice() {
 
   // --- Ref pra cancelamento compartilhado ---
   const cancelledRef = useRef(false)
+  /** Áudio TTS tocando agora — permite cortar no meio da frase. */
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
 
   // --- Streaming TTS: falar frases conforme o LLM gera ---
   const streamSpokenLenRef = useRef(0)       // quanto do stream já foi enviado pro TTS
@@ -341,7 +343,10 @@ export function Voice() {
         const source = bus.ctx.createBufferSource()
         source.buffer = buffer
         source.connect(bus.input)
-        source.onended = () => resolve()
+        source.onended = () => { currentSourceRef.current = null; resolve() }
+        // guardado pro stopAllTTS conseguir cortar a frase EM andamento —
+        // sem isto, interromper só limpava a fila e o áudio atual seguia até o fim
+        currentSourceRef.current = source
         source.start()
       })
     }
@@ -508,7 +513,18 @@ export function Voice() {
 
   // --- Handlers ---
   const handleMicClick = async () => {
-    if (state === 'idle') {
+    // Estado do store, nao da closure: este handler tambem roda a partir
+    // do evento de teclado, onde `state` pode estar defasado.
+    const atual = useJarvisStore.getState().state
+
+    // Falando ou processando: interrompe na hora e ja abre o mic.
+    // Antes o botao so respondia no idle — clicar durante a fala nao fazia nada.
+    if (atual === 'speaking' || atual === 'thinking') {
+      logUI('interrompido pelo usuário — abrindo o mic', 'Voz')
+      bargeInVad.stop()
+    }
+
+    if (atual === 'idle' || atual === 'speaking' || atual === 'thinking') {
       stopAllTTS()
       playListeningSound()
       setError('')
@@ -545,6 +561,12 @@ export function Voice() {
     streamQueueRef.current = []
     streamTTSActiveRef.current = false
     ttsLock.active = false
+    // corta a frase que já está tocando (o cancel() acima só cobre o
+    // Web Speech / Piper; o áudio do servidor toca por este source)
+    try { currentSourceRef.current?.stop() } catch { /* já parou */ }
+    currentSourceRef.current = null
+    // e o Web Speech, caso o fallback tenha assumido
+    try { window.speechSynthesis?.cancel() } catch { /* sem suporte */ }
   }, [])
 
   const handleCancel = useCallback(() => {
@@ -561,9 +583,11 @@ export function Voice() {
   useEffect(() => {
     const handler = () => {
       const s = useJarvisStore.getState().state
-      if (s === 'idle') handleMicClick()
-      else if (s === 'listening') doSend()
-      else if (s === 'speaking') { stopAllTTS(); setState('idle') }
+      if (s === 'listening') doSend()
+      // idle, speaking e thinking caem no mesmo caminho: o handleMicClick
+      // interrompe a fala (se houver) e abre o mic — antes o espaço durante
+      // a fala só parava o áudio e voltava pro idle.
+      else handleMicClick()
     }
     window.addEventListener('jarvis:space', handler)
     return () => window.removeEventListener('jarvis:space', handler)
