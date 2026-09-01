@@ -273,10 +273,25 @@ export class SpotifyCapability implements Capability, OnModuleInit {
   // ── Operations ─────────────────────────────────────────────
 
   private async search(query: string, type: string): Promise<CapabilityResult> {
-    const result = await this.spotifyApi(
-      'GET',
-      `/search?q=${encodeURIComponent(query)}&type=${type}&limit=5&market=BR`,
-    );
+    const path = `/search?q=${encodeURIComponent(query)}&type=${type}&limit=5&market=BR`;
+
+    // O /search do Spotify as vezes responde 502/503 por alguns minutos,
+    // com os outros endpoints funcionando. Tentamos de novo antes de desistir.
+    let result = await this.spotifyApi('GET', path);
+    for (let tentativa = 0; tentativa < 2 && this.ehErroTemporario(result); tentativa++) {
+      await new Promise((r) => setTimeout(r, 400 * (tentativa + 1)));
+      result = await this.spotifyApi('GET', path);
+    }
+
+    if (this.ehErroTemporario(result)) {
+      this.logger.warn(`Spotify /search indisponivel (5xx) para "${query}"`);
+      return {
+        success: false,
+        message:
+          'A busca do Spotify esta instavel no momento (erro no servidor deles). ' +
+          'Nao e problema da conta nem da conexao — tente de novo em alguns minutos.',
+      };
+    }
 
     if (!result.success) return result;
 
@@ -342,6 +357,11 @@ export class SpotifyCapability implements Capability, OnModuleInit {
    * Dispositivo onde tocar: o player embutido ("Jarvis") tem prioridade,
    * depois o que ja estiver ativo, depois qualquer um disponivel.
    */
+  /** Erro 5xx do Spotify — vale tentar de novo, diferente de 401/404. */
+  private ehErroTemporario(r: CapabilityResult): boolean {
+    return !r.success && /Spotify: 5\d\d/.test(r.message ?? '');
+  }
+
   private async findPlaybackDevice(): Promise<{ id: string; name: string } | null> {
     const result = await this.spotifyApi('GET', '/me/player/devices', undefined, true);
     if (!result.success) return null;
