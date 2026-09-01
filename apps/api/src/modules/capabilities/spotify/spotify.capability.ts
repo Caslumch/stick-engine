@@ -59,7 +59,8 @@ export class SpotifyCapability implements Capability, OnModuleInit {
           },
           query: {
             type: 'string',
-            description: 'Se nao tem URI, pesquisa e toca o primeiro resultado.',
+            description:
+              'Nome da musica/artista a tocar. SEMPRE use este campo quando o usuario pedir uma musica especifica (ex: "toca Bohemian Rhapsody" -> query: "Bohemian Rhapsody"). Sem query e sem uri, apenas retoma o que estava tocando.',
           },
         },
       },
@@ -107,8 +108,15 @@ export class SpotifyCapability implements Capability, OnModuleInit {
     switch (toolName) {
       case 'spotify_search':
         return this.search(params.query as string, (params.type as string) || 'track');
-      case 'spotify_play':
-        return this.play(params.uri as string | undefined, params.query as string | undefined);
+      case 'spotify_play': {
+        // O modelo as vezes manda 'track', 'song' ou 'name' em vez de 'query'.
+        // Sem isto a busca ficava undefined e caia no resume, tocando
+        // outra coisa em vez da musica pedida.
+        const busca = (params.query ?? params.track ?? params.song ?? params.name) as
+          | string
+          | undefined;
+        return this.play(params.uri as string | undefined, busca);
+      }
       case 'spotify_control':
         return this.control(params.action as string, params.value as string | undefined);
       case 'spotify_now_playing':

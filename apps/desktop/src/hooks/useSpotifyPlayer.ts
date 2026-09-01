@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { logUI } from './logUI'
 /**
  * Spotify Web Playback SDK — transforma o app num dispositivo Spotify.
  *
@@ -12,22 +13,14 @@ const SDK_SRC = 'https://sdk.scdn.co/spotify-player.js'
 const API = 'http://localhost:3000'
 
 /**
- * Loga no console do WebView E no terminal da API.
- *
- * O console do Tauri so e visivel abrindo o DevTools; espelhar no backend
- * deixa os erros do Spotify aparecerem junto do `pnpm dev:tauri`.
+ * Loga no terminal da API com o escopo "Spotify".
+ * Usa o logUI compartilhado — antes havia uma cópia local desta lógica.
  */
 function log(...args: unknown[]) {
-  console.log('[Spotify]', ...args)
   const msg = args
     .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
     .join(' ')
-  // best-effort: nunca deixar o log quebrar o player
-  fetch(`${API}/api/logs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scope: 'Spotify', message: msg }),
-  }).catch(() => {})
+  logUI(msg, 'Spotify')
 }
 
 export interface SpotifyTrack {
