@@ -171,6 +171,7 @@ export function Voice() {
     onSilence: () => {
       // Só auto-enviar se estamos em listening
       if (useJarvisStore.getState().state === 'listening') {
+        logUI('silêncio detectado — encerrando gravação', 'Voz')
         doSend()
       }
     },
@@ -459,14 +460,29 @@ export function Voice() {
   // O autoplay vive no SpotifyProvider: aqui ele redispararia toda vez
   // que a tela de Voz remontasse.
 
-  // --- Timeout de escuta: sem nenhuma fala em 12s, desliga o mic ---
-  // Cobre qualquer entrada em 'listening' (mic, wake word, conversa contínua).
+  // --- Timeout de escuta: só desliga o mic se você não falou NADA ---
+  //
+  // Antes a contagem reiniciava com a transcrição parcial, o que só existe
+  // no Web Speech. No Tauri o Whisper transcreve depois do stop, entao o
+  // timeout cortava a gravacao aos 12s mesmo com voce falando.
+  // Agora usamos o nivel de audio, que funciona nos dois modos.
+  // amplitude é um ref (não re-renderiza), então amostramos por intervalo
+  const ouviuAlgoRef = useRef(false)
+  useEffect(() => {
+    if (state !== 'listening') { ouviuAlgoRef.current = false; return }
+    const id = setInterval(() => {
+      if (amplitude.current.raw > 0.02) ouviuAlgoRef.current = true
+    }, 200)
+    return () => clearInterval(id)
+  }, [state, amplitude])
+
   useEffect(() => {
     if (state !== 'listening') return
     const t = setTimeout(() => {
-      // Só desliga se nada foi captado — com transcrição, deixa o VAD decidir
       if (useJarvisStore.getState().state !== 'listening') return
-      if (transcriptRef.current.trim()) return
+      // falou algo? o VAD decide quando encerrar, nao este timeout
+      if (ouviuAlgoRef.current || transcriptRef.current.trim()) return
+      logUI('12s sem captar áudio — desligando o mic', 'Voz', 'warn')
       stt.abort()
       stopAudio()
       vad.stop()
@@ -475,10 +491,20 @@ export function Voice() {
       setState('idle')
     }, 12000)
     return () => clearTimeout(t)
-  // transcript entra nas deps de proposito: cada palavra reconhecida
-  // reinicia a contagem, entao o timeout so pega silencio de verdade.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, transcript])
+  }, [state])
+
+  // --- Teto de gravação: 90s. Envia o que tem, em vez de descartar ---
+  useEffect(() => {
+    if (state !== 'listening') return
+    const t = setTimeout(() => {
+      if (useJarvisStore.getState().state !== 'listening') return
+      logUI('90s de gravação — enviando o que foi captado', 'Voz', 'warn')
+      doSend()
+    }, 90000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   // --- Handlers ---
   const handleMicClick = async () => {
