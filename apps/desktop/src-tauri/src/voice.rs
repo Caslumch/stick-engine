@@ -98,13 +98,27 @@ pub async fn transcribe(app: tauri::AppHandle, audio_b64: String) -> Result<Stri
         .map_err(|e| format!("Erro ao salvar áudio: {}", e))?;
 
     let whisper = sidecar_path(&app, "whisper")?;
-    let model = model_path(&app, "ggml-small.bin")?;
+
+    // base em vez de small: ~2.7s contra ~10s na mesma frase, com precisao
+    // equivalente em pt-BR. Trocavel por WHISPER_MODEL (ex: ggml-small.bin).
+    let model_name =
+        std::env::var("WHISPER_MODEL").unwrap_or_else(|_| "ggml-base.bin".to_string());
+    let model = model_path(&app, &model_name)
+        .or_else(|_| model_path(&app, "ggml-small.bin"))?;
+
+    // -t: o ganho satura em ~8 threads e piora acima disso (medido: 4->2233ms,
+    // 8->1937ms, 12->1886ms, 19->2008ms numa maquina de 20 nucleos).
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get().saturating_sub(1).clamp(1, 8))
+        .unwrap_or(4)
+        .to_string();
 
     let child = Command::new(&whisper)
         .args([
             "-m", model.to_str().unwrap(),
             "-f", wav_path.to_str().unwrap(),
             "-l", "pt",
+            "-t", &threads,
             "--no-timestamps",
             "-nt",
         ])
