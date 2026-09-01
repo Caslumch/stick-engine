@@ -58,19 +58,46 @@ export class MemoryService {
    * Retorna um bloco de texto formatado ou string vazia.
    */
   async getRelevantContext(userMessage: string): Promise<string> {
-    const memories = await this.search(userMessage, 5);
-    if (memories.length === 0) return '';
+    // Duas fontes: memorias de identidade (sempre presentes) e busca semantica.
+    // So a busca semantica falha em perguntas curtas — "onde eu moro?" pontua
+    // ~0.41 contra "Mora em Barueri", entao fatos basicos sumiam do contexto.
+    const [semantic, core] = await Promise.all([
+      this.search(userMessage, 5).catch(() => [] as any[]),
+      this.getCoreMemories().catch(() => [] as any[]),
+    ]);
 
-    const lines = memories.map(
-      (m: any) => `- [${m.type}] ${m.content}`,
-    );
+    const seen = new Set<string>();
+    const all: any[] = [];
+    for (const m of [...core, ...semantic]) {
+      const key = (m.content || '').toLowerCase().trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      all.push(m);
+    }
+
+    if (all.length === 0) return '';
 
     return [
       '',
-      'Memorias relevantes sobre o usuario:',
-      ...lines,
+      'Memorias sobre o usuario:',
+      ...all.map((m) => `- [${m.type}] ${m.content}`),
       '',
     ].join('\n');
+  }
+
+  /**
+   * Memorias de identidade — nome, onde mora, preferencias fortes.
+   * Sempre entram no contexto, independente da similaridade da pergunta.
+   */
+  private async getCoreMemories(): Promise<any[]> {
+    const people = await this.repository.findAll('person' as MemoryType);
+    const facts = await this.repository.findAll('fact' as MemoryType);
+    const isIdentity = (c: string) =>
+      /\b(nome|chamo|chama|mora|moro|vive|vivo|idade|anos|trabalh|profiss)\b/i.test(c);
+
+    return [...people, ...facts]
+      .filter((m: any) => isIdentity(m.content || ''))
+      .slice(0, 8);
   }
 
   /**

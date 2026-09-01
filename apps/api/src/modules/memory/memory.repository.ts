@@ -94,7 +94,10 @@ export class MemoryRepository {
     await this.prisma.$queryRaw`DELETE FROM "Memory" WHERE id = ${id}`;
   }
 
-  async searchByEmbedding(embedding: number[], limit = 5, threshold = 0.7) {
+  // threshold 0.30: com text-embedding-3-small, fatos curtos ("Mora em Barueri")
+  // pontuam ~0.41 contra perguntas relacionadas ("onde eu moro?"). O valor
+  // anterior (0.7) descartava praticamente toda memoria real.
+  async searchByEmbedding(embedding: number[], limit = 5, threshold = 0.3) {
     const vectorStr = `[${embedding.join(',')}]`;
     return this.prisma.$queryRaw<any[]>`
       SELECT id, type, content, source, "createdAt", "updatedAt",

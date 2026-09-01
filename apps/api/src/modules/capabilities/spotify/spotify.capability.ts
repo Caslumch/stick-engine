@@ -153,8 +153,61 @@ export class SpotifyCapability implements Capability, OnModuleInit {
     }
   }
 
+  /**
+   * Token de usuario, renovado quando expirado.
+   *
+   * O access_token do Spotify dura 1h. Sem renovar, os comandos de voz
+   * ("toca X") parariam de funcionar uma hora depois do login.
+   */
   private async getUserToken(): Promise<string | null> {
-    return await this.settings.get('spotify.userAccessToken') || null;
+    const [token, expiresAt] = await Promise.all([
+      this.settings.get('spotify.userAccessToken'),
+      this.settings.get('spotify.tokenExpiresAt'),
+    ]);
+    if (!token) return null;
+
+    const expired = !expiresAt || Date.now() > Number(expiresAt) - 60_000;
+    if (!expired) return token;
+
+    return (await this.refreshUserToken()) ?? null;
+  }
+
+  /** Troca o refresh_token por um access_token novo e persiste. */
+  private async refreshUserToken(): Promise<string | null> {
+    const [clientId, clientSecret, refreshToken] = await Promise.all([
+      this.settings.get('spotify.clientId'),
+      this.settings.get('spotify.clientSecret'),
+      this.settings.get('spotify.refreshToken'),
+    ]);
+    if (!clientId || !clientSecret || !refreshToken) return null;
+
+    try {
+      const resp = await fetch(SPOTIFY_AUTH, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }).toString(),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.access_token) return null;
+
+      await this.settings.set('spotify.userAccessToken', data.access_token);
+      await this.settings.set(
+        'spotify.tokenExpiresAt',
+        String(Date.now() + (data.expires_in ?? 3600) * 1000),
+      );
+      if (data.refresh_token) {
+        await this.settings.set('spotify.refreshToken', data.refresh_token);
+      }
+      return data.access_token;
+    } catch {
+      return null;
+    }
   }
 
   private async spotifyApi(
@@ -248,19 +301,43 @@ export class SpotifyCapability implements Capability, OnModuleInit {
       uri = tracks[0].uri;
     }
 
-    if (uri) {
-      const result = await this.spotifyApi('PUT', '/me/player/play', {
-        uris: [uri],
-      }, true);
+    // Mira o player embutido ("Jarvis") quando ele esta registrado; sem isso
+    // o Spotify exige um dispositivo ja ativo e responde 404.
+    const device = await this.findPlaybackDevice();
+    const path = device ? `/me/player/play?device_id=${device.id}` : '/me/player/play';
 
+    if (uri) {
+      const result = await this.spotifyApi('PUT', path, { uris: [uri] }, true);
       if (!result.success) return result;
-      return { success: true, message: `Tocando agora.` };
+      return {
+        success: true,
+        message: device ? `Tocando agora em ${device.name}.` : 'Tocando agora.',
+      };
     }
 
     // Resume playback
-    const result = await this.spotifyApi('PUT', '/me/player/play', undefined, true);
+    const result = await this.spotifyApi('PUT', path, undefined, true);
     if (!result.success) return result;
     return { success: true, message: 'Reproducao retomada.' };
+  }
+
+  /**
+   * Dispositivo onde tocar: o player embutido ("Jarvis") tem prioridade,
+   * depois o que ja estiver ativo, depois qualquer um disponivel.
+   */
+  private async findPlaybackDevice(): Promise<{ id: string; name: string } | null> {
+    const result = await this.spotifyApi('GET', '/me/player/devices', undefined, true);
+    if (!result.success) return null;
+
+    const devices: any[] = (result.data as any)?.devices ?? [];
+    if (!devices.length) return null;
+
+    const escolhido =
+      devices.find((d) => d.name === 'Jarvis') ??
+      devices.find((d) => d.is_active) ??
+      devices[0];
+
+    return escolhido ? { id: escolhido.id, name: escolhido.name } : null;
   }
 
   private async control(action: string, value?: string): Promise<CapabilityResult> {

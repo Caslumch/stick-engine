@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { WsEvent } from '@jarvis/shared';
+import { extractNameFromMemories } from './useWelcome';
 import type {
   StateChangePayload,
   MessageStreamPayload,
@@ -78,19 +79,23 @@ export function useSocket() {
       }
       // Carregar settings do banco imediatamente ao conectar
       socket.emit(WsEvent.SettingsGet, {}, (data: Record<string, string>) => {
-        if (data) store.setSettings(data);
+        if (!data) return;
+        store.setSettings(data);
+
+        // Se o nome nao esta nos ajustes, tenta aprender pelas memorias da conversa
+        if (!data['user.name']) {
+          socket.emit(WsEvent.MemoryList, {}, (mems: Array<{ type: string; content: string }>) => {
+            if (!Array.isArray(mems)) return;
+            const learned = extractNameFromMemories(mems);
+            if (learned) {
+              store.setSettings({ ...useJarvisStore.getState().settings, 'user.name': learned });
+            }
+          });
+        }
       });
 
-      // Restaurar conversa ativa do localStorage ao reconectar
-      const savedId = localStorage.getItem('jarvis-conversationId');
-      if (savedId && useJarvisStore.getState().messages.length === 0) {
-        socket.emit(WsEvent.ConversationMessages, { conversationId: savedId }, (data: Message[]) => {
-          if (data && data.length > 0) {
-            store.setMessages(data);
-            store.setConversationId(savedId);
-          }
-        });
-      }
+      // Nao restaura conversa antiga: o app sempre abre numa conversa nova
+      // (ver useWelcome). O historico continua acessivel na tela de Historico.
     });
 
     socket.on('disconnect', () => {

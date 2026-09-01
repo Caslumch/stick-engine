@@ -93,7 +93,15 @@ export function ChatScreen() {
                   </div>
                 </div>
               ) : (
-                <div key={msg.id} style={{ display: 'flex', gap: 12 }}>
+                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Ferramentas usadas para produzir esta resposta */}
+                  {toolExecutions
+                    .filter((te) => te.messageId === msg.id)
+                    .map((te, i) => (
+                      <ToolCard key={`${msg.id}-${te.toolName}-${i}`} exec={te} />
+                    ))}
+
+                <div style={{ display: 'flex', gap: 12 }}>
                   {/* Avatar: ponto de estado */}
                   <div style={{
                     width: 26,
@@ -125,12 +133,13 @@ export function ChatScreen() {
                     <MsgTime time={msg.createdAt} />
                   </div>
                 </div>
+                </div>
               )
             ))}
 
-            {/* Tool executions */}
-            {toolExecutions.map((te, i) => (
-              <ToolCard key={`${te.toolName}-${i}`} exec={te} />
+            {/* Execucoes ainda sem resposta (em andamento) ficam no fim */}
+            {toolExecutions.filter((te) => !te.messageId).map((te, i) => (
+              <ToolCard key={`pending-${te.toolName}-${i}`} exec={te} />
             ))}
 
             {/* Imagens de produtos */}

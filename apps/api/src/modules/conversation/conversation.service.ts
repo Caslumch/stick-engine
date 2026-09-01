@@ -71,6 +71,35 @@ const VERBOSITY_PROMPTS: Record<string, string> = {
  * e.g. _icall_ {"name":"...", "arguments":...} _icio_:*cal*)_fcio ***!
  *      <gorith tool_name {"arg": "val"}>
  */
+/**
+ * Extrai as fontes de uma resposta com web_search nativo.
+ * Pega URLs em markdown, URLs soltas e, como ultimo recurso, os marcadores
+ * de citacao da Responses API. Retorna dominios unicos, na ordem de aparicao.
+ */
+function extractSources(text: string): string[] {
+  const urls: string[] = [];
+
+  // [titulo](https://...) e URLs soltas
+  for (const m of text.matchAll(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g)) urls.push(m[1]);
+  for (const m of text.matchAll(/(?<!\()\bhttps?:\/\/[^\s)<>\]]+/g)) urls.push(m[0]);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const u of urls) {
+    let host: string;
+    try {
+      host = new URL(u).hostname.replace(/^www\./, '');
+    } catch {
+      continue;
+    }
+    if (seen.has(host)) continue;
+    seen.add(host);
+    out.push(host);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
 function cleanToolArtifacts(text: string): string {
   return text
     // Strip CJK, Thai, Arabic, Devanagari and other non-Latin script blocks that Qwen hallucinates
@@ -214,7 +243,14 @@ export class ConversationService {
    * Build a modular system prompt:
    * identity + personality (tone/verbosity/proactivity) + rules + capabilities + memories
    */
-  private async buildSystemPrompt(userMessage: string, intent?: IntentClassification): Promise<string> {
+  private async buildSystemPrompt(
+    userMessage: string,
+    intent?: IntentClassification,
+    onToolExecution?: (event: ToolExecutionEvent) => void,
+  ): Promise<string> {
+    // Anuncia a consulta a memoria como uma "ferramenta", pro HUD mostrar no orb
+    onToolExecution?.({ toolName: 'memory_search', args: { query: userMessage } });
+
     const [tone, proactivity, verbosity, memoryContext, customPrompt, agentName] = await Promise.all([
       this.settings.get('personality.tone'),
       this.settings.get('personality.proactivity'),
@@ -223,6 +259,22 @@ export class ConversationService {
       this.settings.get('agent.systemPrompt'),
       this.settings.get('agent.name'),
     ]);
+
+    // Resultado parcial: quantas memorias entraram e um trecho do conteudo
+    const found = memoryContext
+      ? memoryContext.split('\n').filter((l) => l.trim().startsWith('- ['))
+      : [];
+    onToolExecution?.({
+      toolName: 'memory_search',
+      args: { query: userMessage },
+      result: {
+        success: true,
+        message: found.length
+          ? `${found.length} ${found.length === 1 ? 'memória' : 'memórias'}`
+          : 'Nenhuma memória relevante',
+        data: found.slice(0, 4).map((l) => l.replace(/^- \[[^\]]+\]\s*/, '')),
+      },
+    });
 
     const sections: string[] = [
       buildIdentityPrompt(agentName || 'Jarvis'),
@@ -513,7 +565,7 @@ export class ConversationService {
     });
 
     // 3. Build system prompt with relevant memories + intent context
-    const systemPrompt = await this.buildSystemPrompt(text, intent);
+    const systemPrompt = await this.buildSystemPrompt(text, intent, onToolExecution);
 
     // 4. Build history with sliding window
     const history = await this.buildHistory(conversationId, systemPrompt);
@@ -537,14 +589,29 @@ export class ConversationService {
     const response = await this.llm.generate({
       messages: history,
       tools: hasTools ? tools : undefined,
-      maxSteps: hasTools ? 5 : 1,
+      // 3 em vez de 5: cada passo e uma ida-e-volta na API (~2-4s cada).
+      // 3 cobre o caso comum (tool -> resultado -> resposta) sem a cauda lenta.
+      maxSteps: hasTools ? 3 : 1,
       webSearch: needsSearch,
       onToken,
       onDecision,
     });
 
     if (needsSearch) {
-      onToolExecution?.({ toolName: 'web_search_openai', args: { query: text }, result: { success: true, message: 'Pesquisa concluída' } });
+      // O web_search nativo nao devolve os resultados por fora: as fontes vem
+      // como citacoes no proprio texto. Extraimos pra mostrar no card do chat.
+      const sources = extractSources(response.content);
+      onToolExecution?.({
+        toolName: 'web_search_openai',
+        args: { query: text },
+        result: {
+          success: true,
+          message: sources.length
+            ? `${sources.length} ${sources.length === 1 ? 'fonte consultada' : 'fontes consultadas'}`
+            : 'Pesquisa concluída',
+          data: sources.length ? sources : undefined,
+        },
+      });
     }
 
     // 7. Persist assistant message (clean tool-call artifacts from local models)

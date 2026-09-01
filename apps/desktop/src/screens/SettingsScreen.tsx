@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useJarvisStore } from '../stores/jarvis.store'
 import { useSocket } from '../hooks/useSocket'
 import { useTheme, type ThemeMode } from '../theme/ThemeProvider'
+import { IntegrationIcon } from '../ui/IntegrationIcons'
+import { logUI } from '../hooks/logUI'
 
 /**
  * Tela de settings — tabs no topo, cards de vidro, modal de integrações.
@@ -12,10 +14,10 @@ import { useTheme, type ThemeMode } from '../theme/ThemeProvider'
 type SettingsTab = 'general' | 'voice' | 'integrations' | 'shortcuts'
 
 const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'voice', label: 'Voice' },
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'shortcuts', label: 'Shortcuts' },
+  { id: 'general', label: 'Geral' },
+  { id: 'voice', label: 'Voz' },
+  { id: 'integrations', label: 'Integrações' },
+  { id: 'shortcuts', label: 'Atalhos' },
 ]
 
 const ACCENT_SWATCHES = [
@@ -36,14 +38,14 @@ const BG_PRESETS: Record<string, string> = {
 }
 
 const TOOLS = [
-  { name: 'Open app', on: true, desc: 'Abrir programas instalados' },
-  { name: 'Run command', on: true, desc: 'Executar comandos no terminal' },
-  { name: 'Manage files', on: true, desc: 'Criar, ler, mover e deletar arquivos' },
-  { name: 'Search', on: true, desc: 'Pesquisa web via Tavily' },
-  { name: 'Reminders', on: true, desc: 'Lembretes e notificações agendadas' },
+  { name: 'Abrir app', on: true, desc: 'Abrir programas instalados' },
+  { name: 'Executar comando', on: true, desc: 'Executar comandos no terminal' },
+  { name: 'Gerenciar arquivos', on: true, desc: 'Criar, ler, mover e deletar arquivos' },
+  { name: 'Buscar na web', on: true, desc: 'Pesquisa web via Tavily' },
+  { name: 'Lembretes', on: true, desc: 'Lembretes e notificações agendadas' },
   { name: 'Telegram', on: true, desc: 'Enviar mensagens via Telegram' },
-  { name: 'Finance', on: true, desc: 'Consultar finanças (LemonFin)' },
-  { name: 'Smart home', on: true, desc: 'Controlar luzes e dispositivos (Tuya)' },
+  { name: 'Finanças', on: true, desc: 'Consultar finanças (LemonFin)' },
+  { name: 'Casa inteligente', on: true, desc: 'Controlar luzes e dispositivos (Tuya)' },
   { name: 'Spotify', on: true, desc: 'Pesquisar e controlar música' },
 ]
 
@@ -86,10 +88,10 @@ export function SettingsScreen() {
           letterSpacing: '-.026em',
           marginBottom: 6,
         }}>
-          Settings
+          Ajustes
         </h1>
         <p style={{ fontSize: 15, color: 'var(--t-low)', marginBottom: 24 }}>
-          Everything applies the moment you change it.
+          Tudo é aplicado assim que você muda.
         </p>
 
         {/* Tabs */}
@@ -229,19 +231,19 @@ function AppearanceGroup() {
   }
 
   return (
-    <Group title="Appearance">
-      <Row label="Theme" description="Auto follows your system.">
+    <Group title="Aparência">
+      <Row label="Tema" description="Automático segue o sistema.">
         <Segmented
           options={[
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
-            { value: 'auto', label: 'Auto' },
+            { value: 'light', label: 'Claro' },
+            { value: 'dark', label: 'Escuro' },
+            { value: 'auto', label: 'Automático' },
           ]}
           value={mode}
           onChange={(v) => setMode(v as ThemeMode)}
         />
       </Row>
-      <Row label="Accent" description="Base colour when the agent is idle. States override it.">
+      <Row label="Cor de destaque" description="Cor base quando o agente está parado. Os estados sobrepõem essa cor.">
         <div style={{ display: 'flex', gap: 8 }}>
           {ACCENT_SWATCHES.map((c) => (
             <button
@@ -259,13 +261,13 @@ function AppearanceGroup() {
           ))}
         </div>
       </Row>
-      <Row label="Background" description="Sits behind the glass. Custom loads from your machine.">
+      <Row label="Plano de fundo" description="Fica atrás do vidro. Personalizado carrega uma imagem do seu computador.">
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <Segmented
             options={[
-              { value: 'none', label: 'None' },
-              { value: 'mesh', label: 'Mesh' },
-              { value: 'dusk', label: 'Dusk' },
+              { value: 'none', label: 'Nenhum' },
+              { value: 'mesh', label: 'Malha' },
+              { value: 'dusk', label: 'Entardecer' },
             ]}
             value={bgPreset === 'custom' ? '' : bgPreset}
             onChange={applyBg}
@@ -279,15 +281,15 @@ function AppearanceGroup() {
               fontFamily: 'var(--f)', transition: '.2s',
             }}
           >
-            Custom…
+            Personalizado…
           </button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
         </div>
       </Row>
-      <Row label="Background blur" description="More blur keeps text legible over busy photos.">
+      <Row label="Desfoque do fundo" description="Mais desfoque mantém o texto legível sobre fotos carregadas.">
         <Slider value={bgBlur} min={0} max={60} suffix="px" onChange={(v) => { updateSetting('ui.bgBlur', String(v)); document.documentElement.style.setProperty('--bg-blur', v + 'px') }} />
       </Row>
-      <Row label="Background dim" description="How much of the base colour sits on top.">
+      <Row label="Escurecer fundo" description="Quanto da cor base fica por cima da imagem.">
         <Slider value={bgDim} min={0} max={95} suffix="%" onChange={(v) => { updateSetting('ui.bgDim', String(v)); document.documentElement.style.setProperty('--bg-dim', String(v / 100)) }} />
       </Row>
     </Group>
@@ -314,7 +316,7 @@ function AgentGroup() {
   const isInstalled = installedModels.length === 0 || installedModels.some(m => m.startsWith(currentModel))
 
   return (
-    <Group title="Agent">
+    <Group title="Agente">
       <Row label="Nome do agente" description="Como o assistente se apresenta e responde.">
         <input
           value={settings['agent.name'] ?? 'Jarvis'}
@@ -335,10 +337,10 @@ function AgentGroup() {
           }}
         />
       </Row>
-      <Row label="LLM model" description={
+      <Row label="Modelo de LLM" description={
         modelInfo?.desc
           ? `${modelInfo.desc}${!isInstalled ? ' — rode: ollama pull ' + currentModel : ''}`
-          : 'Local model via Ollama.'
+          : 'Modelo local via Ollama.'
       }>
         <ModelSelect
           models={LLM_MODELS}
@@ -379,60 +381,60 @@ function AgentGroup() {
           }}
         />
       </Row>
-      <Row label="Web Search (cloud)" description="Busca na internet via OpenAI quando usando modelo cloud.">
+      <Row label="Busca na web (nuvem)" description="Busca na internet via OpenAI quando usando modelo cloud.">
         <Toggle
           value={settings['openai.webSearch'] !== 'false'}
           onChange={(v) => updateSetting('openai.webSearch', String(v))}
         />
       </Row>
-      <Row label="Tone" description="How the agent sounds — friendly, formal, or casual.">
+      <Row label="Tom" description="Como o agente soa — amigável, formal ou descontraído.">
         <Segmented
           options={[
-            { value: 'friendly', label: 'Friendly' },
+            { value: 'friendly', label: 'Amigável' },
             { value: 'formal', label: 'Formal' },
-            { value: 'casual', label: 'Casual' },
+            { value: 'casual', label: 'Descontraído' },
           ]}
           value={settings['personality.tone'] ?? 'friendly'}
           onChange={(v) => updateSetting('personality.tone', v)}
         />
       </Row>
-      <Row label="Proactivity" description="How eagerly the agent offers suggestions.">
+      <Row label="Proatividade" description="O quanto o agente se antecipa com sugestões.">
         <Segmented
           options={[
-            { value: 'low', label: 'Low' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'high', label: 'High' },
+            { value: 'low', label: 'Baixa' },
+            { value: 'medium', label: 'Média' },
+            { value: 'high', label: 'Alta' },
           ]}
           value={settings['personality.proactivity'] ?? 'medium'}
           onChange={(v) => updateSetting('personality.proactivity', v)}
         />
       </Row>
-      <Row label="Verbosity" description="How detailed the answers are.">
+      <Row label="Nível de detalhe" description="O quanto as respostas são detalhadas.">
         <Segmented
           options={[
-            { value: 'concise', label: 'Concise' },
-            { value: 'balanced', label: 'Balanced' },
-            { value: 'detailed', label: 'Detailed' },
+            { value: 'concise', label: 'Conciso' },
+            { value: 'balanced', label: 'Equilibrado' },
+            { value: 'detailed', label: 'Detalhado' },
           ]}
           value={settings['personality.verbosity'] ?? 'concise'}
           onChange={(v) => updateSetting('personality.verbosity', v)}
         />
       </Row>
       <SystemPromptEditor />
-      <Row label="Wake word" description="Always-on hotword detection, running locally.">
+      <Row label="Palavra de ativação" description="Detecção sempre ativa, rodando localmente.">
         <Toggle
           value={settings['voice.wakeWord'] !== 'false'}
           onChange={(v) => updateSetting('voice.wakeWord', String(v))}
         />
       </Row>
-      <Row label="Memory" description="Carry context between sessions.">
+      <Row label="Memória" description="Mantém o contexto entre conversas.">
         <Toggle
           value={settings['agent.memory'] !== 'false'}
           onChange={(v) => updateSetting('agent.memory', String(v))}
         />
       </Row>
       <AutostartRow />
-      <Row label="Global hotkey" description="Show/hide Jarvis from anywhere.">
+      <Row label="Atalho global" description="Mostra ou esconde o Jarvis de qualquer lugar.">
         <Kbd keys={['Ctrl', 'Shift', 'J']} />
       </Row>
     </Group>
@@ -466,7 +468,7 @@ function AutostartRow() {
   if (!IN_TAURI) return null
 
   return (
-    <Row label="Autostart" description="Launch Jarvis when you log in.">
+    <Row label="Iniciar com o sistema" description="Abre o Jarvis quando você faz login.">
       {loading ? (
         <span style={{ fontSize: 12, color: 'var(--t-low)' }}>...</span>
       ) : (
@@ -482,24 +484,24 @@ function OrbGroup() {
 
   return (
     <Group title="Orb">
-      <Row label="Particle density" description="Drop it if the fans spin up.">
+      <Row label="Densidade de partículas" description="Diminua se as ventoinhas dispararem.">
         <Segmented
           options={[
-            { value: 'low', label: 'Low' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'high', label: 'High' },
+            { value: 'low', label: 'Baixa' },
+            { value: 'medium', label: 'Média' },
+            { value: 'high', label: 'Alta' },
           ]}
           value={settings['orb.density'] ?? 'medium'}
           onChange={(v) => updateSetting('orb.density', v)}
         />
       </Row>
-      <Row label="Glow" description="Additive bloom pass around the orb.">
+      <Row label="Brilho" description="Efeito de bloom ao redor do orb.">
         <Toggle
           value={settings['orb.glow'] !== 'false'}
           onChange={(v) => updateSetting('orb.glow', String(v))}
         />
       </Row>
-      <Row label="Ambient mode" description="Full-screen orb with a clock. Good for a second monitor.">
+      <Row label="Modo ambiente" description="Orb em tela cheia com relógio. Ótimo para um segundo monitor.">
         <button
           onClick={() => useJarvisStore.getState().setAmbient(true)}
           style={{
@@ -509,7 +511,7 @@ function OrbGroup() {
             fontFamily: 'var(--f)', transition: '.2s',
           }}
         >
-          Enter
+          Entrar
         </button>
       </Row>
     </Group>
@@ -523,7 +525,7 @@ function ToolsGroup() {
   }
 
   return (
-    <Group title="Tools">
+    <Group title="Ferramentas">
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '4px 20px 18px' }}>
         {tools.map((t) => (
           <button
@@ -562,8 +564,8 @@ function VoiceTab() {
 
   return (
     <>
-      <Group title="TTS Engine">
-        <Row label="Engine" description="Which voice engine synthesizes the agent's speech.">
+      <Group title="Motor de voz (TTS)">
+        <Row label="Motor" description="Qual motor sintetiza a fala do agente.">
           <Segmented
             options={[
               { value: 'edge', label: 'Edge' },
@@ -578,11 +580,11 @@ function VoiceTab() {
             }}
           />
         </Row>
-        <Row label="Voice" description={
-          ttsEngine === 'edge' ? 'Microsoft neural voice.' :
-          ttsEngine === 'kokoro' ? 'Local neural voice.' :
-          ttsEngine === 'qwen' ? 'Premium voice (slow).' :
-          'Local lightweight voice.'
+        <Row label="Voz" description={
+          ttsEngine === 'edge' ? 'Voz neural da Microsoft.' :
+          ttsEngine === 'kokoro' ? 'Voz neural local.' :
+          ttsEngine === 'qwen' ? 'Voz premium (mais lenta).' :
+          'Voz local leve.'
         }>
           <Segmented
             options={
@@ -613,25 +615,25 @@ function VoiceTab() {
           />
         </Row>
       </Group>
-      <Group title="Speech">
-        <Row label="Speed" description="Base speed. Dynamic mode adjusts per content type.">
+      <Group title="Fala">
+        <Row label="Velocidade" description="Velocidade base. O modo dinâmico ajusta conforme o conteúdo.">
           <Segmented
             options={[
-              { value: 'slow', label: 'Slow' },
+              { value: 'slow', label: 'Lenta' },
               { value: 'normal', label: 'Normal' },
-              { value: 'fast', label: 'Fast' },
+              { value: 'fast', label: 'Rápida' },
             ]}
             value={settings['tts.speed'] ?? 'normal'}
             onChange={(v) => updateSetting('tts.speed', v)}
           />
         </Row>
-        <Row label="Dynamic speed" description="Lists faster, explanations slower, questions clearer.">
+        <Row label="Velocidade dinâmica" description="Listas mais rápidas, explicações mais lentas, perguntas mais claras.">
           <Toggle
             value={settings['tts.dynamicSpeed'] !== 'false'}
             onChange={(v) => updateSetting('tts.dynamicSpeed', String(v))}
           />
         </Row>
-        <Row label="Barge-in" description="Interrupt the agent by speaking over it.">
+        <Row label="Interromper falando" description="Corte o agente falando por cima dele.">
           <Toggle
             value={settings['voice.bargeIn'] !== 'false'}
             onChange={(v) => updateSetting('voice.bargeIn', String(v))}
@@ -649,63 +651,66 @@ function VoiceTab() {
 interface Integration {
   id: string
   name: string
-  icon: string
   description: string
-  fields: { key: string; label: string; placeholder: string; password?: boolean }[]
+  fields: { key: string; label: string; placeholder: string; password?: boolean; toggle?: boolean }[]
+  /** Integracao que exige OAuth — mostra o bloco de conexao no modal. */
+  auth?: { statusUrl: string; loginUrl: string }
 }
 
 const INTEGRATIONS: Integration[] = [
   {
     id: 'tavily',
     name: 'Tavily',
-    icon: '🔍',
-    description: 'Web search for the agent. Free tier available.',
+    description: 'Busca na web para o agente. Tem plano gratuito.',
     fields: [
-      { key: 'search.tavilyApiKey', label: 'API Key', placeholder: 'tvly-...', password: true },
+      { key: 'search.tavilyApiKey', label: 'Chave de API', placeholder: 'tvly-...', password: true },
     ],
   },
   {
     id: 'telegram',
     name: 'Telegram',
-    icon: '💬',
-    description: 'Send messages and notifications.',
+    description: 'Envie mensagens e notificações.',
     fields: [
-      { key: 'notifications.telegramBotToken', label: 'Bot Token', placeholder: '123456:ABC...', password: true },
-      { key: 'notifications.telegramChatId', label: 'Chat ID', placeholder: '-100...' },
+      { key: 'notifications.telegramBotToken', label: 'Token do bot', placeholder: '123456:ABC...', password: true },
+      { key: 'notifications.telegramChatId', label: 'ID do chat', placeholder: '-100...' },
     ],
   },
   {
     id: 'lemonfin',
     name: 'LemonFin',
-    icon: '💰',
-    description: 'Personal finance — expenses, income, categories.',
+    description: 'Finanças pessoais — despesas, receitas e categorias.',
     fields: [
-      { key: 'finance.email', label: 'Email', placeholder: 'email@example.com' },
-      { key: 'finance.password', label: 'Password', placeholder: '••••••••', password: true },
-      { key: 'finance.apiUrl', label: 'API URL', placeholder: 'https://lemonfin-api.onrender.com' },
+      { key: 'finance.email', label: 'E-mail', placeholder: 'email@exemplo.com' },
+      { key: 'finance.password', label: 'Senha', placeholder: '••••••••', password: true },
+      { key: 'finance.apiUrl', label: 'URL da API', placeholder: 'https://lemonfin-api.onrender.com' },
     ],
   },
   {
     id: 'tuya',
-    name: 'Smart Home',
-    icon: '💡',
-    description: 'Control lights and devices via Tuya (Positivo, Smart Life).',
+    name: 'Casa Inteligente',
+    description: 'Controle luzes e dispositivos via Tuya (Positivo, Smart Life).',
     fields: [
-      { key: 'home.tuyaAccessId', label: 'Access ID', placeholder: 'Access ID' },
-      { key: 'home.tuyaAccessSecret', label: 'Access Secret', placeholder: 'Secret', password: true },
-      { key: 'home.tuyaUid', label: 'User ID', placeholder: 'UID from Tuya' },
-      { key: 'home.tuyaRegion', label: 'Region', placeholder: 'us / eu / cn' },
+      { key: 'home.tuyaAccessId', label: 'ID de acesso', placeholder: 'ID de acesso' },
+      { key: 'home.tuyaAccessSecret', label: 'Chave secreta', placeholder: 'Chave secreta', password: true },
+      { key: 'home.tuyaUid', label: 'ID do usuário', placeholder: 'UID da Tuya' },
+      { key: 'home.tuyaRegion', label: 'Região', placeholder: 'us / eu / cn' },
     ],
   },
   {
     id: 'spotify',
     name: 'Spotify',
-    icon: '🎵',
-    description: 'Search and control music playback.',
+    description: 'Pesquise e controle a reprodução de música.',
     fields: [
-      { key: 'spotify.clientId', label: 'Client ID', placeholder: 'Client ID' },
-      { key: 'spotify.clientSecret', label: 'Client Secret', placeholder: 'Secret', password: true },
+      { key: 'spotify.clientId', label: 'ID do cliente', placeholder: 'ID do cliente' },
+      { key: 'spotify.clientSecret', label: 'Chave secreta', placeholder: 'Chave secreta', password: true },
+      { key: 'spotify.player.enabled', label: 'Player no orb', placeholder: '', toggle: true },
+      { key: 'spotify.player.autoplayUri', label: 'Tocar ao abrir', placeholder: 'Cole o link da playlist (opcional)' },
+      { key: 'spotify.player.duckOnSpeech', label: 'Abaixar volume na fala', placeholder: '', toggle: true },
     ],
+    auth: {
+      statusUrl: 'http://localhost:3000/api/spotify/status',
+      loginUrl: 'http://localhost:3000/api/spotify/login',
+    },
   },
 ]
 
@@ -745,7 +750,9 @@ function IntegrationsTab() {
               onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)' }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = 'none' }}
             >
-              <div style={{ fontSize: 28, marginBottom: 10 }}>{integration.icon}</div>
+              <div style={{ marginBottom: 10, color: 'var(--t-mid)' }}>
+                <IntegrationIcon id={integration.id} size={24} />
+              </div>
               <div style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--t-hi)', marginBottom: 4 }}>
                 {integration.name}
               </div>
@@ -816,7 +823,9 @@ function IntegrationModal({ integration, onClose }: {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-          <span style={{ fontSize: 32 }}>{integration.icon}</span>
+          <span style={{ color: 'var(--t-mid)', display: 'grid', placeItems: 'center' }}>
+            <IntegrationIcon id={integration.id} size={28} />
+          </span>
           <div>
             <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--t-hi)' }}>
               {integration.name}
@@ -827,16 +836,29 @@ function IntegrationModal({ integration, onClose }: {
           </div>
         </div>
 
+        {integration.auth && (
+          <AuthConnect statusUrl={integration.auth.statusUrl} loginUrl={integration.auth.loginUrl} />
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {integration.fields.map((field) => (
-            <ModalField
-              key={field.key}
-              label={field.label}
-              value={settings[field.key] ?? ''}
-              placeholder={field.placeholder}
-              password={field.password}
-              onChange={(v) => updateSetting(field.key, v)}
-            />
+            field.toggle ? (
+              <ModalToggle
+                key={field.key}
+                label={field.label}
+                checked={settings[field.key] === 'true'}
+                onChange={(v) => updateSetting(field.key, String(v))}
+              />
+            ) : (
+              <ModalField
+                key={field.key}
+                label={field.label}
+                value={settings[field.key] ?? ''}
+                placeholder={field.placeholder}
+                password={field.password}
+                onChange={(v) => updateSetting(field.key, v)}
+              />
+            )
           ))}
         </div>
 
@@ -857,10 +879,187 @@ function IntegrationModal({ integration, onClose }: {
             transition: '.2s',
           }}
         >
-          Done
+          Concluído
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Bloco de conexao OAuth: mostra o estado e o botao de autorizar.
+ * O consentimento tem que abrir no navegador — o Spotify recusa
+ * a tela de login dentro de WebView embutido.
+ */
+function AuthConnect({ statusUrl, loginUrl }: { statusUrl: string; loginUrl: string }) {
+  const [connected, setConnected] = useState<boolean | null>(null)
+  const [aguardando, setAguardando] = useState(false)
+  const [falha, setFalha] = useState('')
+
+  const check = useCallback(async () => {
+    try {
+      const r = await fetch(statusUrl, { signal: AbortSignal.timeout(4000) })
+      const d = await r.json()
+      setConnected(!!d.connected)
+      return !!d.connected
+    } catch {
+      setConnected(false)
+      return false
+    }
+  }, [statusUrl])
+
+  useEffect(() => { check() }, [check])
+
+  const openLogin = async () => {
+    setFalha('')
+    setAguardando(true)
+
+    // No Tauri, window.open nao abre o navegador do sistema
+    let abriu = false
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      try {
+        const { openUrl } = await import('@tauri-apps/plugin-opener')
+        await openUrl(loginUrl)
+        abriu = true
+      } catch (e) {
+        // sem o log, essa falha some — foi o que aconteceu na primeira versão
+        logUI('opener falhou: ' + String(e))
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('plugin:opener|open_url', { url: loginUrl })
+          abriu = true
+        } catch (e2) {
+          logUI('invoke direto falhou: ' + String(e2))
+          abriu = !!window.open(loginUrl, '_blank')
+        }
+      }
+    } else {
+      abriu = !!window.open(loginUrl, '_blank')
+    }
+
+    if (!abriu) {
+      setAguardando(false)
+      setFalha('Não consegui abrir o navegador. Acesse: ' + loginUrl)
+      return
+    }
+
+    // A autorizacao acontece noutra janela: verificar ate conectar (60s).
+    let tentativas = 0
+    const id = setInterval(async () => {
+      tentativas++
+      const ok = await check()
+      if (ok || tentativas >= 20) {
+        clearInterval(id)
+        setAguardando(false)
+        if (!ok) setFalha('Não recebi a autorização. Tente de novo.')
+      }
+    }, 3000)
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      padding: '12px 14px',
+      marginBottom: 18,
+      borderRadius: 'var(--r-sm)',
+      background: 'var(--fill-1)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+        <span style={{
+          width: 7,
+          height: 7,
+          flexShrink: 0,
+          borderRadius: '50%',
+          background: falha
+            ? 'var(--st-error)'
+            : connected ? 'var(--st-executing)' : 'var(--fill-3)',
+          animation: aguardando ? 'pulse 1.2s infinite' : 'none',
+        }} />
+        <span style={{
+          fontSize: 13,
+          color: falha ? 'var(--st-error)' : connected ? 'var(--t-hi)' : 'var(--t-low)',
+        }}>
+          {falha
+            ? falha
+            : aguardando
+              ? 'Aguardando autorização no navegador…'
+              : connected === null
+                ? 'Verificando…'
+                : connected ? 'Conta conectada' : 'Conta não conectada'}
+        </span>
+      </div>
+      <button
+        onClick={openLogin}
+        disabled={aguardando}
+        style={{
+          height: 30,
+          flexShrink: 0,
+          padding: '0 14px',
+          borderRadius: 'var(--r-pill)',
+          fontSize: 12.5,
+          fontWeight: 500,
+          color: 'var(--t-hi)',
+          background: 'var(--fill-2)',
+          border: '1px solid var(--g-edge)',
+          cursor: aguardando ? 'default' : 'pointer',
+          opacity: aguardando ? 0.5 : 1,
+          fontFamily: 'var(--f)',
+        }}
+      >
+        {aguardando ? 'Aguardando…' : connected ? 'Reconectar' : 'Conectar'}
+      </button>
+    </div>
+  )
+}
+
+/** Campo booleano — switch em vez de digitar "true"/"false". */
+function ModalToggle({ label, checked, onChange }: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      cursor: 'pointer',
+    }}>
+      <span style={{ fontSize: 13, color: 'var(--t-mid)' }}>{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        style={{
+          width: 40,
+          height: 23,
+          flexShrink: 0,
+          borderRadius: 'var(--r-pill)',
+          border: '1px solid var(--g-edge)',
+          background: checked ? 'var(--accent)' : 'var(--fill-2)',
+          cursor: 'pointer',
+          padding: 0,
+          position: 'relative',
+          transition: 'background .22s var(--sp)',
+        }}
+      >
+        <span style={{
+          position: 'absolute',
+          top: 2,
+          left: checked ? 19 : 2,
+          width: 17,
+          height: 17,
+          borderRadius: '50%',
+          background: 'var(--t-hi)',
+          transition: 'left .22s var(--sp)',
+        }} />
+      </button>
+    </label>
   )
 }
 
@@ -895,7 +1094,7 @@ function ModalField({ label, value, placeholder, password, onChange }: {
         letterSpacing: '.04em',
       }}>
         {label}
-        {saved && <span style={{ color: 'var(--st-executing)', marginLeft: 8, textTransform: 'none' }}>Saved</span>}
+        {saved && <span style={{ color: 'var(--st-executing)', marginLeft: 8, textTransform: 'none' }}>Salvo</span>}
       </div>
       <input
         type={password ? 'password' : 'text'}
@@ -963,10 +1162,10 @@ function McpServersSection() {
   }
 
   return (
-    <Group title="MCP Servers">
+    <Group title="Servidores MCP">
       {servers.length === 0 && !adding && (
         <div style={{ padding: '16px 20px', fontSize: 13, color: 'var(--t-low)' }}>
-          No MCP servers configured. Add one to extend the agent's capabilities.
+          Nenhum servidor MCP configurado. Adicione um para ampliar o que o agente consegue fazer.
         </div>
       )}
 
@@ -983,7 +1182,7 @@ function McpServersSection() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 450, color: 'var(--t-hi)' }}>{s.name}</div>
             <div style={{ fontSize: 11.5, color: 'var(--t-low)', fontFamily: 'var(--f-mono)' }}>
-              {s.transport} · {s.tools?.length ?? 0} tools
+              {s.transport} · {s.tools?.length ?? 0} ferramentas
               {s.command && ` · ${s.command}`}
               {s.url && ` · ${s.url}`}
             </div>
@@ -996,7 +1195,7 @@ function McpServersSection() {
               border: '1px solid var(--hair)', cursor: 'pointer', fontFamily: 'var(--f)',
             }}
           >
-            Reconnect
+            Reconectar
           </button>
           <button
             onClick={() => handleRemove(s.id)}
@@ -1006,7 +1205,7 @@ function McpServersSection() {
               border: '1px solid rgba(255,107,107,.2)', cursor: 'pointer', fontFamily: 'var(--f)',
             }}
           >
-            Remove
+            Remover
           </button>
         </div>
       ))}
@@ -1017,7 +1216,7 @@ function McpServersSection() {
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Server name"
+              placeholder="Nome do servidor"
               style={mcpInputStyle}
             />
             <select
@@ -1035,7 +1234,7 @@ function McpServersSection() {
               <input
                 value={form.command}
                 onChange={(e) => setForm({ ...form, command: e.target.value })}
-                placeholder="Command (e.g. npx, node)"
+                placeholder="Comando (ex: npx, node)"
                 style={mcpInputStyle}
               />
               <input
@@ -1049,7 +1248,7 @@ function McpServersSection() {
             <input
               value={form.url}
               onChange={(e) => setForm({ ...form, url: e.target.value })}
-              placeholder="Server URL (e.g. http://localhost:3002/mcp)"
+              placeholder="URL do servidor (ex: http://localhost:3002/mcp)"
               style={mcpInputStyle}
             />
           )}
@@ -1057,13 +1256,13 @@ function McpServersSection() {
             type="password"
             value={form.apiKey}
             onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-            placeholder="API Key (optional)"
+            placeholder="Chave de API (opcional)"
             style={mcpInputStyle}
           />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setAdding(false)} style={mcpBtnStyle}>Cancel</button>
+            <button onClick={() => setAdding(false)} style={mcpBtnStyle}>Cancelar</button>
             <button onClick={handleAdd} style={{ ...mcpBtnStyle, color: 'var(--t-hi)', borderColor: 'var(--g-edge)' }}>
-              Connect
+              Conectar
             </button>
           </div>
         </div>
@@ -1077,7 +1276,7 @@ function McpServersSection() {
               border: '1px solid rgba(var(--accent-rgb), .2)', cursor: 'pointer', fontFamily: 'var(--f)',
             }}
           >
-            + Add MCP Server
+            + Adicionar servidor MCP
           </button>
         </div>
       )}
@@ -1103,13 +1302,13 @@ const mcpBtnStyle: React.CSSProperties = {
 
 function ShortcutsTab() {
   return (
-    <Group title="Keyboard shortcuts">
-      <Row label="Show / hide (global)"><Kbd keys={['Ctrl', '⇧', 'J']} /></Row>
-      <Row label="Command palette"><Kbd keys={['⌘', 'K']} /></Row>
-      <Row label="Push to talk"><Kbd keys={['space']} /></Row>
-      <Row label="Switch screen"><Kbd keys={['1', '2', '3']} /></Row>
-      <Row label="Theme"><Kbd keys={['T']} /></Row>
-      <Row label="Ambient mode"><Kbd keys={['A']} /></Row>
+    <Group title="Atalhos de teclado">
+      <Row label="Mostrar / esconder (global)"><Kbd keys={['Ctrl', '⇧', 'J']} /></Row>
+      <Row label="Paleta de comandos"><Kbd keys={['⌘', 'K']} /></Row>
+      <Row label="Pressione para falar"><Kbd keys={['space']} /></Row>
+      <Row label="Trocar de tela"><Kbd keys={['1', '2', '3']} /></Row>
+      <Row label="Tema"><Kbd keys={['T']} /></Row>
+      <Row label="Modo ambiente"><Kbd keys={['A']} /></Row>
     </Group>
   )
 }
@@ -1312,7 +1511,7 @@ function ModelSelect({ models, value, installed, onChange }: {
                       fontSize: 10, color: 'var(--st-error)', padding: '1px 6px',
                       borderRadius: 'var(--r-pill)', background: 'rgba(255,107,107,.12)', fontWeight: 500,
                     }}>
-                      not installed
+                      não instalado
                     </span>
                   )}
                   {active && (
@@ -1357,7 +1556,7 @@ function SystemPromptEditor() {
 
   return (
     <>
-      <Row label="System prompt" description="Instruções adicionais pro agente.">
+      <Row label="Prompt do sistema" description="Instruções adicionais pro agente.">
         <button
           onClick={() => setOpen(true)}
           style={{
@@ -1415,7 +1614,7 @@ function SystemPromptEditor() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--t-hi)' }}>
-                  System Prompt
+                  Prompt do sistema
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--t-low)' }}>
                   Instruções adicionais pro agente. Adicionado ao final do prompt padrão.

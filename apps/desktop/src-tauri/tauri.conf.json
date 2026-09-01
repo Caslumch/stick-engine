@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm --filter @jarvis/desktop dev",
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
@@ -19,7 +19,7 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "transparent": true,
+        "transparent": false,
         "decorations": true
       }
     ],

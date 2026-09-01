@@ -66,7 +66,11 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
 
   const stop = useCallback(async () => {
     const recorder = recorderRef.current
-    if (!recorder || recorder.state === 'inactive') return
+    if (!recorder || recorder.state === 'inactive') {
+      console.warn('[STT/Whisper] stop() sem gravacao ativa — nada a transcrever',
+        { temRecorder: !!recorder, estado: recorder?.state })
+      return
+    }
 
     return new Promise<void>((resolve) => {
       recorder.onstop = async () => {
@@ -76,6 +80,7 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
         if (abortedRef.current) { resolve(); return }
 
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        console.log('[STT/Whisper] audio gravado:', blob.size, 'bytes |', chunksRef.current.length, 'chunks |', recorder.mimeType)
         chunksRef.current = []
 
         try {
@@ -86,7 +91,9 @@ export function useTauriSTT(callbacks: TauriSTTCallbacks) {
           const base64 = arrayBufferToBase64(wavBuffer)
           await audioCtx.close()
 
+          console.log('[STT/Whisper] enviando ao Whisper:', wavBuffer.byteLength, 'bytes WAV')
           const text = await tauriInvoke<string>('transcribe', { audioB64: base64 })
+          console.log('[STT/Whisper] transcricao recebida:', JSON.stringify(text))
           if (text.trim()) {
             cbRef.current.onResult?.(text.trim())
           }

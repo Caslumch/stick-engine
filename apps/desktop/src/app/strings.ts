@@ -22,6 +22,12 @@ export const VOICE_PROMPTS: Record<JarvisState, string> = {
   offline: 'Sem conexão com o agente.',
 }
 
+/** Avisos do fluxo de voz que nao correspondem a um estado do agente. */
+export const VOICE_NOTICES = {
+  notUnderstood: 'Não captei nada. Tente falar de novo.',
+  listenTimeout: 'Não ouvi nada — microfone desligado.',
+}
+
 export const AGENT_NAME = 'STICK'
 
 export const NAV = {
@@ -38,6 +44,7 @@ export const DOCK = {
 }
 
 export const TOOL_LABELS: Record<string, string> = {
+  memory_search: 'Consultando memória',
   web_search: 'Pesquisando na web',
   finance_summary: 'Consultando finanças',
   finance_by_category: 'Analisando categorias',

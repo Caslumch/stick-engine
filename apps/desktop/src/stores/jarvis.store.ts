@@ -8,6 +8,13 @@ export interface ToolExecution {
   args?: Record<string, unknown>;
   result?: { success: boolean; message?: string; data?: unknown };
   status: 'executing' | 'done';
+  /**
+   * Id da mensagem do assistente que esta execucao produziu.
+   * Fica indefinido enquanto a resposta nao chegou; o ChatScreen mostra
+   * as pendentes no fim (execucao em andamento) e as demais ancoradas
+   * logo acima da mensagem correspondente.
+   */
+  messageId?: string;
 }
 
 interface JarvisStore {
@@ -63,6 +70,9 @@ interface JarvisStore {
   setProductImages: (images: Array<{ title: string; image: string; thumbnail: string }>) => void;
   setFillerText: (text: string) => void;
   setSettings: (settings: Record<string, string>) => void;
+  /** Card do Spotify escondido pelo usuário (arrastado pra lixeira). */
+  spotifyCardHidden: boolean;
+  setSpotifyCardHidden: (hidden: boolean) => void;
   updateSetting: (key: string, value: string) => void;
 }
 
@@ -99,7 +109,17 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
     else localStorage.removeItem('jarvis-conversationId');
   },
   setConversations: (conversations) => set({ conversations }),
-  addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
+  addMessage: (message) =>
+    set((s) => {
+      // Ao chegar a resposta do assistente, ancora nela as execucoes que
+      // ainda nao pertencem a nenhuma mensagem — assim o ChatScreen mostra
+      // cada ferramenta junto da resposta que a usou.
+      const toolExecutions =
+        message.role === 'assistant'
+          ? s.toolExecutions.map((te) => (te.messageId ? te : { ...te, messageId: message.id }))
+          : s.toolExecutions;
+      return { messages: [...s.messages, message], toolExecutions };
+    }),
   setMessages: (messages) => set({ messages }),
   appendStreamToken: (token) => set((s) => ({ streamingText: s.streamingText + token })),
   clearStream: () => set({ streamingText: '' }),
@@ -127,5 +147,7 @@ export const useJarvisStore = create<JarvisStore>((set) => ({
   setProductImages: (productImages) => set({ productImages }),
   setFillerText: (fillerText) => set({ fillerText }),
   setSettings: (settings) => set({ settings }),
+  spotifyCardHidden: false,
+  setSpotifyCardHidden: (spotifyCardHidden) => set({ spotifyCardHidden }),
   updateSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),
 }));

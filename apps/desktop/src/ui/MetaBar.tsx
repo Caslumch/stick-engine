@@ -10,6 +10,9 @@ export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () 
   const lastDecision = useJarvisStore((s) => s.lastDecision)
   const settings = useJarvisStore((s) => s.settings)
   const connected = useJarvisStore((s) => s.connected)
+  const spotifyCardHidden = useJarvisStore((s) => s.spotifyCardHidden)
+  const setSpotifyCardHidden = useJarvisStore((s) => s.setSpotifyCardHidden)
+  const spotifyEnabled = settings['spotify.player.enabled'] === 'true'
   const [reminderCount, setReminderCount] = useState(0)
 
   // Buscar contagem de lembretes pendentes
@@ -84,6 +87,21 @@ export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () 
           </span>
         )}
       </button>
+
+      {/* Player do Spotify — só aparece quando o card foi escondido */}
+      {spotifyEnabled && spotifyCardHidden && (
+        <button
+          onClick={() => setSpotifyCardHidden(false)}
+          title="Mostrar player"
+          style={qbStyle}
+        >
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+        </button>
+      )}
 
       {/* Theme toggle */}
       <button

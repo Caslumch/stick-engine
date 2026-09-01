@@ -27,7 +27,8 @@ const DEFAULTS: Record<string, string> = {
   // Agent
   'agent.name': 'Jarvis',
 
-  // User
+  // User — vazios de proposito: preenchidos pela UI ou aprendidos na conversa
+  'user.name': '',
   'user.city': 'Barueri',
 
   // Personality
@@ -57,10 +58,20 @@ const DEFAULTS: Record<string, string> = {
   // Spotify
   'spotify.clientId': '',
   'spotify.clientSecret': '',
+  // Preenchidos pelo OAuth (/api/spotify/login) — nao editar a mao
+  'spotify.userAccessToken': '',
+  'spotify.refreshToken': '',
+  'spotify.tokenExpiresAt': '',
+  // Player embutido (Web Playback SDK)
+  'spotify.player.enabled': 'false',
+  'spotify.player.autoplayUri': '',
+  'spotify.player.duckOnSpeech': 'true',
 };
 
 // Keys that should be masked when sent to the frontend
-const SENSITIVE_KEYS = ['llm.openai.apiKey', 'search.tavilyApiKey', 'notifications.telegramBotToken', 'finance.password', 'spotify.clientSecret', 'home.tuyaAccessSecret'];
+// 'openai.apiKey' e a chave que a tela de Ajustes grava hoje; 'llm.openai.apiKey'
+// e a da tela antiga. As duas precisam ser mascaradas ao enviar pro cliente.
+const SENSITIVE_KEYS = ['openai.apiKey', 'llm.openai.apiKey', 'search.tavilyApiKey', 'notifications.telegramBotToken', 'finance.password', 'spotify.clientSecret', 'spotify.userAccessToken', 'spotify.refreshToken', 'home.tuyaAccessSecret'];
 
 @Injectable()
 export class SettingsService {

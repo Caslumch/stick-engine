@@ -13,6 +13,7 @@ import { SpotifyModule } from './modules/capabilities/spotify/spotify.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { MemoryModule } from './modules/memory/memory.module';
 import { McpModule } from './modules/mcp/mcp.module';
+import { LogsController } from './modules/logs/logs.controller';
 import { jarvisConfig } from './config/jarvis.config';
 
 @Module({
@@ -35,5 +36,6 @@ import { jarvisConfig } from './config/jarvis.config';
     McpModule,
     ConversationModule,
   ],
+  controllers: [LogsController],
 })
 export class AppModule {}
