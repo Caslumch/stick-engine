@@ -797,12 +797,17 @@ function IntegrationModal({ integration, onClose }: {
 }) {
   const { updateSetting } = useSocket()
   const settings = useJarvisStore((s) => s.settings)
-  const backdropRef = useRef<HTMLDivElement>(null)
+
+  // Esc fecha. Clique fora NAO fecha: um clique acidental descartaria
+  // o que voce estava preenchendo.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return (
     <div
-      ref={backdropRef}
-      onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -834,6 +839,27 @@ function IntegrationModal({ integration, onClose }: {
               {integration.description}
             </div>
           </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            title="Fechar (Esc)"
+            style={{
+              marginLeft: 'auto',
+              width: 28,
+              height: 28,
+              flexShrink: 0,
+              borderRadius: 'var(--r-xs)',
+              border: 'none',
+              background: 'var(--fill-1)',
+              color: 'var(--t-low)',
+              cursor: 'pointer',
+              fontSize: 15,
+              lineHeight: 1,
+              fontFamily: 'var(--f)',
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {integration.auth && (

@@ -120,7 +120,7 @@ export function SpotifyModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: dur.base }}
-          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+          /* clique fora nao fecha: evita perder a busca por engano (X ou Esc) */
           style={{
             position: 'fixed',
             inset: 0,

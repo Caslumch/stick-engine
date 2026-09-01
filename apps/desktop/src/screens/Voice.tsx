@@ -21,6 +21,7 @@ import { cleanForSpeech as cleanForSpeechInline } from '../hooks/cleanForSpeech'
 import { useIsDragging } from '../ui/DragTrash'
 import { SpotifyCard } from '../ui/SpotifyCard'
 import { SpotifyModal } from '../ui/SpotifyModal'
+import { logUI } from '../hooks/logUI'
 import { useSpotify } from '../app/SpotifyProvider'
 import { playSendSound, playListeningSound } from '../hooks/uiSounds'
 import { STATE_LABELS, VOICE_PROMPTS, VOICE_NOTICES, DOCK, TOOL_LABELS } from '../app/strings'
@@ -76,12 +77,12 @@ export function Voice() {
       transcriptRef.current = text
     },
     onEnd: () => {},
-    onError: (err) => { setError(`Microfone: ${err}`); console.warn('[STT/Web]', err) },
+    onError: (err) => { setError(`Microfone: ${err}`); logUI(String(err), 'STT/Web', 'warn') },
   })
 
   const tauriStt = useTauriSTT({
     onResult: (text) => { setTranscript(text); transcriptRef.current = text },
-    onError: (err) => { setError(`Transcrição: ${err}`); console.warn('[STT/Whisper]', err) },
+    onError: (err) => { setError(`Transcrição: ${err}`); logUI(String(err), 'STT/Whisper', 'error') },
   })
 
   // Web Speech primeiro (transcrição em tempo real, ~200ms)
@@ -142,6 +143,11 @@ export function Voice() {
     await stt.stop()
 
     const text = transcriptRef.current.trim()
+    logUI(
+      text ? `transcrito (${text.length} chars): "${text.slice(0, 80)}"` : 'nada transcrito',
+      'Voz',
+      text ? 'log' : 'warn',
+    )
     setTranscript('')
     transcriptRef.current = ''
     sendingRef.current = false
@@ -483,6 +489,7 @@ export function Voice() {
       setTranscript('')
       transcriptRef.current = ''
       sendingRef.current = false
+      logUI(`mic aberto — motor: ${IN_TAURI ? 'Whisper (Tauri)' : 'Web Speech'}`, 'Voz')
       startAudio()
       // await: no Tauri o start() abre o MediaRecorder de forma assincrona.
       // Sem esperar, o VAD podia mandar parar antes da gravacao existir e a
