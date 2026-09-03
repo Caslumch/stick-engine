@@ -5,6 +5,7 @@ import { useSocket } from '../hooks/useSocket'
 import { useTheme, type ThemeMode } from '../theme/ThemeProvider'
 import { IntegrationIcon } from '../ui/IntegrationIcons'
 import { logUI } from '../hooks/logUI'
+import { API_URL, OLLAMA_URL } from '../app/endpoints'
 
 /**
  * Tela de settings — tabs no topo, cards de vidro, modal de integrações.
@@ -303,7 +304,7 @@ function AgentGroup() {
   const [installedModels, setInstalledModels] = useState<string[]>([])
 
   useEffect(() => {
-    fetch('http://localhost:11434/api/tags')
+    fetch(`${OLLAMA_URL}/api/tags`)
       .then((r) => r.json())
       .then((data) => {
         const names = (data.models || []).map((m: { name: string }) => m.name.replace(':latest', ''))
@@ -348,7 +349,7 @@ function AgentGroup() {
           installed={installedModels}
           onChange={(v) => {
             updateSetting('llm.ollama.model', v)
-            fetch('http://localhost:11434/api/generate', {
+            fetch(`${OLLAMA_URL}/api/generate`, {
               method: 'POST',
               body: JSON.stringify({ model: v, prompt: '', keep_alive: '10m' }),
             }).catch(() => {})
@@ -708,8 +709,8 @@ const INTEGRATIONS: Integration[] = [
       { key: 'spotify.player.duckOnSpeech', label: 'Abaixar volume na fala', placeholder: '', toggle: true },
     ],
     auth: {
-      statusUrl: 'http://localhost:3000/api/spotify/status',
-      loginUrl: 'http://localhost:3000/api/spotify/login',
+      statusUrl: `${API_URL}/api/spotify/status`,
+      loginUrl: `${API_URL}/api/spotify/login`,
     },
   },
 ]

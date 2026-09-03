@@ -1,5 +1,6 @@
 import { getTTSBus, resumeTTSBus } from './ttsAudioBus'
 import { useJarvisStore } from '../stores/jarvis.store'
+import { TTS_URL } from '../app/endpoints'
 
 /* ----------------------------------------------------------------
    fillerCache — pré-gera fillers comuns no startup.
@@ -14,7 +15,6 @@ const FILLERS = [
   'Deixa eu pensar...',
 ]
 
-const TTS_URL = 'http://localhost:5001'
 
 let cache: AudioBuffer[] = []
 let ready = false

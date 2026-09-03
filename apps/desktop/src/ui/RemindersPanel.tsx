@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { spring, dur } from '../motion/tokens'
 import { useSocket } from '../hooks/useSocket'
+import { API_URL } from '../app/endpoints'
 
 /* ----------------------------------------------------------------
    RemindersPanel — mini painel flutuante + modal fullscreen.
@@ -34,7 +35,7 @@ export function RemindersPanel({ open, onClose }: { open: boolean; onClose: () =
     setLoading(true)
     // Usar a capability diretamente não é possível aqui,
     // então vamos buscar via fetch ao backend
-    fetch('http://localhost:3000')
+    fetch(API_URL)
       .catch(() => {})
     // Temporariamente: usar socket pra enviar mensagem e capturar
     // Na verdade, vamos criar um endpoint REST simples
@@ -44,7 +45,7 @@ export function RemindersPanel({ open, onClose }: { open: boolean; onClose: () =
   useEffect(() => {
     if (!open) { setFullscreen(false); return }
     // Buscar lembretes do banco via API
-    fetch('http://localhost:3000/api/reminders')
+    fetch(`${API_URL}/api/reminders`)
       .then((r) => r.json())
       .then((data) => setReminders(data))
       .catch(() => {
@@ -62,7 +63,7 @@ export function RemindersPanel({ open, onClose }: { open: boolean; onClose: () =
         : new Date(Date.now() + 60 * 60000).toISOString() // +1h default
 
     try {
-      const resp = await fetch('http://localhost:3000/api/reminders', {
+      const resp = await fetch(`${API_URL}/api/reminders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle, dueAt }),
@@ -80,14 +81,14 @@ export function RemindersPanel({ open, onClose }: { open: boolean; onClose: () =
 
   const completeReminder = async (id: string) => {
     try {
-      await fetch(`http://localhost:3000/api/reminders/${id}/complete`, { method: 'PATCH' })
+      await fetch(`${API_URL}/api/reminders/${id}/complete`, { method: 'PATCH' })
       setReminders((prev) => prev.map((r) => r.id === id ? { ...r, completed: true } : r))
     } catch { /* */ }
   }
 
   const deleteReminder = async (id: string) => {
     try {
-      await fetch(`http://localhost:3000/api/reminders/${id}`, { method: 'DELETE' })
+      await fetch(`${API_URL}/api/reminders/${id}`, { method: 'DELETE' })
       setReminders((prev) => prev.filter((r) => r.id !== id))
     } catch { /* */ }
   }

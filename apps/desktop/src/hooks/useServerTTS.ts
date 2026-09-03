@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react'
 import { getTTSBus, resumeTTSBus } from './ttsAudioBus'
 import { useJarvisStore } from '../stores/jarvis.store'
 import { cleanForSpeech } from './cleanForSpeech'
+import { TTS_URL } from '../app/endpoints'
 
 /**
  * TTS via servidor multi-engine (localhost:5001).
@@ -11,7 +12,6 @@ import { cleanForSpeech } from './cleanForSpeech'
  * Áudio passa pelo ttsAudioBus pra o orb reagir ao áudio real.
  */
 
-const TTS_URL = 'http://localhost:5001'
 
 export interface ServerTTSCallbacks {
   onStart?: () => void

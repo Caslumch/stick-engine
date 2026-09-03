@@ -1,0 +1,4 @@
+# Somente o engine "edge" — sem kokoro/qwen (precisam de GPU).
+fastapi
+uvicorn[standard]
+edge-tts

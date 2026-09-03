@@ -25,6 +25,7 @@ import { logUI } from '../hooks/logUI'
 import { useSpotify } from '../app/SpotifyProvider'
 import { playSendSound, playListeningSound } from '../hooks/uiSounds'
 import { STATE_LABELS, VOICE_PROMPTS, VOICE_NOTICES, DOCK, TOOL_LABELS } from '../app/strings'
+import { TTS_URL } from '../app/endpoints'
 import type { JarvisState } from '@jarvis/shared'
 
 /**
@@ -277,7 +278,7 @@ export function Voice() {
     const engine = settings['tts.engine'] || 'edge'
     const voice = settings['tts.voice'] || ''
     try {
-      const resp = await fetch('http://localhost:5001/speak', {
+      const resp = await fetch(`${TTS_URL}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleaned, engine, voice }),

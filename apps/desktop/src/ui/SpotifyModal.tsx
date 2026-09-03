@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { spring, dur } from '../motion/tokens'
 import { MusicIcon, SearchIcon } from './IntegrationIcons'
 import type { SpotifyTrack } from '../hooks/useSpotifyPlayer'
+import { API_URL } from '../app/endpoints'
 
 /* ----------------------------------------------------------------
    SpotifyModal — busca e fila em tela cheia sobre o orb.
    Abre clicando na capa do card.
    ---------------------------------------------------------------- */
 
-const API = 'http://localhost:3000'
+const API = API_URL
 
 interface SearchItem {
   uri: string

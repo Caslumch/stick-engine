@@ -5,7 +5,9 @@
  * mensagens saem junto do `pnpm dev:tauri`, onde já saem os logs da API.
  */
 
-const API = 'http://localhost:3000'
+import { API_URL } from '../app/endpoints'
+
+const API = API_URL
 
 type Nivel = 'log' | 'warn' | 'error'
 

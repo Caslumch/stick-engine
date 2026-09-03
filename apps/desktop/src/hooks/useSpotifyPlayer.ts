@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { logUI } from './logUI'
+import { API_URL } from '../app/endpoints'
 /**
  * Spotify Web Playback SDK — transforma o app num dispositivo Spotify.
  *
@@ -10,7 +11,7 @@ import { logUI } from './logUI'
  */
 
 const SDK_SRC = 'https://sdk.scdn.co/spotify-player.js'
-const API = 'http://localhost:3000'
+const API = API_URL
 
 /**
  * Loga no terminal da API com o escopo "Spotify".

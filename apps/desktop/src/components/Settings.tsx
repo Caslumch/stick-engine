@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useJarvisStore } from '../stores/jarvis.store';
 import { useSocket } from '../hooks/useSocket';
+import { OLLAMA_URL } from '../app/endpoints';
 
 function SettingInput({
   label,
@@ -143,7 +144,7 @@ export function Settings() {
             <SettingInput
               label="URL do Ollama"
               settingKey="llm.ollama.url"
-              placeholder="http://localhost:11434"
+              placeholder={OLLAMA_URL}
             />
             <SettingInput
               label="Modelo"

@@ -15,6 +15,7 @@ import type {
 import { useJarvisStore } from '../stores/jarvis.store';
 import { ttsLock } from './ttsLock';
 import { showToast } from '../ui/Toast';
+import { API_URL, TTS_URL } from '../app/endpoints';
 
 const SETTING_LABELS: Record<string, string> = {
   'llm.preferLocal': 'Preferir local',
@@ -55,8 +56,6 @@ function settingToastMessage(key: string, value: string): string {
 
   return 'Salvo';
 }
-
-const API_URL = 'http://localhost:3000';
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -193,7 +192,7 @@ export function useSocket() {
       const voice = settings['tts.voice'] || '';
       store.setState('speaking');
       ttsLock.active = true;
-      fetch('http://localhost:5001/speak', {
+      fetch(`${TTS_URL}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, engine, voice }),

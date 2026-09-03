@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useJarvisStore } from '../stores/jarvis.store'
+import { WAKEWORD_URL } from '../app/endpoints'
 
-const WAKEWORD_WS_URL = 'ws://localhost:5002/ws'
+const WAKEWORD_WS_URL = WAKEWORD_URL.replace(/^http/, 'ws') + '/ws'
 
 export interface NativeWakeWordOptions {
   onWake: () => void
@@ -97,7 +98,7 @@ export async function checkNativeWakeWord(): Promise<boolean> {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 2000)
-    const resp = await fetch('http://localhost:5002/health', {
+    const resp = await fetch(`${WAKEWORD_URL}/health`, {
       signal: controller.signal,
     })
     clearTimeout(timer)

@@ -1,0 +1,73 @@
+# Stick na VPS. Nenhum servico publica porta: o Caddy que ja roda
+# na maquina alcanca a rede interna. Mesmo padrao dos containers
+# wmode/n8n que ja estao la.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: stick-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+    volumes:
+      - stick_postgres:/var/lib/postgresql/data
+      - ./apps/api/prisma/setup-pgvector.sql:/docker-entrypoint-initdb.d/setup-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jarvis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [stick]
+
+  redis:
+    image: redis:7-alpine
+    container_name: stick-redis
+    restart: unless-stopped
+    volumes:
+      - stick_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [stick]
+
+  tts:
+    build:
+      context: ./services/tts
+    container_name: stick-tts
+    restart: unless-stopped
+    networks: [stick]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: stick-api
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jarvis}
+      REDIS_URL: redis://redis:6379
+      TTS_URL: http://tts:5001
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [stick, caddy]
+
+volumes:
+  stick_postgres:
+  stick_redis:
+
+networks:
+  stick:
+    driver: bridge
+  # Rede do Caddy que ja existe na VPS. Confirme o nome com:
+  #   docker network ls
+  caddy:
+    external: true
+    name: wmode-api_default

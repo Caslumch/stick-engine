@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useJarvisStore } from '../stores/jarvis.store'
+import { API_URL } from '../app/endpoints'
 
 /**
  * Barra meta — canto superior direito, com context, provider, botão de tema e commands.
@@ -19,7 +20,7 @@ export function MetaBar({ onOpenPalette, onOpenReminders }: { onOpenPalette: () 
   useEffect(() => {
     if (!connected) return
     const fetchCount = () => {
-      fetch('http://localhost:3000/api/reminders')
+      fetch(`${API_URL}/api/reminders`)
         .then((r) => r.json())
         .then((data) => setReminderCount(Array.isArray(data) ? data.filter((r: any) => !r.completed).length : 0))
         .catch(() => {})
